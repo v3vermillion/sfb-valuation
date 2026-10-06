@@ -1,0 +1,6 @@
+name = "sfb-pipeline"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+[vars]
+WM_KEY_VERSION = "1"

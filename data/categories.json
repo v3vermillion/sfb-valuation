@@ -1,0 +1,28 @@
+{
+  "note": "taxonomy_ids filled in after the first Taxonomy call",
+  "categories": [
+    {"id": 1, "name": "Produce", "taxonomy_ids": []},
+    {"id": 2, "name": "Dairy & Eggs", "taxonomy_ids": []},
+    {"id": 3, "name": "Meat & Seafood", "taxonomy_ids": []},
+    {"id": 4, "name": "Deli & Prepared", "taxonomy_ids": []},
+    {"id": 5, "name": "Frozen", "taxonomy_ids": []},
+    {"id": 6, "name": "Canned & Jarred", "taxonomy_ids": []},
+    {"id": 7, "name": "Dry Goods & Baking", "taxonomy_ids": []},
+    {"id": 8, "name": "Bread & Bakery", "taxonomy_ids": []},
+    {"id": 9, "name": "Snacks", "taxonomy_ids": []},
+    {"id": 10, "name": "Beverages", "taxonomy_ids": []},
+    {"id": 11, "name": "Condiments & Sauces", "taxonomy_ids": []},
+    {"id": 12, "name": "International/Specialty", "taxonomy_ids": []},
+    {"id": 13, "name": "Baby", "taxonomy_ids": []},
+    {"id": 14, "name": "Health", "taxonomy_ids": []},
+    {"id": 15, "name": "Personal Care", "taxonomy_ids": []},
+    {"id": 16, "name": "Household Cleaning & Paper", "taxonomy_ids": []},
+    {"id": 17, "name": "Kitchen & Storage", "taxonomy_ids": []},
+    {"id": 18, "name": "Home Goods", "taxonomy_ids": []},
+    {"id": 19, "name": "Pet", "taxonomy_ids": []},
+    {"id": 20, "name": "School & Office", "taxonomy_ids": []},
+    {"id": 21, "name": "Toys, Books & Games", "taxonomy_ids": []},
+    {"id": 22, "name": "Seasonal/Holiday", "taxonomy_ids": []},
+    {"id": 23, "name": "Other/Misc", "taxonomy_ids": []}
+  ]
+}
