@@ -1,0 +1,332 @@
+{
+  "url": "http://127.0.0.1:8787/",
+  "cpuThrottle": 4,
+  "device": "Pixel 7 viewport (412x915 @2.625)",
+  "runs": 5,
+  "firstInstall": {
+    "ms": 1523,
+    "wall": 1702,
+    "note": "download 33 MB from local server + index; happens once"
+  },
+  "coldStart": {
+    "interactive": {
+      "n": 5,
+      "p50": 520,
+      "p95": 567,
+      "max": 567
+    },
+    "dbLoad": {
+      "n": 5,
+      "p50": 403,
+      "p95": 415,
+      "max": 415
+    },
+    "firstPaint": {
+      "n": 5,
+      "p50": 72,
+      "p95": 112,
+      "max": 112
+    },
+    "runs": [
+      {
+        "interactive": 521,
+        "dbLoad": 397,
+        "script": 67,
+        "fcp": 92
+      },
+      {
+        "interactive": 520,
+        "dbLoad": 411,
+        "script": 51,
+        "fcp": 72
+      },
+      {
+        "interactive": 498,
+        "dbLoad": 403,
+        "script": 55,
+        "fcp": 56
+      },
+      {
+        "interactive": 506,
+        "dbLoad": 400,
+        "script": 54,
+        "fcp": 68
+      },
+      {
+        "interactive": 567,
+        "dbLoad": 415,
+        "script": 78,
+        "fcp": 112
+      }
+    ],
+    "note": "reload with DB cached (service worker + Cache Storage); interactive = search answers"
+  },
+  "keystroke": {
+    "total": {
+      "n": 86,
+      "p50": 23.7,
+      "p95": 31.3,
+      "max": 35
+    },
+    "worker": {
+      "n": 86,
+      "p50": 2.8,
+      "p95": 5.5,
+      "max": 8
+    },
+    "samples": 86,
+    "note": "totalMs = input event -> results painted (incl. worker round-trip + DOM); frame budget 16.7 ms",
+    "worst": [
+      {
+        "q": "pe",
+        "workerMs": 8,
+        "roundtripMs": 17.6,
+        "renderMs": 5.1,
+        "totalMs": 35,
+        "n": 40,
+        "query": "peanut butter"
+      },
+      {
+        "q": "2%",
+        "workerMs": 4.9,
+        "roundtripMs": 19,
+        "renderMs": 3.8,
+        "totalMs": 32.7,
+        "n": 40,
+        "query": "2% milk gallon"
+      },
+      {
+        "q": "tooth",
+        "workerMs": 1.9,
+        "roundtripMs": 18.7,
+        "renderMs": 2.2,
+        "totalMs": 32.2,
+        "n": 40,
+        "query": "toothpaste"
+      },
+      {
+        "q": "diapers",
+        "workerMs": 2.4,
+        "roundtripMs": 15.8,
+        "renderMs": 2.5,
+        "totalMs": 31.7,
+        "n": 40,
+        "query": "diapers size 4"
+      },
+      {
+        "q": "gv co",
+        "workerMs": 5,
+        "roundtripMs": 16.2,
+        "renderMs": 2.9,
+        "totalMs": 31.3,
+        "n": 40,
+        "query": "gv corn 15 oz"
+      }
+    ]
+  },
+  "longTasksDuringTyping": [],
+  "topResults": {
+    "peanut butter": {
+      "total": 3514,
+      "relaxed": false,
+      "fuzzy": false,
+      "ms": 2.3,
+      "top": [
+        "Great Value Great Value Peanut Butter - 16 oz — $1.36",
+        "Great Value Great Value Peanut Butter - 48 oz — $3.98",
+        "Great Value Great Value Peanut Butter, 64-oz Cup — $4.98"
+      ]
+    },
+    "gv corn": {
+      "total": 1245,
+      "relaxed": false,
+      "fuzzy": false,
+      "ms": 9.1,
+      "top": [
+        "Great Value Great Value Corn Starch 16oz — $0.84",
+        "Great Value Great Value Corn Meal - 32 oz — $1.36",
+        "Great Value Great Value Corn Starch, 35 oz — $0.96"
+      ]
+    },
+    "diapers size 4": {
+      "total": 159,
+      "relaxed": false,
+      "fuzzy": false,
+      "ms": 1.7,
+      "top": [
+        "Parent's Choice Parent's Choice Size 4 Diapers, 32 Count — $4.44",
+        "Parent's Choice Parent's Choice Size 4 Diapers, 198 Count — $26.64",
+        "Parent's Choice Parent's Choice Swaddlers Size 4 Diapers, 58 ct — $7.12"
+      ]
+    },
+    "cheerios": {
+      "total": 101,
+      "relaxed": false,
+      "fuzzy": false,
+      "ms": 1,
+      "top": [
+        "Honey Nut Cheerios Honey Nut Cheerios Honey Nut Cereal - 20.35 oz — $4.96",
+        "Honey Nut Cheerios (2 pack) Honey Nut Cheerios Honey Nut Cereal, 15.4 oz — $5.74",
+        "Honey Nut Cheerios (2 pack) Honey Nut Cheerios Honey Nut Cereal, 20.35 oz — $7.56"
+      ]
+    },
+    "2% milk": {
+      "total": 899,
+      "relaxed": false,
+      "fuzzy": false,
+      "ms": 2.5,
+      "top": [
+        "Great Value Great Value 2% Milk Shells & Cheese, 12 oz, 2 Pack Cups — $2.48",
+        "Great Value Great Value 2% Milk Shells & Cheese, 14 oz, 2 Pack Tubs — $2.84",
+        "Great Value Great Value 2% Milk Shells & Cheese, 12 oz, 2 Pack Trays — $2.48"
+      ]
+    },
+    "tide pods": {
+      "total": 222,
+      "relaxed": false,
+      "fuzzy": false,
+      "ms": 1.5,
+      "top": [
+        "Tide Tide Pods Original Laundry Pods, 35 ct — $4.97",
+        "Tide Tide Pods Original Laundry Pods, 62 ct — $8.92",
+        "Tide Tide Pods Lavender Laundry Pods, 104 ct — $15.48"
+      ]
+    },
+    "pb": {
+      "total": 3514,
+      "relaxed": false,
+      "fuzzy": false,
+      "ms": 2.2,
+      "top": [
+        "Great Value Great Value Peanut Butter - 16 oz — $1.36",
+        "Great Value Great Value Peanut Butter - 48 oz — $3.98",
+        "Great Value Great Value Peanut Butter, 64-oz Cup — $4.98"
+      ]
+    },
+    "chese": {
+      "total": 18114,
+      "relaxed": false,
+      "fuzzy": true,
+      "ms": 5.6,
+      "top": [
+        "Marketside Marketside Cheese Danish, 4 ct — $4.86",
+        "Marketside Marketside Pimento Cheese 12oz — $2.76",
+        "Marketside Marketside Cheese Danish, 6 ct — $5.36"
+      ]
+    }
+  },
+  "lookup": {
+    "resolve": {
+      "n": 5,
+      "p50": 1.4,
+      "p95": 3.7,
+      "max": 3.7
+    },
+    "toSheet": {
+      "n": 5,
+      "p50": 33.1,
+      "p95": 55.4,
+      "max": 55.4
+    },
+    "runs": [
+      {
+        "code": "078742054261",
+        "kind": "exact",
+        "resolveMs": 3.5,
+        "toSheetMs": 55.4
+      },
+      {
+        "code": "4011",
+        "kind": "plu",
+        "resolveMs": 3.7,
+        "toSheetMs": 41.2
+      },
+      {
+        "code": "201234928759",
+        "kind": "store-label",
+        "resolveMs": 0.7,
+        "toSheetMs": 32.7
+      },
+      {
+        "code": "012345678905",
+        "kind": "unknown",
+        "resolveMs": 1.1,
+        "toSheetMs": 33
+      },
+      {
+        "code": "078742054261",
+        "kind": "exact",
+        "resolveMs": 1.4,
+        "toSheetMs": 33.1
+      }
+    ]
+  },
+  "scan": {
+    "decodeFrame": {
+      "n": 5,
+      "p50": 12,
+      "p95": 22,
+      "max": 22
+    },
+    "decodeToPrice": {
+      "n": 5,
+      "p50": 62.1,
+      "p95": 69.5,
+      "max": 69.5
+    },
+    "cameraReadyToSheet": {
+      "n": 5,
+      "p50": 270,
+      "p95": 333,
+      "max": 333
+    },
+    "runs": [
+      {
+        "code": "0078742054261",
+        "kind": "Exact item",
+        "decodeMs": 12,
+        "engine": "zxing decoder",
+        "toPriceMs": 51.9,
+        "title": "Great Value Golden Sweet Whole Kernel Corn, Canned Corn, 15.25 oz Can",
+        "cameraReadyToSheetMs": 333
+      },
+      {
+        "code": "0078742054261",
+        "kind": "Exact item",
+        "decodeMs": 8,
+        "engine": "zxing decoder",
+        "toPriceMs": 58.4,
+        "title": "Great Value Golden Sweet Whole Kernel Corn, Canned Corn, 15.25 oz Can",
+        "cameraReadyToSheetMs": 215
+      },
+      {
+        "code": "0078742054261",
+        "kind": "Exact item",
+        "decodeMs": 21,
+        "engine": "zxing decoder",
+        "toPriceMs": 63.7,
+        "title": "Great Value Golden Sweet Whole Kernel Corn, Canned Corn, 15.25 oz Can",
+        "cameraReadyToSheetMs": 325
+      },
+      {
+        "code": "0078742054261",
+        "kind": "Exact item",
+        "decodeMs": 8,
+        "engine": "zxing decoder",
+        "toPriceMs": 62.1,
+        "title": "Great Value Golden Sweet Whole Kernel Corn, Canned Corn, 15.25 oz Can",
+        "cameraReadyToSheetMs": 244
+      },
+      {
+        "code": "0078742054261",
+        "kind": "Exact item",
+        "decodeMs": 22,
+        "engine": "zxing decoder",
+        "toPriceMs": 69.5,
+        "title": "Great Value Golden Sweet Whole Kernel Corn, Canned Corn, 15.25 oz Can",
+        "cameraReadyToSheetMs": 270
+      }
+    ],
+    "note": "decodeMs = one decoder pass on a frame; toPriceMs = decoder hit -> lookup -> sheet painted; cameraReadyToSheet includes waiting for 2 agreeing reads at ~10 fps"
+  }
+}

@@ -4,3 +4,10 @@ compatibility_date = "2026-10-01"
 
 [vars]
 WM_KEY_VERSION = "1"
+
+# Public live price check (GET /v1/price/<gtin>): 30 requests per IP per minute.
+# namespace_id must be unique per Worker account; any small integer works.
+[[ratelimits]]
+name = "PRICE_LIMITER"
+namespace_id = "1001"
+simple = { limit = 30, period = 60 }
