@@ -14,6 +14,7 @@ exact item and its current price. Prices come from the Walmart I/O Affiliate API
 1. `gh workflow run pipeline.yml -f plan=status` and read the run summary, or read
    `data-store:state/run.json` (`git fetch origin data-store && git show origin/data-store:state/run.json`).
 2. By state.status:
+   - no run yet (state empty) → `gh workflow run pipeline.yml -f plan=full` (first full crawl).
    - `crawling` → `gh workflow run pipeline.yml -f plan=continue` (it also chains itself; check it isn't already running: `gh run list -w pipeline`).
    - `crawled` / `built` → `plan=continue` processes, checks gates, publishes.
    - `awaiting_approval` → show David `build/candidate/report.md` (sentinel misses, rejects, counts). Publish only after he says so: `plan=approve`.
