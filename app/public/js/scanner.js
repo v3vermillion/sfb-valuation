@@ -87,7 +87,8 @@ export function getEngine() {
           if (!vw) return [];
           const scale = Math.min(1, 720 / vw);
           const width = Math.round(vw * scale), height = Math.round(vh * scale);
-          const bitmap = await createImageBitmap(video, { resizeWidth: width, resizeHeight: height, resizeQuality: "low" });
+          // no resize options here: Safari ignores/rejects them for video sources; the worker scales when it draws
+          const bitmap = await createImageBitmap(video);
           const id = ++seq;
           const pr = new Promise((resolve, reject) => pending.set(id, { resolve, reject }));
           w.postMessage({ id, bitmap, width, height }, [bitmap]);

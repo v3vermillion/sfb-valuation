@@ -315,7 +315,7 @@ function sheetHtml(res) {
     ? `<button class="btn btn--accent btn--block" type="button" data-act="find">${icon("search")} Find it by name</button>`
     : `<button class="btn btn--accent btn--block" type="button" data-act="add">${icon("receipt")} Add <span id="addTotal" class="counting">${money(lineTotal(res))}</span> to tally</button>`;
   const secondary = state.source === "scan"
-    ? `<button class="btn btn--ghost" type="button" data-act="scan">${icon("scan")} Scan next</button><button class="btn btn--ghost" type="button" data-act="close">Done</button>`
+    ? `<button class="btn btn--ghost" type="button" data-act="scan">${icon("scan")} Scan next</button><button class="btn btn--ghost" type="button" data-act="close">Done scanning</button>`
     : `<button class="btn btn--ghost" type="button" data-act="scan">${icon("scan")} Scan</button><button class="btn btn--ghost" type="button" data-act="close">Back to search</button>`;
 
   const also = res.others?.length ? `<section class="also"><h2 class="h2">Same barcode, other listings</h2><ol class="list list--compact">${res.others.map((o) => rowHtml(o, [])).join("")}</ol></section>` : "";
@@ -386,14 +386,17 @@ function wireSheet(dlg, res) {
     if (act === "add") { addToTally(res); modals.close(dlg); if (state.source === "scan") resumeScan(); else { el.q.value = ""; el.clearBtn.hidden = true; state.query = ""; showHome(); } }
     else if (act === "scan") { modals.close(dlg); if (state.scanOpen) resumeScan(); else openScanner(); }
     else if (act === "find") { modals.close(dlg); if (state.scanOpen) closeScanner(); el.q.value = ""; state.query = ""; showHome(); el.q.placeholder = "Type the name and size from the label"; el.q.focus(); }
-    else if (act === "close") { modals.close(dlg); if (state.scanOpen) resumeScan(); }
+    else if (act === "close") { if (state.scanOpen && state.source === "scan") state.closeScannerAfterSheet = true; modals.close(dlg); }
   }));
   dlg.querySelectorAll("[data-rank]").forEach((b) => b.addEventListener("click", async () => {
     const item = await db.item(Number(b.dataset.rank));
     if (item) { const r = fromItem(item); state.sheetRes = r; state.qty = 1; dlg.innerHTML = sheetHtml(r); dlg.querySelector(".x-btn")?.addEventListener("click", () => modals.close(dlg)); grabToDismiss(dlg); wireSheet(dlg, r); dlg.querySelector(".sheet-inner").scrollTop = 0; liveCheck(r).catch(() => {}); }
   }));
 }
-el.sheet.addEventListener("closed", () => { if (state.scanOpen) resumeScan(); else el.q.focus({ preventScroll: true }); });
+el.sheet.addEventListener("closed", () => {
+  if (state.closeScannerAfterSheet) { state.closeScannerAfterSheet = false; closeScanner(); return; }
+  if (state.scanOpen) resumeScan(); else el.q.focus({ preventScroll: true });
+});
 
 // ------------------------------------------------------------------ live Walmart check (public, rate-limited Worker route; no token in the client)
 async function liveCheck(res) {
@@ -468,16 +471,14 @@ function tallyHtml() {
     <p class="fine">The tally stays on this phone until you clear it. Totals use Walmart prices as of ${esc(fmtDate(priceDate(), true) || "the last check")}.</p>
   </div>`;
 }
-function openTally() {
-  modals.open(el.tallySheet, tallyHtml());
-  el.tallySheet.addEventListener("click", (e) => {
-    const rm = e.target.closest("[data-remove]");
-    if (rm) { tally = tally.filter((t) => t.id !== rm.dataset.remove); writeJson(TALLY_KEY, tally); renderTallyPill(); el.tallySheet.innerHTML = tallyHtml(); el.tallySheet.querySelector(".x-btn")?.addEventListener("click", () => modals.close(el.tallySheet)); grabToDismiss(el.tallySheet); haptic(5); return; }
-    const act = e.target.closest("[data-act]")?.dataset.act;
-    if (act === "clear") { if (confirm(`Clear ${tally.length} ${tally.length === 1 ? "line" : "lines"} from the tally?`)) { tally = []; writeJson(TALLY_KEY, tally); renderTallyPill(); modals.close(el.tallySheet); toast("Tally cleared"); } }
-    else if (act === "share") shareTally();
-  }, { once: false });
-}
+function openTally() { modals.open(el.tallySheet, tallyHtml()); }
+el.tallySheet.addEventListener("click", (e) => {
+  const rm = e.target.closest("[data-remove]");
+  if (rm) { tally = tally.filter((t) => t.id !== rm.dataset.remove); writeJson(TALLY_KEY, tally); renderTallyPill(); el.tallySheet.innerHTML = tallyHtml(); el.tallySheet.querySelector(".x-btn")?.addEventListener("click", () => modals.close(el.tallySheet)); grabToDismiss(el.tallySheet); haptic(5); return; }
+  const act = e.target.closest("[data-act]")?.dataset.act;
+  if (act === "clear") { if (confirm(`Clear ${tally.length} ${tally.length === 1 ? "line" : "lines"} from the tally?`)) { tally = []; writeJson(TALLY_KEY, tally); renderTallyPill(); modals.close(el.tallySheet); toast("Tally cleared"); } }
+  else if (act === "share") shareTally();
+});
 async function shareTally() {
   const total = tally.reduce((a, t) => a + t.cents, 0);
   const lines = tally.map((t) => `${t.unit === "lb" ? `${fmtNum(t.qty)} lb` : `${t.qty}×`} ${t.title} — ${money(t.cents)}`);
@@ -536,9 +537,8 @@ function settingsHtml() {
     <p class="fine">Prices are Walmart.com prices for the Strongsville area captured by the food bank's price pipeline. “Equivalent value” items aren't sold at Walmart; they take the price of the closest Walmart item by type and size. Everything works offline once the database is on the phone. Non-Walmart barcodes are identified with data from Open Food Facts, Open Beauty Facts and Open Products Facts (ODbL). Barcode decoding by zxing-cpp (Apache-2.0).</p>
   </div>`;
 }
-function openSettings() {
-  modals.open(el.settings, settingsHtml());
-  el.settings.addEventListener("click", async (e) => {
+function openSettings() { modals.open(el.settings, settingsHtml()); }
+el.settings.addEventListener("click", async (e) => {
     const th = e.target.closest("[data-theme]");
     if (th) { prefs.theme = th.dataset.theme; writeJson(PREFS_KEY, prefs); applyTheme(); el.settings.querySelectorAll("[data-theme]").forEach((b) => b.setAttribute("aria-pressed", String(b === th))); return; }
     const sw = e.target.closest("[data-pref]");
@@ -556,8 +556,7 @@ function openSettings() {
       for (const n of await caches.keys()) await caches.delete(n);
       location.reload();
     }
-  });
-}
+});
 el.settingsBtn.addEventListener("click", openSettings);
 el.status.addEventListener("click", openSettings);
 

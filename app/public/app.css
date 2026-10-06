@@ -26,8 +26,8 @@
   --accent-line: oklch(80% 0.09 152);
   --exact: oklch(50% 0.15 152);
   --label: oklch(50% 0.14 250);
-  --plu: oklch(55% 0.13 125);
-  --equiv: oklch(62% 0.15 70);
+  --plu: oklch(46% 0.12 125);
+  --equiv: oklch(52% 0.14 62);
   --closest: oklch(58% 0.17 35);
   --live: oklch(52% 0.13 205);
   --danger: oklch(55% 0.19 25);
@@ -59,8 +59,8 @@
     --accent-line: oklch(45% 0.1 152);
     --exact: oklch(80% 0.17 152);
     --label: oklch(78% 0.12 250);
-    --plu: oklch(82% 0.14 125);
-    --equiv: oklch(82% 0.15 75);
+    --plu: oklch(86% 0.15 125);
+    --equiv: oklch(85% 0.15 78);
     --closest: oklch(76% 0.15 35);
     --live: oklch(80% 0.12 205);
     --danger: oklch(72% 0.17 25);
@@ -72,7 +72,7 @@
   --bg: oklch(15.5% 0.01 70); --bg-2: oklch(13% 0.01 70); --surface: oklch(20% 0.012 70); --surface-2: oklch(25% 0.014 70);
   --line: oklch(28% 0.012 70); --line-2: oklch(36% 0.014 70); --ink: oklch(96% 0.01 85); --ink-2: oklch(76% 0.015 80); --ink-3: oklch(68% 0.015 80);
   --accent: oklch(80% 0.17 152); --accent-ink: oklch(18% 0.04 152); --accent-soft: oklch(28% 0.06 152); --accent-line: oklch(45% 0.1 152);
-  --exact: oklch(80% 0.17 152); --label: oklch(78% 0.12 250); --plu: oklch(82% 0.14 125); --equiv: oklch(82% 0.15 75); --closest: oklch(76% 0.15 35); --live: oklch(80% 0.12 205); --danger: oklch(72% 0.17 25);
+  --exact: oklch(80% 0.17 152); --label: oklch(78% 0.12 250); --plu: oklch(86% 0.15 125); --equiv: oklch(85% 0.15 78); --closest: oklch(76% 0.15 35); --live: oklch(80% 0.12 205); --danger: oklch(72% 0.17 25);
   --shadow: 0 1px 2px oklch(0% 0 0 / .4), 0 8px 24px -12px oklch(0% 0 0 / .6); --shadow-lg: 0 -1px 0 oklch(100% 0 0 / .06), 0 -24px 60px -24px oklch(0% 0 0 / .8);
 }
 @media (prefers-contrast: more) { :root { --ink-2: var(--ink); --ink-3: var(--ink-2); --line: var(--line-2); } }
@@ -446,3 +446,9 @@ input::-webkit-search-decoration, input::-webkit-search-cancel-button { -webkit-
 .seg button { min-height: 44px; }
 .status, .tally-pill { height: 42px; }
 .switch::before { content: ""; position: absolute; inset: -8px -6px; }   /* 48px hit area, 32px visual */
+/* toast action: the toast is inverted, so its accent must be the other theme's accent */
+:root { --toast-accent: oklch(82% 0.17 152); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --toast-accent: oklch(46% 0.15 152); } }
+:root[data-theme="dark"] { --toast-accent: oklch(46% 0.15 152); }
+.toast button, .toast .ico { color: var(--toast-accent); }
+.legend li .kind { font-size: 13px; }
