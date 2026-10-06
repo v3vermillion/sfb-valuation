@@ -8,13 +8,13 @@ import { tokenize } from "./tokenize.js";
 const te = new TextEncoder(), td = new TextDecoder();
 const F = { RETIRED: 1, NO_SIZE: 2, PROMO: 4, CARRIED: 8, STORE_BRAND: 16, PRIMARY: 32, SIZE_CONFLICT: 64, UNAVAILABLE: 128 };
 const UNIT_NAME = [null, "oz", "fl oz", "lb", "ct", "g", "kg", "ml", "l", "gal", "qt", "pt"];
-const CAT_NAME = { 1: "Produce", 2: "Dairy & Eggs", 3: "Meat & Seafood", 4: "Deli & Prepared", 5: "Frozen", 6: "Canned & Jarred", 7: "Dry Goods & Baking", 8: "Bread & Bakery", 9: "Snacks & Candy", 10: "Beverages", 11: "Condiments & Sauces", 12: "International & Specialty", 13: "Baby", 14: "Health", 15: "Personal Care & Beauty", 16: "Household & Paper", 17: "Kitchen & Storage", 18: "Home", 19: "Pet", 20: "School, Office & Crafts", 21: "Toys, Books & Games", 22: "Seasonal & Party", 23: "Other", 24: "Auto", 25: "Electronics", 26: "Jewelry", 27: "Sports & Outdoors" };
+const CAT_NAME = { 1: "Produce", 2: "Dairy & Eggs", 3: "Meat & Seafood", 4: "Deli & Prepared", 5: "Frozen", 6: "Canned & Jarred", 7: "Dry Goods & Baking", 8: "Bread & Bakery", 9: "Snacks & Candy", 10: "Beverages", 11: "Condiments & Sauces", 12: "International/Specialty", 13: "Baby", 14: "Health", 15: "Personal Care & Beauty", 16: "Household Cleaning & Paper", 17: "Kitchen & Storage", 18: "Home Goods", 19: "Pet", 20: "School, Office & Crafts", 21: "Toys, Books & Games", 22: "Seasonal/Holiday & Party", 23: "Other/Misc", 24: "Auto", 25: "Electronics", 26: "Jewelry", 27: "Sports & Outdoors" };
 
 // Query-time vocabulary: abbreviations volunteers actually type (AND-expansions) and spellings that
 // should match each other (OR-groups). Index tokens are never altered; this only widens the query.
 const ABBREV = {
-  gv: ["great", "value"], pb: ["peanut", "butter"], pbj: ["peanut", "butter"], mac: ["macaroni"], "mac&cheese": ["macaroni", "cheese"],
-  tp: ["toilet", "paper"], pt: ["paper", "towels"], hbs: ["head", "shoulders"], "h&s": ["head", "shoulders"], "a&h": ["arm", "hammer"],
+  gv: ["great", "value"], pb: ["peanut", "butter"], pbj: ["peanut", "butter"], mac: ["macaroni"],
+  tp: ["toilet", "paper"], hbs: ["head", "shoulders"],
   oj: ["orange", "juice"], aj: ["apple", "juice"], ev: ["extra", "virgin"], evoo: ["extra", "virgin", "olive", "oil"], gf: ["gluten", "free"],
   sf: ["sugar", "free"], ls: ["low", "sodium"], nsa: ["no", "salt", "added"], ww: ["whole", "wheat"], wg: ["whole", "grain"],
   kd: ["kraft", "macaroni"], veg: ["vegetable"], veggies: ["vegetable"], choc: ["chocolate"], vit: ["vitamin"], deod: ["deodorant"],
@@ -79,12 +79,13 @@ async function load({ base, manifest, cacheName }) {
   const bufs = {};
   await Promise.all(files.map(async ([k, p]) => {
     const url = base + p;
-    if (k === "plu") { const res = (cache && await cache.match(url)) || await fetch(url); const txt = await res.clone().text(); if (cache) cache.put(url, res.clone()).catch(() => {}); bufs[k] = JSON.parse(txt); }
+    if (k === "plu") { let res = cache && await cache.match(url); if (!res) { res = await fetch(url, { cache: "no-store" }); if (!res.ok) throw new Error(`fetch ${url}: ${res.status}`); if (cache) cache.put(url, res.clone()).catch(() => {}); } bufs[k] = JSON.parse(await res.text()); }
     else bufs[k] = await readPack(url, cache);
     done++;
     postMessage({ type: "progress", done, total, file: p });
   }));
   const d = { manifest, loadMs: 0 };
+  bitCache.clear(); tokCache.clear();
   // cols
   { const r = new Reader(bufs.cols); r.magic("SFBC"); const N = r.u32(); d.N = N;
     d.price = r.arr(Uint32Array, N); d.size = r.arr(Float32Array, N); d.pack = r.arr(Uint16Array, N); d.unit = r.arr(Uint8Array, N);
@@ -207,15 +208,15 @@ function popcount(bits) { let c = 0; for (let i = 0; i < bits.length; i++) { let
 
 /** Expand the typed tokens into groups; each group is a list of alternative prefixes (OR), groups are ANDed. */
 function expand(tokens) {
-  const groups = [];
+  const groups = [];   // { alts: [prefixes ORed], src: the word the volunteer typed }
   for (const t of tokens) {
-    if (ABBREV[t]) { for (const w of ABBREV[t]) groups.push([w]); continue; }
+    if (ABBREV[t]) { for (const w of ABBREV[t]) groups.push({ alts: [w], src: t }); continue; }
     const alts = new Set([t]);
     if (SYN.has(t)) for (const w of SYN.get(t)) alts.add(w);
     if (t.length >= 4 && t.endsWith("ies")) alts.add(t.slice(0, -3) + "y");
-    else if (t.length >= 4 && t.endsWith("es")) alts.add(t.slice(0, -2));
+    else if (t.length >= 5 && /(ches|shes|sses|xes|zes|oes)$/.test(t)) alts.add(t.slice(0, -2));   // boxes, tomatoes, dishes
     else if (t.length >= 4 && t.endsWith("s")) alts.add(t.slice(0, -1));
-    groups.push([...alts]);
+    groups.push({ alts: [...alts], src: t });
   }
   return groups;
 }
@@ -262,7 +263,7 @@ function collect(bitsets, limit) {
   return out;
 }
 
-const UNIT_WORDS = new Set(["oz", "ounce", "ounces", "fl", "lb", "lbs", "pound", "pounds", "ct", "count", "pack", "pk", "pc", "pcs", "piece", "pieces", "g", "gram", "grams", "kg", "ml", "l", "liter", "litre", "gal", "gallon", "qt", "quart", "pt", "pint", "each", "ea", "x", "of", "the", "and", "with", "in", "a", "can", "bag", "box", "bottle", "jar", "cup", "tub", "pouch", "package", "carton", "case"]);
+const UNIT_WORDS = new Set(["oz", "ounce", "ounces", "fl", "fluid", "lb", "lbs", "pound", "pounds", "ct", "cnt", "count", "pack", "pk", "pc", "pcs", "piece", "pieces", "g", "gram", "grams", "kg", "mg", "mcg", "ml", "l", "liter", "liters", "litre", "litres", "gal", "gallon", "gallons", "qt", "quart", "quarts", "pt", "pint", "pints", "each", "ea", "x", "of", "the", "and", "with", "in", "a", "can", "bag", "box", "bottle", "jar", "cup", "tub", "pouch", "package", "carton", "case", "sq", "ft", "inch", "inches", "mm", "cm"]);
 function numberTokens(tokens) { return tokens.filter((t) => /^\d/.test(t)).map(Number); }
 
 function homeCategories(groups) {
@@ -304,7 +305,7 @@ function scoreCandidates(ranks, qTokens, groups) {
     const content = toks.filter((t) => !/^\d/.test(t) && !UNIT_WORDS.has(t) && !brandToks.includes(t));
     s += 1.5 * Math.min(1, matched / Math.max(1, content.length));
     if (brandToks.length && groups.length && groups[0].some((a) => brandToks.some((b) => b.startsWith(a)))) s += 1.5;
-    for (const n of nums) { if (it.size === n || it.pack === n) s += 1.2; }
+    for (const n of nums) { if ((it.size && Math.abs(it.size - n) < 0.01) || it.pack === n) s += 1.2; }
     s -= 0.03 * Math.max(0, toks.length - groups.length);
     // phrase proximity: query words that sit next to each other in the name are the item the volunteer means
     let first = -1, last = -1;
@@ -340,23 +341,25 @@ function search(q, limit = 40) {
   const tokens = tokenize(q).filter(Boolean);
   if (!tokens.length) return { query: q, items: [], relaxed: false, fuzzy: false, ms: 0, total: 0 };
   let groups = expand(tokens);
-  let bitsets = groups.map(groupBits);
+  let bitsets = groups.map((g) => groupBits(g.alts));
   let fuzzy = false, relaxed = false, dropped = [];
   // typo tolerance: a group that matches nothing at all gets one-edit alternatives
   if (bitsets.some((b) => !b)) {
-    groups = groups.map((g, i) => (bitsets[i] ? g : [...g, ...fuzzyAlternatives(g[0])]));
-    bitsets = groups.map(groupBits);
-    fuzzy = true;
+    groups = groups.map((g, i) => (bitsets[i] ? g : { ...g, alts: [...g.alts, ...fuzzyAlternatives(g.alts[0])] }));
+    bitsets = groups.map((g) => groupBits(g.alts));
+    fuzzy = bitsets.some(Boolean);
   }
-  let live = groups.map((g, i) => ({ g, b: bitsets[i] })).filter((x) => x.b);
-  if (!live.length) return { query: q, items: [], relaxed: false, fuzzy, ms: performance.now() - t0, total: 0 };
+  // a word that still matches nothing is dropped and named, so the result is flagged, never silently widened
+  const live = [];
+  groups.forEach((g, i) => { if (bitsets[i]) live.push({ g: g.alts, src: g.src, b: bitsets[i] }); else if (!dropped.includes(g.src)) { dropped.push(g.src); relaxed = true; } });
+  if (!live.length) return { query: q, items: [], relaxed: false, dropped, fuzzy, ms: performance.now() - t0, total: 0 };
   const CAND = Math.max(limit * 10, 400);   // candidates scored per query; long Walmart names rank low globally, so the pool must be deep enough to include them
   let ranks = collect(live.map((x) => x.b), CAND);
   // never blank: relax by dropping the most restrictive group until something matches
   while (!ranks.length && live.length > 1) {
     let worst = 0, worstCount = Infinity;
     live.forEach((x, i) => { const c = popcount(x.b); if (c < worstCount) { worstCount = c; worst = i; } });
-    dropped.push(live[worst].g[0]);
+    if (!dropped.includes(live[worst].src)) dropped.push(live[worst].src);
     live.splice(worst, 1);
     relaxed = true;
     ranks = collect(live.map((x) => x.b), CAND);
