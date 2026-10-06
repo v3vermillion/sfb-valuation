@@ -1,0 +1,68 @@
+name: pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      plan:
+        description: "continue | core | full | approve | identify | status"
+        required: true
+        default: continue
+  schedule:
+    - cron: "0 6 1 * *"      # monthly full crawl (1st, 06:00 UTC)
+    - cron: "0 7 * * 1"      # weekly core price refresh (Mondays, 07:00 UTC)
+    - cron: "30 */12 * * *"  # every 12h: resume anything paused or unfinished
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: pipeline
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    env:
+      WM_CONSUMER_ID: ${{ secrets.WM_CONSUMER_ID }}
+      WM_PRIVATE_KEY: ${{ secrets.WM_PRIVATE_KEY }}
+      WM_KEY_VERSION: ${{ vars.WM_KEY_VERSION || '1' }}
+      SFB_STORE: store
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: data-store
+          path: store
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -q -r requirements.txt
+      - name: Configure store git identity
+        run: |
+          git -C store config user.name "sfb-pipeline"
+          git -C store config user.email "sfb-pipeline@users.noreply.github.com"
+      - name: Choose plan
+        id: plan
+        run: |
+          case "${{ github.event.schedule }}" in
+            "0 6 1 * *") echo "plan=full" >> "$GITHUB_OUTPUT" ;;
+            "0 7 * * 1") echo "plan=core" >> "$GITHUB_OUTPUT" ;;
+            "30 */12 * * *") echo "plan=continue" >> "$GITHUB_OUTPUT" ;;
+            *) echo "plan=${{ github.event.inputs.plan || 'continue' }}" >> "$GITHUB_OUTPUT" ;;
+          esac
+      - name: Check secrets
+        run: |
+          if [ -z "$WM_CONSUMER_ID" ] || [ -z "$WM_PRIVATE_KEY" ]; then
+            echo "::error::Add repository secrets WM_CONSUMER_ID and WM_PRIVATE_KEY (Settings > Secrets and variables > Actions)"; exit 1
+          fi
+      - name: Run pipeline
+        id: ci
+        run: python -m crawler.ci --plan "${{ steps.plan.outputs.plan }}" --budget-min 300
+      - name: Chain next run
+        if: steps.ci.outputs.next != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pipeline.yml -f plan=${{ steps.ci.outputs.next }}

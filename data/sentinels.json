@@ -1,0 +1,871 @@
+{
+ "note": "Every entry must resolve to a priced Walmart-sold row (name+brand contain all tokens; size within 3% if given). Fix the entry if it is wrong, never the gate.",
+ "sentinels": [
+  {
+   "q": "great value whole kernel corn",
+   "all": [
+    "great value",
+    "corn"
+   ],
+   "size": [
+    15.25,
+    "oz"
+   ]
+  },
+  {
+   "q": "great value cut green beans",
+   "all": [
+    "great value",
+    "green beans"
+   ],
+   "size": [
+    14.5,
+    "oz"
+   ]
+  },
+  {
+   "q": "del monte green beans",
+   "all": [
+    "del monte",
+    "green beans"
+   ]
+  },
+  {
+   "q": "great value sweet peas",
+   "all": [
+    "great value",
+    "peas"
+   ]
+  },
+  {
+   "q": "great value mixed vegetables canned",
+   "all": [
+    "great value",
+    "mixed vegetables"
+   ]
+  },
+  {
+   "q": "great value sliced carrots",
+   "all": [
+    "great value",
+    "carrots"
+   ]
+  },
+  {
+   "q": "del monte sliced peaches",
+   "all": [
+    "del monte",
+    "peaches"
+   ]
+  },
+  {
+   "q": "dole pineapple chunks",
+   "all": [
+    "dole",
+    "pineapple"
+   ]
+  },
+  {
+   "q": "great value fruit cocktail",
+   "all": [
+    "great value",
+    "fruit cocktail"
+   ]
+  },
+  {
+   "q": "bush's baked beans",
+   "all": [
+    "bush",
+    "baked beans"
+   ]
+  },
+  {
+   "q": "great value black beans",
+   "all": [
+    "great value",
+    "black beans"
+   ]
+  },
+  {
+   "q": "great value dark red kidney beans",
+   "all": [
+    "great value",
+    "kidney beans"
+   ]
+  },
+  {
+   "q": "great value pinto beans",
+   "all": [
+    "great value",
+    "pinto beans"
+   ]
+  },
+  {
+   "q": "campbell's chicken noodle soup",
+   "all": [
+    "campbell",
+    "chicken noodle"
+   ],
+   "size": [
+    10.75,
+    "oz"
+   ]
+  },
+  {
+   "q": "campbell's tomato soup",
+   "all": [
+    "campbell",
+    "tomato soup"
+   ],
+   "size": [
+    10.75,
+    "oz"
+   ]
+  },
+  {
+   "q": "campbell's cream of mushroom soup",
+   "all": [
+    "campbell",
+    "cream of mushroom"
+   ],
+   "size": [
+    10.5,
+    "oz"
+   ]
+  },
+  {
+   "q": "progresso chicken noodle soup",
+   "all": [
+    "progresso",
+    "chicken noodle"
+   ]
+  },
+  {
+   "q": "starkist chunk light tuna in water",
+   "all": [
+    "starkist",
+    "tuna"
+   ]
+  },
+  {
+   "q": "bumble bee chunk light tuna",
+   "all": [
+    "bumble bee",
+    "tuna"
+   ]
+  },
+  {
+   "q": "great value chunk chicken breast canned",
+   "all": [
+    "great value",
+    "chicken breast"
+   ]
+  },
+  {
+   "q": "spam classic",
+   "all": [
+    "spam",
+    "classic"
+   ],
+   "size": [
+    12,
+    "oz"
+   ]
+  },
+  {
+   "q": "chef boyardee beef ravioli",
+   "all": [
+    "chef boyardee",
+    "ravioli"
+   ]
+  },
+  {
+   "q": "great value diced tomatoes",
+   "all": [
+    "great value",
+    "diced tomatoes"
+   ]
+  },
+  {
+   "q": "hunt's tomato sauce",
+   "all": [
+    "hunt",
+    "tomato sauce"
+   ]
+  },
+  {
+   "q": "prego traditional pasta sauce",
+   "all": [
+    "prego",
+    "traditional"
+   ]
+  },
+  {
+   "q": "ragu old world style traditional",
+   "all": [
+    "ragu",
+    "traditional"
+   ]
+  },
+  {
+   "q": "jif creamy peanut butter",
+   "all": [
+    "jif",
+    "creamy",
+    "peanut butter"
+   ],
+   "size": [
+    16,
+    "oz"
+   ]
+  },
+  {
+   "q": "skippy creamy peanut butter",
+   "all": [
+    "skippy",
+    "creamy",
+    "peanut butter"
+   ]
+  },
+  {
+   "q": "great value creamy peanut butter",
+   "all": [
+    "great value",
+    "creamy",
+    "peanut butter"
+   ]
+  },
+  {
+   "q": "smucker's concord grape jelly",
+   "all": [
+    "smucker",
+    "grape jelly"
+   ]
+  },
+  {
+   "q": "great value grape jelly",
+   "all": [
+    "great value",
+    "grape jelly"
+   ]
+  },
+  {
+   "q": "great value applesauce",
+   "all": [
+    "great value",
+    "applesauce"
+   ]
+  },
+  {
+   "q": "barilla spaghetti",
+   "all": [
+    "barilla",
+    "spaghetti"
+   ],
+   "size": [
+    16,
+    "oz"
+   ]
+  },
+  {
+   "q": "great value spaghetti",
+   "all": [
+    "great value",
+    "spaghetti"
+   ]
+  },
+  {
+   "q": "great value elbow macaroni",
+   "all": [
+    "great value",
+    "elbow"
+   ]
+  },
+  {
+   "q": "kraft macaroni and cheese original",
+   "all": [
+    "kraft",
+    "macaroni",
+    "cheese"
+   ],
+   "size": [
+    7.25,
+    "oz"
+   ]
+  },
+  {
+   "q": "great value macaroni and cheese",
+   "all": [
+    "great value",
+    "macaroni",
+    "cheese"
+   ]
+  },
+  {
+   "q": "hamburger helper cheeseburger macaroni",
+   "all": [
+    "hamburger helper",
+    "cheeseburger"
+   ]
+  },
+  {
+   "q": "maruchan ramen chicken",
+   "all": [
+    "maruchan",
+    "chicken"
+   ]
+  },
+  {
+   "q": "great value long grain white rice",
+   "all": [
+    "great value",
+    "white rice"
+   ]
+  },
+  {
+   "q": "mahatma long grain rice",
+   "all": [
+    "mahatma",
+    "rice"
+   ]
+  },
+  {
+   "q": "minute instant white rice",
+   "all": [
+    "minute",
+    "white rice"
+   ]
+  },
+  {
+   "q": "cheerios cereal",
+   "all": [
+    "cheerios"
+   ]
+  },
+  {
+   "q": "honey nut cheerios",
+   "all": [
+    "honey nut cheerios"
+   ]
+  },
+  {
+   "q": "kellogg's frosted flakes",
+   "all": [
+    "frosted flakes"
+   ]
+  },
+  {
+   "q": "raisin bran",
+   "all": [
+    "raisin bran"
+   ]
+  },
+  {
+   "q": "quaker old fashioned oats",
+   "all": [
+    "quaker",
+    "old fashioned"
+   ]
+  },
+  {
+   "q": "quaker instant oatmeal variety",
+   "all": [
+    "quaker",
+    "instant oatmeal"
+   ]
+  },
+  {
+   "q": "bisquick original pancake mix",
+   "all": [
+    "bisquick"
+   ]
+  },
+  {
+   "q": "pearl milling company pancake mix",
+   "all": [
+    "pearl milling",
+    "pancake"
+   ]
+  },
+  {
+   "q": "great value all purpose flour",
+   "all": [
+    "great value",
+    "all purpose flour"
+   ]
+  },
+  {
+   "q": "great value granulated sugar",
+   "all": [
+    "great value",
+    "sugar"
+   ]
+  },
+  {
+   "q": "great value vegetable oil",
+   "all": [
+    "great value",
+    "vegetable oil"
+   ]
+  },
+  {
+   "q": "idahoan mashed potatoes",
+   "all": [
+    "idahoan",
+    "mashed potatoes"
+   ]
+  },
+  {
+   "q": "stove top stuffing mix",
+   "all": [
+    "stove top",
+    "stuffing"
+   ]
+  },
+  {
+   "q": "folgers classic roast ground coffee",
+   "all": [
+    "folgers",
+    "classic roast"
+   ]
+  },
+  {
+   "q": "lipton black tea bags",
+   "all": [
+    "lipton",
+    "tea"
+   ]
+  },
+  {
+   "q": "ritz original crackers",
+   "all": [
+    "ritz",
+    "crackers"
+   ]
+  },
+  {
+   "q": "great value saltine crackers",
+   "all": [
+    "great value",
+    "saltine"
+   ]
+  },
+  {
+   "q": "oreo chocolate sandwich cookies",
+   "all": [
+    "oreo"
+   ]
+  },
+  {
+   "q": "nature valley crunchy granola bars",
+   "all": [
+    "nature valley",
+    "granola"
+   ]
+  },
+  {
+   "q": "goldfish cheddar crackers",
+   "all": [
+    "goldfish",
+    "cheddar"
+   ]
+  },
+  {
+   "q": "lay's classic potato chips",
+   "all": [
+    "lay",
+    "classic",
+    "potato chips"
+   ]
+  },
+  {
+   "q": "smucker's uncrustables peanut butter grape",
+   "all": [
+    "uncrustables",
+    "grape"
+   ]
+  },
+  {
+   "q": "great value frozen whole kernel corn",
+   "all": [
+    "great value",
+    "corn",
+    "frozen"
+   ]
+  },
+  {
+   "q": "great value 2% reduced fat milk gallon",
+   "all": [
+    "great value",
+    "2%",
+    "milk"
+   ]
+  },
+  {
+   "q": "great value large white eggs 12 count",
+   "all": [
+    "great value",
+    "large",
+    "eggs"
+   ]
+  },
+  {
+   "q": "mountain dew 12 fl oz 12 pack",
+   "all": [
+    "mountain dew"
+   ],
+   "size": [
+    12,
+    "fl oz"
+   ]
+  },
+  {
+   "q": "coca-cola 2 liter",
+   "all": [
+    "coca-cola"
+   ],
+   "size": [
+    2,
+    "l"
+   ]
+  },
+  {
+   "q": "pepsi 12 pack cans",
+   "all": [
+    "pepsi"
+   ],
+   "size": [
+    12,
+    "fl oz"
+   ]
+  },
+  {
+   "q": "capri sun pacific cooler",
+   "all": [
+    "capri sun"
+   ]
+  },
+  {
+   "q": "gatorade thirst quencher fruit punch",
+   "all": [
+    "gatorade",
+    "fruit punch"
+   ]
+  },
+  {
+   "q": "great value purified drinking water 24 pack",
+   "all": [
+    "great value",
+    "water"
+   ],
+   "size": [
+    16.9,
+    "fl oz"
+   ]
+  },
+  {
+   "q": "ensure original nutrition shake",
+   "all": [
+    "ensure",
+    "shake"
+   ]
+  },
+  {
+   "q": "similac pro-advance infant formula",
+   "all": [
+    "similac",
+    "formula"
+   ]
+  },
+  {
+   "q": "enfamil neuropro infant formula",
+   "all": [
+    "enfamil",
+    "formula"
+   ]
+  },
+  {
+   "q": "parent's choice infant formula",
+   "all": [
+    "parent's choice",
+    "formula"
+   ]
+  },
+  {
+   "q": "pampers swaddlers diapers",
+   "all": [
+    "pampers",
+    "swaddlers"
+   ]
+  },
+  {
+   "q": "huggies little snugglers diapers",
+   "all": [
+    "huggies",
+    "diapers"
+   ]
+  },
+  {
+   "q": "parent's choice diapers",
+   "all": [
+    "parent's choice",
+    "diapers"
+   ]
+  },
+  {
+   "q": "pampers sensitive baby wipes",
+   "all": [
+    "pampers",
+    "wipes"
+   ]
+  },
+  {
+   "q": "colgate cavity protection toothpaste",
+   "all": [
+    "colgate",
+    "toothpaste"
+   ]
+  },
+  {
+   "q": "crest cavity protection toothpaste",
+   "all": [
+    "crest",
+    "toothpaste"
+   ]
+  },
+  {
+   "q": "suave shampoo",
+   "all": [
+    "suave",
+    "shampoo"
+   ]
+  },
+  {
+   "q": "head & shoulders shampoo",
+   "all": [
+    "head & shoulders",
+    "shampoo"
+   ]
+  },
+  {
+   "q": "dove body wash",
+   "all": [
+    "dove",
+    "body wash"
+   ]
+  },
+  {
+   "q": "dial bar soap",
+   "all": [
+    "dial",
+    "soap"
+   ]
+  },
+  {
+   "q": "degree antiperspirant deodorant",
+   "all": [
+    "degree",
+    "deodorant"
+   ]
+  },
+  {
+   "q": "always maxi pads",
+   "all": [
+    "always",
+    "pads"
+   ]
+  },
+  {
+   "q": "tampax pearl tampons",
+   "all": [
+    "tampax",
+    "tampons"
+   ]
+  },
+  {
+   "q": "advil ibuprofen tablets",
+   "all": [
+    "advil"
+   ]
+  },
+  {
+   "q": "tylenol extra strength",
+   "all": [
+    "tylenol",
+    "extra strength"
+   ]
+  },
+  {
+   "q": "equate ibuprofen 200 mg",
+   "all": [
+    "equate",
+    "ibuprofen"
+   ]
+  },
+  {
+   "q": "centrum adult multivitamin",
+   "all": [
+    "centrum",
+    "multivitamin"
+   ]
+  },
+  {
+   "q": "band-aid flexible fabric bandages",
+   "all": [
+    "band-aid",
+    "bandages"
+   ]
+  },
+  {
+   "q": "charmin ultra soft toilet paper",
+   "all": [
+    "charmin",
+    "toilet paper"
+   ]
+  },
+  {
+   "q": "bounty paper towels",
+   "all": [
+    "bounty",
+    "paper towels"
+   ]
+  },
+  {
+   "q": "tide original liquid laundry detergent",
+   "all": [
+    "tide",
+    "detergent"
+   ]
+  },
+  {
+   "q": "gain original laundry detergent",
+   "all": [
+    "gain",
+    "detergent"
+   ]
+  },
+  {
+   "q": "dawn ultra dishwashing liquid",
+   "all": [
+    "dawn",
+    "dish"
+   ]
+  },
+  {
+   "q": "hefty strong tall kitchen trash bags",
+   "all": [
+    "hefty",
+    "trash bags"
+   ]
+  },
+  {
+   "q": "clorox disinfecting wipes",
+   "all": [
+    "clorox",
+    "wipes"
+   ]
+  },
+  {
+   "q": "lysol disinfectant spray",
+   "all": [
+    "lysol",
+    "spray"
+   ]
+  },
+  {
+   "q": "ziploc storage bags gallon",
+   "all": [
+    "ziploc",
+    "gallon"
+   ]
+  },
+  {
+   "q": "reynolds wrap aluminum foil",
+   "all": [
+    "reynolds wrap",
+    "foil"
+   ]
+  },
+  {
+   "q": "pedigree adult dry dog food",
+   "all": [
+    "pedigree",
+    "dog food"
+   ]
+  },
+  {
+   "q": "friskies cat food",
+   "all": [
+    "friskies"
+   ]
+  },
+  {
+   "q": "meow mix original choice dry cat food",
+   "all": [
+    "meow mix"
+   ]
+  },
+  {
+   "q": "tidy cats clumping cat litter",
+   "all": [
+    "tidy cats",
+    "litter"
+   ]
+  },
+  {
+   "q": "crayola crayons 24 count",
+   "all": [
+    "crayola",
+    "crayons"
+   ]
+  },
+  {
+   "q": "pen+gear wide ruled notebook",
+   "all": [
+    "pen+gear",
+    "notebook"
+   ]
+  },
+  {
+   "q": "ticonderoga pencils",
+   "all": [
+    "ticonderoga",
+    "pencil"
+   ]
+  },
+  {
+   "q": "duracell aa batteries",
+   "all": [
+    "duracell",
+    "aa"
+   ]
+  },
+  {
+   "q": "great value led light bulb",
+   "all": [
+    "led",
+    "bulb"
+   ]
+  },
+  {
+   "q": "rain-x original glass water repellent",
+   "all": [
+    "rain-x"
+   ]
+  },
+  {
+   "q": "pennzoil motor oil 5w-30",
+   "all": [
+    "pennzoil",
+    "5w-30"
+   ]
+  },
+  {
+   "q": "onn usb c charging cable",
+   "all": [
+    "onn",
+    "cable"
+   ]
+  }
+ ]
+}

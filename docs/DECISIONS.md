@@ -13,3 +13,11 @@
 - 2026-10-06 — Food mapping drafted in data/categories.json (Pantry split pending). Added From Our Brands (store-brand coverage) and Seasonal Grocery. Alcohol and promo/brand/event nodes excluded.
 - 2026-10-06 — Data workflow defined in docs/WORKFLOW.md: deterministic API crawl (no AI-generated prices), D1-backed resumable cron crawl, quality gates before publishing. Stage 1 test routes /items/<id> and /search added.
 - 2026-10-06 — Stage 1 results recorded in docs/WORKFLOW.md. Proposed: salePrice as valuation price; Walmart-sold only; size parsed from name. Testing catalog filters soldByWmt/available next.
+- 2026-10-06 — Approved: barcode scanner in the app (offline) + live Walmart check when online. App stays offline-first.
+- 2026-10-06 — Crawler moved to GitHub Actions (Cloudflare free tier limits too low for a full crawl). Worker kept for live checks.
+- 2026-10-06 — Valuation price = salePrice; msrp ignored. Walmart-sold only (soldByWmt=true + marketplace=false + seller check). Size/pack from product name first.
+- 2026-10-06 — Retired ("deleted_") UPCs kept and flagged, because donations include old stock. Promo prices keep last normal price.
+- 2026-10-06 — Non-Walmart barcodes (Aldi, Giant Eagle, Marc's, Meijer, Target, Dollar General, Kirkland, regional): identified via Open Food/Beauty/Products Facts, priced at the closest Walmart equivalent, labeled "equivalent value". Kroger API not used (no Kroger stores in the area; Kroger items are rare donations).
+- 2026-10-06 — Store-printed price barcodes (prefix 2) decoded in-app; PLU produce stickers supported. Never show blank or unpriced results.
+- 2026-10-06 — Scope expanded: Auto & Tires, Electronics, Cell Phones, Jewelry, Sports & Outdoors, Home Improvement, Patio & Garden, Arts Crafts, Party & Occasions added. Not crawled: clothing, music, movies, video games, industrial, instruments, collectibles.
+- 2026-10-06 — Schedule: full crawl monthly, core refresh weekly, resume check every 12h. Quality gates must pass before publishing; first snapshot needs David's approval.

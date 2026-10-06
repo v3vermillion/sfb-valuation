@@ -1,24 +1,37 @@
 # CLAUDE.md — read this first
 
 ## What this is
-Offline PWA for Strongsville Emergency Food Bank volunteers to look up the price of donated items. Data source: Walmart I/O Affiliate API. Prices = Walmart.com online regular price (not sale, first-party seller only).
+Offline PWA for Strongsville Emergency Food Bank volunteers: scan or type the donated item, get the
+exact item and its current price. Prices come from the Walmart I/O Affiliate API. Design: docs/WORKFLOW.md.
 
 ## Rules
-- The owner (David) approves every fix or change before it is applied: find and report, then wait.
-- docs/DECISIONS.md is the source of truth. If anything conflicts, DECISIONS.md wins. Append a dated entry for every new decision.
-- Never commit secrets. Secrets live only in Cloudflare Worker secrets and David's password manager.
-- The owner works from a phone only. Anything that must run goes through Cloudflare (Git-connected Worker builds) or GitHub — never "run this locally".
+- David approves every fix or change before it's applied: find and report, then wait.
+- docs/DECISIONS.md is the source of truth; append a dated entry for every new decision.
+- Never commit secrets. They live in GitHub Actions secrets, Cloudflare Worker secrets, and David's password manager.
+- David works from a phone. Anything that must run goes through GitHub Actions or Cloudflare.
+
+## "Continue" — what to do when David says continue
+1. `gh workflow run pipeline.yml -f plan=status` and read the run summary, or read
+   `data-store:state/run.json` (`git fetch origin data-store && git show origin/data-store:state/run.json`).
+2. By state.status:
+   - `crawling` → `gh workflow run pipeline.yml -f plan=continue` (it also chains itself; check it isn't already running: `gh run list -w pipeline`).
+   - `crawled` / `built` → `plan=continue` processes, checks gates, publishes.
+   - `awaiting_approval` → show David `build/candidate/report.md` (sentinel misses, rejects, counts). Publish only after he says so: `plan=approve`.
+   - `needs_review` → diagnose from the report; propose fixes (normalize rules, sentinel entries, scope); wait for approval.
+   - `published` → nothing pending; report the manifest.
+3. To crawl one department sooner, it's the same `continue`; order is set in data/categories.json.
+4. Never edit published data by hand; change rules, rebuild, re-check.
+
+## Commands (also runnable locally with WM_CONSUMER_ID / WM_PRIVATE_KEY set and SFB_STORE pointing at a data-store checkout)
+- `python -m crawler.ci --plan continue|core|full|approve|identify|status`
+- `python -m unittest discover tests`
 
 ## Layout
-- docs/PLAN.md — scope, phases, app requirements
-- docs/DECISIONS.md — dated decision log
-- docs/SCHEMA.md — item row schema
-- docs/RUNBOOK.md — setup, secrets, deploy, refresh
-- docs/WORKFLOW.md — data pipeline design, stages, quality gates
-- pipeline/ — Cloudflare Worker (wrangler.toml, src/index.js)
-- data/categories.json — 23 pipeline categories ↔ Walmart taxonomy IDs
-- data/items/ — one JSONL per category
+- crawler/ — wm.py (signed client, pacing), crawl.py (resumable), normalize.py (rules), process.py (snapshot),
+  qa.py (gates/publish), identify.py (non-Walmart barcodes → equivalents), ci.py (orchestrator)
+- data/categories.json — scope (departments), category rules, exclusions
+- data/sentinels.json — items that must always be found and priced
+- .github/workflows/pipeline.yml — schedules + manual runs
+- pipeline/ — Cloudflare Worker (live checks, test routes)
 - app/ — PWA (not started)
-
-## Current status
-See the latest entries in docs/DECISIONS.md.
+- docs/ — PLAN, DECISIONS, SCHEMA, RUNBOOK, WORKFLOW

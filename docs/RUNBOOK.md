@@ -28,3 +28,13 @@ Public key format accepted by the portal: base64 body only (no BEGIN/END lines).
 
 ## Rotating keys
 Generate new pair → upload public key on walmart.io (key version increments) → update WM_PRIVATE_KEY and WM_KEY_VERSION.
+
+## Data pipeline (GitHub Actions)
+Required repository secrets (Settings → Secrets and variables → Actions):
+- WM_PRIVATE_KEY — full PEM from the password manager
+- WM_CONSUMER_ID — Prod Consumer ID
+Optional variable: WM_KEY_VERSION (default 1).
+
+Run manually: Actions tab → pipeline → Run workflow → plan (continue | core | full | approve | identify | status).
+Working data: branch `data-store` (state/, raw/, build/, identify/). Report for the latest build:
+`data-store:build/candidate/report.md`. Published snapshot: `data-store:build/published/`.
