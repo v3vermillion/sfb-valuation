@@ -1,4 +1,4 @@
-name = "sfb-pipeline"
+name = "sfb-valuation"
 main = "src/index.js"
 compatibility_date = "2026-10-01"
 
