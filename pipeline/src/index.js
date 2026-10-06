@@ -39,10 +39,30 @@ async function walmartHeaders(env) {
   };
 }
 
-export async function walmartGet(env, path) {
-  const res = await fetch(`${API}${path}`, { headers: await walmartHeaders(env) });
+const HOST = "https://developer.api.walmart.com";
+
+// Accepts "/taxonomy", "/paginated/items?...", "/api-proxy/...", or a full URL (nextPage formats vary).
+function walmartUrl(pathOrUrl) {
+  if (/^https?:\/\//.test(pathOrUrl)) return pathOrUrl;
+  if (pathOrUrl.startsWith("/api-proxy/")) return HOST + pathOrUrl;
+  return API + pathOrUrl;
+}
+
+export async function walmartGet(env, pathOrUrl) {
+  const res = await fetch(walmartUrl(pathOrUrl), { headers: await walmartHeaders(env) });
   const body = await res.text();
   return { status: res.status, body };
+}
+
+// Compact view of one item: every field we might need for the schema, nothing else.
+function summarizeItem(it) {
+  return {
+    itemId: it.itemId, parentItemId: it.parentItemId, upc: it.upc,
+    name: it.name, brandName: it.brandName, size: it.size,
+    salePrice: it.salePrice, msrp: it.msrp, offerType: it.offerType,
+    sellerInfo: it.sellerInfo, availableOnline: it.availableOnline, stock: it.stock,
+    categoryPath: it.categoryPath, categoryNode: it.categoryNode,
+  };
 }
 
 const json = (obj, status = 200) =>
@@ -99,6 +119,54 @@ export default {
       }
     }
 
-    return json({ error: "not found", routes: ["/health", "/taxonomy", "/taxonomy/<id>"] }, 404);
+    // /items/<categoryId>?pages=N — test pull of the product catalog for one category.
+    // Reports field names, price coverage, seller mix, and paging behaviour. Read-only.
+    const mi = url.pathname.match(/^\/items\/([\w-]+)$/);
+    if (mi) {
+      const pages = Math.min(Math.max(parseInt(url.searchParams.get("pages") || "1", 10) || 1, 1), 10);
+      let next = `/paginated/items?category=${encodeURIComponent(mi[1])}`;
+      const all = [], pageLog = [];
+      let firstRaw = null, meta = null;
+      for (let i = 0; i < pages && next; i++) {
+        const t0 = Date.now();
+        const { status, body } = await walmartGet(env, next);
+        if (status !== 200) { pageLog.push({ page: i + 1, status, error: body.slice(0, 500) }); break; }
+        const d = JSON.parse(body);
+        if (!meta) meta = { totalPages: d.totalPages ?? null, category: d.category ?? null, keys: Object.keys(d) };
+        const items = d.items || [];
+        if (!firstRaw && items[0]) firstRaw = items[0];
+        all.push(...items);
+        pageLog.push({ page: i + 1, status, items: items.length, ms: Date.now() - t0 });
+        next = d.nextPage || null;
+      }
+      const priced = all.filter(x => typeof x.salePrice === "number").length;
+      const sellers = {};
+      for (const x of all) { const k = x.sellerInfo || "(none)"; sellers[k] = (sellers[k] || 0) + 1; }
+      return json({
+        category: mi[1], meta, pages: pageLog, has_more: Boolean(next),
+        items_returned: all.length, with_salePrice: priced,
+        with_msrp: all.filter(x => typeof x.msrp === "number").length,
+        with_upc: all.filter(x => x.upc).length,
+        with_size: all.filter(x => x.size).length,
+        sellers,
+        item_fields: firstRaw ? Object.keys(firstRaw) : [],
+        sample: all.slice(0, 15).map(summarizeItem),
+        first_item_raw: url.searchParams.get("raw") ? firstRaw : undefined,
+      });
+    }
+
+    // /search?q=...&category=<id> — coverage spot-check for a specific product.
+    if (url.pathname === "/search") {
+      const q = url.searchParams.get("q");
+      if (!q) return json({ error: "missing q" }, 400);
+      const cat = url.searchParams.get("category");
+      const path = `/search?query=${encodeURIComponent(q)}&numItems=25` + (cat ? `&categoryId=${encodeURIComponent(cat)}` : "");
+      const { status, body } = await walmartGet(env, path);
+      if (status !== 200) return json({ walmart_status: status, response: body.slice(0, 1000) }, 502);
+      const d = JSON.parse(body);
+      return json({ query: q, totalResults: d.totalResults ?? null, items: (d.items || []).map(summarizeItem) });
+    }
+
+    return json({ error: "not found", routes: ["/health", "/taxonomy", "/taxonomy/<id>", "/items/<id>?pages=N", "/search?q="] }, 404);
   },
 };

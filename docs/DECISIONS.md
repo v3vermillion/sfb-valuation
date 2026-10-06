@@ -10,3 +10,5 @@
 - 2026-10-06 — Taxonomy auth test passed (HTTP 200, 51 top-level departments). Relevant departments: Food 976759, Health and Medicine 976760, Personal Care 1005862, Beauty 1085666, Baby 5427, Pets 5440, Household Essentials 1115193, Home 4044, Office Supplies 1229749, Toys 4171, Books 3920, Seasonal 1085632, Pharmacy 5431. Clothing excluded.
 - 2026-10-06 — Worker name standardized to sfb-valuation (matches Cloudflare); was sfb-pipeline in wrangler.toml.
 - 2026-10-06 — Root cause of builds not triggering: Cloudflare GitHub app had "Only select repositories" (CaringForACause only). Switched to All repositories.
+- 2026-10-06 — Food mapping drafted in data/categories.json (Pantry split pending). Added From Our Brands (store-brand coverage) and Seasonal Grocery. Alcohol and promo/brand/event nodes excluded.
+- 2026-10-06 — Data workflow defined in docs/WORKFLOW.md: deterministic API crawl (no AI-generated prices), D1-backed resumable cron crawl, quality gates before publishing. Stage 1 test routes /items/<id> and /search added.

@@ -14,6 +14,7 @@ Offline PWA for Strongsville Emergency Food Bank volunteers to look up the price
 - docs/DECISIONS.md — dated decision log
 - docs/SCHEMA.md — item row schema
 - docs/RUNBOOK.md — setup, secrets, deploy, refresh
+- docs/WORKFLOW.md — data pipeline design, stages, quality gates
 - pipeline/ — Cloudflare Worker (wrangler.toml, src/index.js)
 - data/categories.json — 23 pipeline categories ↔ Walmart taxonomy IDs
 - data/items/ — one JSONL per category
