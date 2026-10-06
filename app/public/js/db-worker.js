@@ -23,7 +23,7 @@ const ABBREV = {
 };
 const SYNONYM_GROUPS = [
   ["oz", "ounce", "ounces"], ["fl", "fluid"], ["lb", "lbs", "pound", "pounds"], ["ct", "count", "cnt", "pk", "pack", "packs"],
-  ["gal", "gallon", "gallons"], ["qt", "quart", "quarts"], ["l", "liter", "liters", "litre", "litres", "ltr"], ["ml", "milliliter", "milliliters"],
+  ["gal", "gallon", "gallons"], ["qt", "quart", "quarts"], ["pt", "pint", "pints"], ["l", "liter", "liters", "litre", "litres", "ltr"], ["ml", "milliliter", "milliliters"],
   ["g", "gram", "grams"], ["kg", "kilogram", "kilograms"], ["and", "n"], ["mac", "macaroni"], ["ketchup", "catsup"], ["soda", "pop"],
   ["diaper", "diapers"], ["wipe", "wipes"], ["tissue", "tissues", "kleenex"], ["bandaid", "bandaids", "bandage", "bandages"],
   ["tuna", "tunafish"], ["ramen", "noodles"], ["cereal", "cereals"], ["bar", "bars"], ["cookie", "cookies"], ["chip", "chips"],
@@ -204,6 +204,7 @@ function prefixBits(prefix) {
   return bits;
 }
 function hasAnyToken(prefix) { const [lo, hi] = dictRange(prefix); return hi > lo; }
+function hasExactToken(w) { const i = lowerBoundStr(w); return i < db.dict.length && db.dict[i] === w; }
 function popcount(bits) { let c = 0; for (let i = 0; i < bits.length; i++) { let v = bits[i]; v -= (v >>> 1) & 0x55555555; v = (v & 0x33333333) + ((v >>> 2) & 0x33333333); c += (((v + (v >>> 4)) & 0x0f0f0f0f) * 0x01010101) >>> 24; } return c; }
 
 /** Expand the typed tokens into groups; each group is a list of alternative prefixes (OR), groups are ANDed. */
@@ -214,7 +215,7 @@ function expand(tokens) {
     const alts = new Set([t]);
     if (SYN.has(t)) for (const w of SYN.get(t)) alts.add(w);
     if (t.length >= 4 && t.endsWith("ies")) alts.add(t.slice(0, -3) + "y");
-    else if (t.length >= 5 && /(ches|shes|sses|xes|zes|oes)$/.test(t)) alts.add(t.slice(0, -2));   // boxes, tomatoes, dishes
+    else if (t.length >= 6 && /(ches|shes|sses|xes|zes|oes)$/.test(t) && hasExactToken(t.slice(0, -2))) alts.add(t.slice(0, -2));   // boxes, tomatoes, dishes — only when the stem is a real word
     else if (t.length >= 4 && t.endsWith("s")) alts.add(t.slice(0, -1));
     groups.push({ alts: [...alts], src: t });
   }
@@ -347,7 +348,7 @@ function search(q, limit = 40) {
   if (bitsets.some((b) => !b)) {
     groups = groups.map((g, i) => (bitsets[i] ? g : { ...g, alts: [...g.alts, ...fuzzyAlternatives(g.alts[0])] }));
     bitsets = groups.map((g) => groupBits(g.alts));
-    fuzzy = bitsets.some(Boolean);
+    fuzzy = groups.some((g, i) => bitsets[i] && g.alts.length > 1 && !hasAnyToken(g.src) && !SYN.has(g.src) && !ABBREV[g.src]);   // a typo was actually corrected
   }
   // a word that still matches nothing is dropped and named, so the result is flagged, never silently widened
   const live = [];
