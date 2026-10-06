@@ -59,7 +59,7 @@ function summarizeItem(it) {
   return {
     itemId: it.itemId, parentItemId: it.parentItemId, upc: it.upc,
     name: it.name, brandName: it.brandName, size: it.size,
-    salePrice: it.salePrice, msrp: it.msrp, offerType: it.offerType,
+    salePrice: it.salePrice, msrp: it.msrp, offerType: it.offerType, marketplace: it.marketplace,
     sellerInfo: it.sellerInfo, availableOnline: it.availableOnline, stock: it.stock,
     categoryPath: it.categoryPath, categoryNode: it.categoryNode,
   };
@@ -124,10 +124,16 @@ export default {
     const mi = url.pathname.match(/^\/items\/([\w-]+)$/);
     if (mi) {
       const pages = Math.min(Math.max(parseInt(url.searchParams.get("pages") || "1", 10) || 1, 1), 10);
-      let next = `/paginated/items?category=${encodeURIComponent(mi[1])}`;
+      // Optional catalog filters to test (passed through only if present).
+      const extra = ["soldByWmt", "available", "brand", "specialOffer"]
+        .filter(k => url.searchParams.has(k))
+        .map(k => `&${k}=${encodeURIComponent(url.searchParams.get(k))}`).join("");
+      const delay = Math.min(parseInt(url.searchParams.get("delay") || "0", 10) || 0, 5000);
+      let next = `/paginated/items?category=${encodeURIComponent(mi[1])}${extra}`;
       const all = [], pageLog = [];
       let firstRaw = null, meta = null;
       for (let i = 0; i < pages && next; i++) {
+        if (i > 0 && delay) await new Promise(r => setTimeout(r, delay));
         const t0 = Date.now();
         const { status, body } = await walmartGet(env, next);
         if (status !== 200) { pageLog.push({ page: i + 1, status, error: body.slice(0, 500) }); break; }
@@ -148,6 +154,11 @@ export default {
         with_msrp: all.filter(x => typeof x.msrp === "number").length,
         with_upc: all.filter(x => x.upc).length,
         with_size: all.filter(x => x.size).length,
+        marketplace_true: all.filter(x => x.marketplace === true).length,
+        marketplace_false: all.filter(x => x.marketplace === false).length,
+        deleted_upc: all.filter(x => String(x.upc || "").startsWith("deleted_")).length,
+        available_online: all.filter(x => x.availableOnline === true).length,
+        filters_sent: extra || null, delay_ms: delay,
         sellers,
         item_fields: firstRaw ? Object.keys(firstRaw) : [],
         sample: all.slice(0, 15).map(summarizeItem),

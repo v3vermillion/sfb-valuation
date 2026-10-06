@@ -12,3 +12,4 @@
 - 2026-10-06 — Root cause of builds not triggering: Cloudflare GitHub app had "Only select repositories" (CaringForACause only). Switched to All repositories.
 - 2026-10-06 — Food mapping drafted in data/categories.json (Pantry split pending). Added From Our Brands (store-brand coverage) and Seasonal Grocery. Alcohol and promo/brand/event nodes excluded.
 - 2026-10-06 — Data workflow defined in docs/WORKFLOW.md: deterministic API crawl (no AI-generated prices), D1-backed resumable cron crawl, quality gates before publishing. Stage 1 test routes /items/<id> and /search added.
+- 2026-10-06 — Stage 1 results recorded in docs/WORKFLOW.md. Proposed: salePrice as valuation price; Walmart-sold only; size parsed from name. Testing catalog filters soldByWmt/available next.

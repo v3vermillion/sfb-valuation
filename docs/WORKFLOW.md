@@ -40,8 +40,19 @@ Decide from results: valuation price field (salePrice vs msrp), seller filter, w
 - Snapshot: served by the Worker from D1 (or R2 if size requires).
 - Needs from David: create D1 `sfb-db` in the Cloudflare dashboard and send the database ID (Stage 2).
 
-## Open decisions (filled from Stage 1 results)
-- Valuation price field: TBD
-- Seller filter rule: TBD
-- Items per page / pages per cron run: TBD
-- Walmart rate limit observed: TBD
+## Stage 1 findings (2026-10-06)
+- Paginated catalog: 200 items/page, includes all sub-nodes, reports totalPages. Fresh Produce = 42 pages (~8.4k items). Pantry = 3,027 pages (~605k items) — mostly third-party listings and junk (cookbooks, CDs, salt cellars).
+- Rate limit: HTTP 429 on the 3rd back-to-back request (~1s apart). Crawler must throttle.
+- Catalog items have no sellerInfo/offerType, but do have a `marketplace` boolean. Search results do have sellerInfo/offerType.
+- msrp is unreliable (e.g. Libby's corn msrp $7.35 vs salePrice $1.22). salePrice matches real shelf prices.
+- `size` field is unreliable ("Each", "2", or wrong — "10 oz" salad listed as "23 oz"). Product name is the better size source.
+- Some UPCs are prefixed "deleted_" (retired items). Many catalog items are stock "Not available".
+- Coverage: search found Great Value canned corn in 8.5, 15, 15.25, 29, 106 oz, store-only frozen items, and multipacks — all priced, seller Walmart.com. Third-party sellers list the same items at 5–10x price.
+
+## Proposed decisions (pending David's OK)
+- Valuation price = salePrice. msrp ignored.
+- Keep only Walmart-sold items: marketplace == false (catalog) / sellerInfo == "Walmart.com" (search). Drop rows with no salePrice or a "deleted_" UPC.
+- Size/pack parsed from name first, size field second; disagreement flagged.
+- Multipacks ("(8 pack)", "12 Count") kept as their own rows with pack_count, plus per-unit price.
+- Crawl throttled to stay under the 429 limit; exact rate set from the throttle test.
+- Pending test: whether catalog filters soldByWmt=true / available=true work (would cut Pantry from ~605k to Walmart-sold items only).
