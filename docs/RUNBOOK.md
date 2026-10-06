@@ -21,7 +21,8 @@ Public key format accepted by the portal: base64 body only (no BEGIN/END lines).
 
 ## Endpoints
 - GET /health?token=ADMIN_TOKEN — config check, never prints secret values
-- GET /taxonomy?token=ADMIN_TOKEN — signed Walmart Taxonomy call (auth test)
+- GET /taxonomy?token=ADMIN_TOKEN — signed Walmart Taxonomy call; top-level departments
+- GET /taxonomy/<id>?token=ADMIN_TOKEN — children of one category node
 
 ## Rotating keys
 Generate new pair → upload public key on walmart.io (key version increments) → update WM_PRIVATE_KEY and WM_KEY_VERSION.

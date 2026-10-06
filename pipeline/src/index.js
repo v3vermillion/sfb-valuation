@@ -76,6 +76,29 @@ export default {
       }
     }
 
-    return json({ error: "not found", routes: ["/health", "/taxonomy"] }, 404);
+    // /taxonomy/<id> — children of one category node (for mapping our 23 categories)
+    const m = url.pathname.match(/^\/taxonomy\/([\w-]+)$/);
+    if (m) {
+      try {
+        const { status, body } = await walmartGet(env, "/taxonomy");
+        if (status !== 200) return json({ walmart_status: status, response: body.slice(0, 2000) }, 502);
+        const find = (nodes) => {
+          for (const n of nodes || []) {
+            if (String(n.id) === m[1]) return n;
+            const hit = find(n.children);
+            if (hit) return hit;
+          }
+          return null;
+        };
+        const node = find(JSON.parse(body).categories);
+        if (!node) return json({ error: `category ${m[1]} not found` }, 404);
+        const kids = (node.children || []).map(c => ({ id: c.id, name: c.name, children: (c.children || []).length }));
+        return json({ id: node.id, name: node.name, path: node.path || null, child_count: kids.length, children: kids });
+      } catch (e) {
+        return json({ error: String(e) }, 500);
+      }
+    }
+
+    return json({ error: "not found", routes: ["/health", "/taxonomy", "/taxonomy/<id>"] }, 404);
   },
 };
