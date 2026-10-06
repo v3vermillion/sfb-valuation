@@ -9,3 +9,4 @@
 - 2026-10-06 — Repo created (private). Pipeline Worker deploys from GitHub via Cloudflare Git integration (owner is phone-only).
 - 2026-10-06 — Taxonomy auth test passed (HTTP 200, 51 top-level departments). Relevant departments: Food 976759, Health and Medicine 976760, Personal Care 1005862, Beauty 1085666, Baby 5427, Pets 5440, Household Essentials 1115193, Home 4044, Office Supplies 1229749, Toys 4171, Books 3920, Seasonal 1085632, Pharmacy 5431. Clothing excluded.
 - 2026-10-06 — Worker name standardized to sfb-valuation (matches Cloudflare); was sfb-pipeline in wrangler.toml.
+- 2026-10-06 — Root cause of builds not triggering: Cloudflare GitHub app had "Only select repositories" (CaringForACause only). Switched to All repositories.
