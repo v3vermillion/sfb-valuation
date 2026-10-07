@@ -40,3 +40,42 @@
 - 2026-10-07 — First two `deploy-app` runs on main: run 1 died in the fixture builder (fixed in PR #2); run 2 built the 760k fixture and the pack (32.1 MB) and failed only at "Deploy to Cloudflare Workers" because the repository secrets CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID are not set yet. Decision: that step keeps failing loudly rather than skipping (a green run that deployed nothing would mislead), so deploy-app stays red until the two secrets exist. GitHub Actions moved to their Node 24 majors (checkout v5, setup-node v5, setup-python v6) so the Node 20 deprecation annotation stops appearing on every run. An hourly watch (a scheduled Claude routine) checks deploy-app and pipeline runs, open pull requests and the data-store state, pings David only when something needs him, and opens fix pull requests but never merges them.
 - 2026-10-07 — First deploy is live on the fixture at `sfb-value.forgetraining.workers.dev` (Forgetraining Cloudflare account; deploy-app run 5 passed every step once the two secrets existed). Repository variable `LIVE_CHECK_URL` points at the pipeline Worker `https://sfb-valuation.forgetraining.workers.dev/`; the app strips the trailing slash, and the public price route answered a real barcode (Great Value corn, $1.22) from the deployed build. Verified externally: the shell renders and the 760k pack opens on a phone-size viewport, `db/current.json` serves `fixture-f0e541716b`, and a missing pack file returns 404 rather than the page. Target address is `value.strongsvillefoodbank.org` on the food bank's own Cloudflare account; the app Worker moves there once David has access (swap `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID`, add the custom domain), so nobody installs the workers.dev version: a PWA's offline data is tied to its origin and would not follow the move. The first full crawl started 2026-10-07 18:24 UTC (`plan=full`); the first snapshot waits for David's approval per the gates. Cleanup of stale entries in DECISIONS/PLAN/SCHEMA/README is on hold until David says so.
 - 2026-10-07 — Approved (crawler pacing only): after a 429 the Walmart client still raises its request interval by 15% (capped at 5 s) and still backs off with the 45-minute per-run wait cap; new: after every 50 consecutive successful requests it eases the interval by 10%, never below the 1.25 s it started with, so one bad minute no longer slows the whole run. Data format and cursor logic untouched. Applies from the next chained pipeline run (each run checks out main when it starts); the run in progress keeps the old pacing.
+- 2026-10-07 — Pre-rollout proposal list (David): take charge, implement, keep the remaining steps hands-off. Decisions per item:
+  1 pacing recovery: done (PR #4 merged). 2 CI for crawler tests: accepted, `.github/workflows/tests.yml` runs the Python and app
+  tests on every pull request and push to main, separate from `pipeline.yml` so a crawl resume is never gated on it. 3 repo hygiene:
+  accepted, the nine committed `__pycache__` files are untracked. 4 resume every 30 min: accepted, schedule `17,47 * * * *` runs
+  `plan=continue`; a "peek" step reads only the small JSON files (`state/run.json`, published manifest, `sizing.json`,
+  `audit/latest.json`, candidate `gates.json`) through the GitHub API and stops before checking out the data branch when nothing is
+  due. 5 keepalive: accepted, `keepalive.yml` re-enables the scheduled workflows through the API weekly and touches
+  `.github/keepalive` when main has had no commit for 45 days (the bot pushes to data-store are not assumed to count).
+  6 one Walmart budget: accepted as "one queue": every Walmart job runs inside the `pipeline` workflow (one run at a time by its
+  concurrency group) and `continue` picks the next most important job: sizing (once) > crawl resume > build, gates and publish >
+  weekly audit > identify/backfill. The live route keeps its 60 calls/min global cap. 7 alerts: accepted, a composite action opens
+  or updates one GitHub issue per alert kind (label `pipeline-alert`) and closes it when the condition clears; keys: pipeline-failed,
+  gates-hold, review-key-missing, audit-regression, stale-prices, throttled, deploy-failed, deploy-mismatch, tests-failed. The hourly
+  Claude watch is retired; Claude Code stays for diagnosis and fixes. 8 automated acceptance: accepted; thresholds live in
+  `data/gates.json` (department completeness within 30% of the sizing pass, 117/117 sentinels found and priced, live re-check of 500
+  random items in 25 calls with ≥97% exact match (provisional), size parsed for ≥95% of Food rows, per-unit outliers <0.5%, plus the
+  existing drift and count gates); a null threshold means measure-only. The 300-row sample review runs inside the pipeline through
+  the Anthropic API (secret `ANTHROPIC_API_KEY`, model `SFB_REVIEW_MODEL`, default claude-sonnet-5-5) against
+  `data/review-criteria.md`; without the key the snapshot holds and an alert names the secret (set
+  `sample_review.required=false` to waive). `plan=approve` remains as David's manual override. 9 weekly audit: accepted,
+  `audit_every_days=7`, same 500-item live re-check plus per-unit outlier recount, alert below 95% match. 10 price history: accepted
+  from the first publish: `history/baseline-<run>.jsonl.gz` once, then `history/changes-<run>.jsonl.gz` per publish (changed, new and
+  removed rows, promo flag, date) and `history/index.json`; format in `docs/HISTORY.md`; the valuation rule (current vs median of recent
+  non-promo prices) is decided after 4–6 weeks of data. 11 volatility-based cadence and the `specialOffer` clearance test: deferred
+  until 3–4 weekly refreshes exist; cadence lives in `data/schedule.json` so it is a one-line change. 12 store-level pricing request
+  (Strongsville #2266): deferred; only David can submit it. 13 sizing pass: accepted, runs automatically at the start of the next
+  `continue` run (one call per department, ~23) into `sizing.json`, refreshed every 30 days, and feeds the completeness gate and the
+  app-tiering decision (16). 14 popular-barcode backfill and 15 brand-search pilot: deferred to before volunteers, lowest queue
+  priority, evidence rule as written. 16 performance at real size: deferred until sizing is known. 17 update safeguards: accepted,
+  price date shown, staleness banner amber at 14 days and red at 45 with "Update now", persistent storage requested on every platform,
+  no Web Push. 18 deploy only on change: accepted, a pipeline-triggered deploy stops when the live `db/current.json` already serves the
+  published version, and every deploy is verified against the live site. 19–21 simulated volunteers, drills, real devices: deferred to
+  before volunteers. 22 rollback (last 3 snapshots, one tap): deferred; note that data-store history is squashed after each publish,
+  so kept snapshots must be files, not commits. 23 data-branch size watch: deferred. 24 secret rotation: deferred to before rollout and
+  requires David (GitHub PAT, ADMIN_TOKEN, Cloudflare token; update the GitHub secret and the environment network secret together).
+  25 handoff (domain, account move, QR card, handoff doc): pending David's access to the food bank's Cloudflare account.
+  Operating rule: Claude Code takes charge of this list and ships tested, adversarially reviewed changes without waiting;
+  David's remaining decisions arrive as alert issues. Secrets, Cloudflare account changes, crawl scope and anything outside the
+  list are still proposed first.
