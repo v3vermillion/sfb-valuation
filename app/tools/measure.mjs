@@ -99,7 +99,7 @@ if (VIDEO) {
     const tCam = await page.evaluate(() => performance.now());
     await page.waitForSelector("#sheet[open]", { timeout: 20000 });
     await page.waitForFunction(() => window.__sfb.perf.scans.length > 0);
-    const s = await page.evaluate(() => ({ ...window.__sfb.perf.scans[0], engine: document.getElementById("scanEngine").textContent, title: document.getElementById("sheetTitle")?.textContent, kind: document.querySelector("#sheet .kind")?.textContent }));
+    const s = await page.evaluate(() => ({ ...window.__sfb.perf.scans[0], engine: window.__sfb.state.engine, title: document.getElementById("sheetTitle")?.textContent, kind: document.querySelector("#sheet .kind")?.textContent }));
     const tSheet = await page.evaluate(() => performance.now());
     scans.push({ ...s, cameraReadyToSheetMs: +(tSheet - tCam).toFixed(0) });
     if (i === 0) await page.screenshot({ path: new URL("../build/scan-sheet.png", import.meta.url).pathname }).catch(() => {});
