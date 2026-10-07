@@ -1,0 +1,17 @@
+{
+  "note": "Acceptance gates for a candidate snapshot (crawler/qa.py). Edit a value and the next pipeline run re-evaluates the held candidate (its gates.json records a hash of this file + sentinels.json + categories.json). A null threshold means measure-only: the gate is still measured and reported but can never hold a snapshot. Exception: dept_size_tolerance null only disables the page-count comparison; a department that did not finish or kept no items always fails departments_complete. sample_review.required false skips the Claude sample review and publishes on the deterministic gates alone.",
+  "dept_size_tolerance": 0.3,
+  "sentinel_misses_max": 0,
+  "live_sample": 500,
+  "live_match_min": 0.97,
+  "size_parse_min": 0.95,
+  "unit_outliers_max": 0.005,
+  "unit_outlier_group_min": 50,
+  "price_drift_max": 0.02,
+  "item_count_min_ratio": 0.9,
+  "category_count_tolerance": 0.2,
+  "category_count_min_rows": 200,
+  "sample_review": {"required": true, "max_junk_rate": 0.05, "sample_size": 300},
+  "audit_sample": 500,
+  "audit_match_min": 0.95
+}

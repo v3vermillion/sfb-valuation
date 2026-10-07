@@ -116,3 +116,17 @@ class Walmart:
             return
         self.min_interval = max(self.base_interval, self.min_interval * (1 - RECOVER_STEP))
         self.log(f"pace: {self._ok_streak} ok in a row; interval back to {self.min_interval:.2f}s")
+
+    ITEMS_CHUNK = 20   # the /items endpoint accepts up to 20 ids per request
+
+    def get_items(self, ids) -> list:
+        """Fetch items by Walmart item id: `/items?ids=<comma list>`, at most ITEMS_CHUNK ids per
+        request, every request through `get` (so the pacing, 429 back-off and retries apply).
+        Returns the concatenated item dicts; ids Walmart no longer knows are simply absent."""
+        ids = [str(i).strip() for i in (ids or []) if str(i).strip()]
+        out = []
+        for i in range(0, len(ids), self.ITEMS_CHUNK):
+            page = self.get(f"/items?ids={','.join(ids[i:i + self.ITEMS_CHUNK])}")
+            items = page.get("items") if isinstance(page, dict) else page
+            out.extend(it for it in (items or []) if isinstance(it, dict))
+        return out
