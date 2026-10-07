@@ -1,5 +1,5 @@
 {
-  "calls": 2102,
+  "calls": 2172,
   "calls_base": 2029,
   "departments": [
     {
@@ -14,13 +14,13 @@
     },
     {
       "id": "976760",
-      "items": 0,
+      "items": 10400,
       "name": "Health and Medicine",
-      "next": null,
-      "pages": 0,
-      "parts": 0,
-      "status": "pending",
-      "total_pages": null
+      "next": "/api-proxy/service/affil/product/v2/paginated/items?category=976760&soldByWmt=true&count=200&lastDoc=20526292&remainingHits=163425",
+      "pages": 52,
+      "parts": 1,
+      "status": "crawling",
+      "total_pages": 870
     },
     {
       "id": "5431",
@@ -238,6 +238,6 @@
   "started": "2026-10-07T18:24:39+00:00",
   "status": "crawling",
   "throttle_base": 5413,
-  "throttle_wait_s": 5659,
-  "updated": "2026-10-07T22:12:36+00:00"
+  "throttle_wait_s": 5848,
+  "updated": "2026-10-07T22:20:08+00:00"
 }
