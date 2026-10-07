@@ -1,0 +1,243 @@
+{
+  "calls": 860,
+  "calls_base": 0,
+  "departments": [
+    {
+      "id": "976759",
+      "items": 129800,
+      "name": "Food",
+      "next": "/api-proxy/service/affil/product/v2/paginated/items?category=976759&soldByWmt=true&count=200&lastDoc=156178867&remainingHits=185994",
+      "pages": 649,
+      "parts": 6,
+      "status": "crawling",
+      "total_pages": 1579
+    },
+    {
+      "id": "976760",
+      "items": 0,
+      "name": "Health and Medicine",
+      "next": null,
+      "pages": 0,
+      "parts": 0,
+      "status": "pending",
+      "total_pages": null
+    },
+    {
+      "id": "5431",
+      "items": 0,
+      "name": "Pharmacy",
+      "next": null,
+      "pages": 0,
+      "parts": 0,
+      "status": "pending",
+      "total_pages": null
+    },
+    {
+      "id": "1005862",
+      "items": 0,
+      "name": "Personal Care",
+      "next": null,
+      "pages": 0,
+      "parts": 0,
+      "status": "pending",
+      "total_pages": null
+    },
+    {
+      "id": "1085666",
+      "items": 0,
+      "name": "Beauty",
+      "next": null,
+      "pages": 0,
+      "parts": 0,
+      "status": "pending",
+      "total_pages": null
+    },
+    {
+      "id": "7924299",
+      "items": 0,
+      "name": "Premium Beauty",
+      "next": null,
+      "pages": 0,
+      "parts": 0,
+      "status": "pending",
+      "total_pages": null
+    },
+    {
+      "id": "5427",
+      "items": 0,
+      "name": "Baby",
+      "next": null,
+      "pages": 0,
+      "parts": 0,
+      "status": "pending",
+      "total_pages": null
+    },
+    {
+      "id": "5440",
+      "items": 0,
+      "name": "Pets",
+      "next": null,
+      "pages": 0,
+      "parts": 0,
+      "status": "pending",
+      "total_pages": null
+    },
+    {
+      "id": "1115193",
+      "items": 0,
+      "name": "Household Essentials",
+      "next": null,
+      "pages": 0,
+      "parts": 0,
+      "status": "pending",
+      "total_pages": null
+    },
+    {
+      "id": "4044",
+      "items": 0,
+      "name": "Home",
+      "next": null,
+      "pages": 0,
+      "parts": 0,
+      "status": "pending",
+      "total_pages": null
+    },
+    {
+      "id": "1072864",
+      "items": 0,
+      "name": "Home Improvement",
+      "next": null,
+      "pages": 0,
+      "parts": 0,
+      "status": "pending",
+      "total_pages": null
+    },
+    {
+      "id": "5428",
+      "items": 0,
+      "name": "Patio & Garden",
+      "next": null,
+      "pages": 0,
+      "parts": 0,
+      "status": "pending",
+      "total_pages": null
+    },
+    {
+      "id": "1229749",
+      "items": 0,
+      "name": "Office Supplies",
+      "next": null,
+      "pages": 0,
+      "parts": 0,
+      "status": "pending",
+      "total_pages": null
+    },
+    {
+      "id": "1334134",
+      "items": 0,
+      "name": "Arts Crafts & Sewing",
+      "next": null,
+      "pages": 0,
+      "parts": 0,
+      "status": "pending",
+      "total_pages": null
+    },
+    {
+      "id": "4171",
+      "items": 0,
+      "name": "Toys",
+      "next": null,
+      "pages": 0,
+      "parts": 0,
+      "status": "pending",
+      "total_pages": null
+    },
+    {
+      "id": "3920",
+      "items": 0,
+      "name": "Books",
+      "next": null,
+      "pages": 0,
+      "parts": 0,
+      "status": "pending",
+      "total_pages": null
+    },
+    {
+      "id": "1085632",
+      "items": 0,
+      "name": "Seasonal",
+      "next": null,
+      "pages": 0,
+      "parts": 0,
+      "status": "pending",
+      "total_pages": null
+    },
+    {
+      "id": "2637",
+      "items": 0,
+      "name": "Party & Occasions",
+      "next": null,
+      "pages": 0,
+      "parts": 0,
+      "status": "pending",
+      "total_pages": null
+    },
+    {
+      "id": "91083",
+      "items": 0,
+      "name": "Auto & Tires",
+      "next": null,
+      "pages": 0,
+      "parts": 0,
+      "status": "pending",
+      "total_pages": null
+    },
+    {
+      "id": "3944",
+      "items": 0,
+      "name": "Electronics",
+      "next": null,
+      "pages": 0,
+      "parts": 0,
+      "status": "pending",
+      "total_pages": null
+    },
+    {
+      "id": "1105910",
+      "items": 0,
+      "name": "Cell Phones",
+      "next": null,
+      "pages": 0,
+      "parts": 0,
+      "status": "pending",
+      "total_pages": null
+    },
+    {
+      "id": "3891",
+      "items": 0,
+      "name": "Jewelry",
+      "next": null,
+      "pages": 0,
+      "parts": 0,
+      "status": "pending",
+      "total_pages": null
+    },
+    {
+      "id": "4125",
+      "items": 0,
+      "name": "Sports & Outdoors",
+      "next": null,
+      "pages": 0,
+      "parts": 0,
+      "status": "pending",
+      "total_pages": null
+    }
+  ],
+  "plan": "full",
+  "run_id": "20261007-182439-full",
+  "started": "2026-10-07T18:24:39+00:00",
+  "status": "crawling",
+  "throttle_base": 0,
+  "throttle_wait_s": 2272,
+  "updated": "2026-10-07T19:55:33+00:00"
+}
