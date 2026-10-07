@@ -89,3 +89,23 @@
   throttled one, clamped 6–48/min). Back-off, ceiling, wait cap and the recovery stay unchanged as the safety net; the cap is the
   lever on total crawl time. Also requested: a full repository clean-up (docs and files current, accurate, consistent) after the
   automation lands, as its own pull request.
+- 2026-10-07 — Automation integrated (streams: pipeline orchestration, gates/audit/history/review, app/deploy, throttle). Decisions
+  taken while integrating, each measured on the first real Food crawl (305,065 rows replayed through the new pipeline from the live
+  `state/run.json`): (a) size_parse threshold set to 0.85 provisional, measured 0.879 (12% of Food names carry no size to parse);
+  raising it waits for better size parsing. (b) per-unit price outliers measured 7.5% (packet sizes read as cartons, counts read as
+  weights); rather than hold the first snapshot on a parsing problem, `process.build()` now drops the per-unit price of any row more
+  than 10× off its category+unit median and flags it `unit_price_suspect` (19,617 rows), so the app and the equivalents table never
+  see a nonsense per-unit price; the gate keeps measuring the raw share, measure-only (null threshold) until parsing improves, then
+  David's 0.5% applies. (c) A hold caused by a transient failure (live check or review API down) is rechecked after 6 hours
+  (`TRANSIENT_RETRY_HOURS`); a hold on data stands until the config changes. (d) Pacing recommendations: 429s costing under 2% of a
+  run leave the cap alone; a clean run under 2 minutes of traffic recommends nothing; the inferred per-minute limit is the larger of
+  the smallest plausible pre-429 count and the busiest clean minute, so three hiccups after a clean 48/min stretch no longer cut
+  the cap to 6; the cap carries into the next run. (e) `identify/latest.json` is a marker written by the identify plan because
+  git checkouts keep no file times. (f) A skipped audit (no eligible rows) is remembered in `audit/latest.json` so it waits a full
+  period; an audit that errors writes nothing and simply retries at the next run. (g) The app asks for persistent storage after every
+  successful load, at most once a day until granted, and again when the app is installed (Chrome decides silently and changes its
+  answer with engagement). (h) deploy-app compares the live `current.json` with the published manifest before setting up node or
+  checking out the data branch, so a no-op run costs seconds; alert issues are resolved only by a verified deploy or a confirmed
+  no-op. (i) The alert action skips a comment when the body is unchanged and caps bodies at 60 KB. (j) Merge rule while a crawl
+  runs: the suite carries the live state as a fixture (`tests/fixtures/run-live.json`) and a dry run replays the real data-store
+  through the new pipeline before anything merges. Hourly watch retired once the alert path has run on GitHub.

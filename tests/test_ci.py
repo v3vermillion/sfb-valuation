@@ -581,20 +581,39 @@ class Continue(PlanBase):
     def test_audit_due_alerts_or_resolves(self):
         self.write("state/run.json", state("published"))
         self.write("build/published/manifest.json", manifest(1))
+        import crawler
         fake = types.ModuleType("crawler.audit")
         fake.run = lambda wm: {"match_rate": 0.91, "within_5pct": 0.95, "outlier_share": 0.001, "alert": True, "examples": [1]}
-        sys.modules["crawler.audit"] = fake
-        with mock.patch.object(ci, "utcnow", lambda: NOW):
+        with mock.patch.dict(sys.modules, {"crawler.audit": fake}), mock.patch.object(crawler, "audit", fake, create=True), \
+             mock.patch.object(ci, "utcnow", lambda: NOW):
             o, _ = self.run_plan("--plan", "continue")
-        self.assertEqual(o["work"], "audit"); self.assertEqual(o["alert"], "audit-regression")
-        self.assertIn("0.91", o["alert_title"]); self.assertIn("- match_rate: 0.91", self.body(o))
-        fake.run = lambda wm: {"match_rate": 0.99, "alert": False}
-        o, _ = self.run_plan("--plan", "audit")
-        self.assertEqual(o["alert"], "none"); self.assertEqual(o["resolve"], "audit-regression")
+            self.assertEqual(o["work"], "audit"); self.assertEqual(o["alert"], "audit-regression")
+            self.assertIn("0.91", o["alert_title"]); self.assertIn("- match_rate: 0.91", self.body(o))
+            fake.run = lambda wm: {"match_rate": 0.99, "alert": False}
+            o, _ = self.run_plan("--plan", "audit")
+            self.assertEqual(o["alert"], "none"); self.assertEqual(o["resolve"], "audit-regression")
+            # a skipped audit writes nothing itself; ci remembers the attempt so decide() waits a full period
+            fake.run = lambda wm: {"status": "skipped", "alert": False, "reason": "no eligible rows"}
+            o, _ = self.run_plan("--plan", "audit")
+            self.assertEqual(o["alert"], "none"); self.assertEqual(o["resolve"], "")
+            self.assertEqual(self.store.read_json(self.root / "audit" / "latest.json")["status"], "skipped")
+            # an audit error writes nothing and alerts nothing: the next run simply retries
+            (self.root / "audit" / "latest.json").unlink()
+            fake.run = lambda wm: {"status": "error", "alert": False, "reason": "throttled"}
+            o, _ = self.run_plan("--plan", "audit")
+            self.assertEqual(o["alert"], "none"); self.assertEqual(o["resolve"], "")
+            self.assertFalse((self.root / "audit" / "latest.json").exists())
 
     def test_audit_module_missing_is_a_clear_error(self):
-        with self.assertRaises(SystemExit) as cm:
-            self.run_plan("--plan", "audit")
+        import crawler
+        saved = crawler.__dict__.pop("audit", None)
+        try:
+            with mock.patch.dict(sys.modules, {"crawler.audit": None}):
+                with self.assertRaises(SystemExit) as cm:
+                    self.run_plan("--plan", "audit")
+        finally:
+            if saved is not None:
+                crawler.audit = saved
         self.assertIn("audit.py", str(cm.exception))
 
     def test_identify_due_writes_the_marker(self):

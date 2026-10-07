@@ -90,6 +90,18 @@ def build():
         if len(group) > 1 and max(prices) > 1.5 * min(prices):
             conflicts.append({"upc": upc, "items": [(g["id"], g["name"], g["price"]) for g in group][:5]})
 
+    # per-unit prices that are more than 10x off their category+unit median are almost always a parsing
+    # artefact (a packet size taken for the carton, a count read as a weight): keep the item price, drop the
+    # per-unit price and flag the row so the app shows nothing misleading and identify.py never uses it as a basis
+    from .qa import unit_outlier_stats
+    raw_share, unit_priced, outliers = unit_outlier_stats(rows.values(), int(cfg.get("unit_outlier_group_min", 50)))
+    for o in outliers:
+        r = rows[o["id"]]
+        r["unit_price"] = None
+        r["flags"].append("unit_price_suspect")
+    unit_outliers_raw = {"share": raw_share, "unit_priced_rows": unit_priced, "count": len(outliers),
+                         "examples": outliers[:25]}
+
     stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
     out = BUILD / "candidate"
     n = store.write_jsonl_gz(out / "items.jsonl.gz", sorted(rows.values(), key=lambda r: r["id"]))
@@ -102,6 +114,7 @@ def build():
         "rejects_by_department": {k: dict(v) for k, v in rejects.items()},
         "flags": dict(Counter(f for r in rows.values() for f in r["flags"])),
         "upc_price_conflicts": len(conflicts), "upc_price_conflict_examples": conflicts[:25],
+        "unit_outliers_raw": unit_outliers_raw,
     }
     store.write_json(out / "stats.json", stats)
     state["status"] = "built"

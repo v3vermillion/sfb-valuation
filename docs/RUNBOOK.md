@@ -67,6 +67,24 @@ One open issue per kind, updated in place, closed automatically when the conditi
 (three consecutive runs ended on Walmart throttling), `[deploy-failed]`, `[deploy-mismatch]`, `[tests-failed]`.
 Watch the repository (or just the issues) on the GitHub app for phone notifications.
 
+### Pacing (`state.pace`, data-store `throttle/`)
+Every request and every 429 sleep is logged to `throttle/<run>.events.jsonl`; at the end of each crawl invocation
+`crawler/throttle.py` infers whether Walmart limits per second or per minute and at what rate, writes
+`throttle/<run>.analysis.json`, and sets `state.pace = {per_min, inferred, updated, run_id}`: the next run paces under that cap
+(0.85× the inferred limit after 3+ 429s; +10% after a clean run; −15% after a costly one; unchanged when 429s cost under 2%;
+clamped 6–48/min on top of the 1.25 s floor). The job summary prints one pace line per crawl.
+Read a log by hand: `python -m crawler.throttle store/throttle/<run>.events.jsonl --cap <per_min>`.
+
+### Holds and retries
+A held candidate stands until `data/gates.json`, `data/sentinels.json` or `data/categories.json` changes (the candidate's
+`gates.json` carries their hash). A hold marked `transient` (live check or review API unavailable) is rechecked after 6 hours.
+`peek` prints `work=inspect` when `state/run.json` is unreadable so the full job runs and fails loudly. The pipeline-failed issue
+is resolved only by a run whose Run step succeeded (a peek-only run clears nothing). Alerts from Finish win over Run over peek.
+`identify/latest.json` is a marker written by the identify plan (git keeps no file times). A skipped audit (no eligible rows) is
+remembered in `audit/latest.json` and waits a full period; an audit that errored writes nothing and retries next run.
+Rows whose per-unit price is more than 10× off their category+unit median keep their item price but lose the per-unit price
+and carry the flag `unit_price_suspect`; the `unit_outliers` gate reports the raw share (measure-only until parsing improves).
+
 ### Other automation
 - `keepalive.yml` (weekly): re-enables the scheduled workflows through the API and touches `.github/keepalive` when main has
   had no commit for 45 days, so GitHub never disables the schedules after 60 quiet days.
@@ -74,6 +92,8 @@ Watch the repository (or just the issues) on the GitHub app for phone notificati
 - Price history: `data-store:history/` (`baseline-<run>.jsonl.gz`, `changes-<run>.jsonl.gz`, `index.json`); see docs/HISTORY.md.
 - Weekly audit results: `data-store:audit/<date>.json` and `audit/latest.json`.
 - Department sizes: `data-store:sizing.json`.
+- Merge rule while a crawl runs: `tests/fixtures/run-live.json` (the live state) must resume through `decide()` and `continue`
+  in the suite, and the scratch dry run must replay a copy of the real data-store through the new code without an exception.
 
 Run manually: Actions tab → pipeline → Run workflow → plan (continue | core | full | approve | identify | audit | size | status).
 Working data: branch `data-store` (state/, raw/, build/, identify/, history/, audit/, sizing.json). Report for the latest build:

@@ -457,3 +457,21 @@ class GetItems(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class UnitOutlierExtremes(unittest.TestCase):
+    def test_extreme_low_ratio_does_not_divide_by_zero(self):
+        from crawler.qa import unit_outlier_stats
+        rows = [{"id": i, "name": f"row {i}", "cat": "7", "base_unit": "ct", "unit_price": 1.0} for i in range(60)]
+        rows.append({"id": 998, "name": "tiny", "cat": "7", "base_unit": "ct", "unit_price": 0.0001})   # ratio 0.0001
+        rows.append({"id": 999, "name": "huge", "cat": "7", "base_unit": "ct", "unit_price": 50.0})
+        share, total, outliers = unit_outlier_stats(rows, group_min=50)
+        self.assertEqual(total, 62)
+        self.assertEqual([o["id"] for o in outliers], [998, 999], "the 10000x-low row sorts before the 50x-high row")
+        self.assertAlmostEqual(share, 2 / 62, places=5)
+        zero = [{"id": 1, "cat": "7", "base_unit": "ct", "unit_price": 0.0}] * 60
+        self.assertEqual(unit_outlier_stats(zero, group_min=50)[1], 0, "zero unit prices are not unit-priced rows")
+
+
+if __name__ == "__main__":
+    unittest.main()

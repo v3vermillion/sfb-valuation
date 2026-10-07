@@ -33,12 +33,13 @@ A snapshot publishes only when every gate passes; otherwise it holds and an issu
 
 ## Commands (also runnable locally with WM_CONSUMER_ID / WM_PRIVATE_KEY set and SFB_STORE pointing at a data-store checkout)
 - `python -m crawler.ci --plan continue|core|full|approve|identify|audit|size|status|peek|finish`
-- `python -m unittest discover tests`
+- `python -m unittest discover tests` (192 tests; `tests/fixtures/run-live.json` is the live crawl state the pipeline must resume from)
+- `cd app && node --test tests/*.test.mjs`
 
 ## Layout
 - crawler/ — wm.py (signed client, pacing), crawl.py (resumable), normalize.py (rules), process.py (snapshot),
   qa.py (gates/publish), audit.py (weekly live audit), history.py (price history), review.py (sample review),
-  sizing.py (department sizes), identify.py (non-Walmart barcodes → equivalents), ci.py (orchestrator + decide())
+  sizing.py (department sizes), throttle.py (429 analysis, pace cap), identify.py (non-Walmart barcodes → equivalents), ci.py (orchestrator + decide())
 - data/categories.json — scope (departments), category rules, exclusions
 - data/sentinels.json — items that must always be found and priced
 - data/gates.json — acceptance thresholds (null = measure only); data/schedule.json — cadence; data/review-criteria.md — sample review rules

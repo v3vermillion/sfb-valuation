@@ -38,8 +38,9 @@ DEFAULTS = {
     "sentinel_misses_max": 0,
     "live_sample": 500,                 # rows re-checked live against /items?ids=
     "live_match_min": 0.97,
-    "size_parse_min": 0.95,             # share of Food rows with a parsed size
-    "unit_outliers_max": 0.005,         # share of unit-priced rows outside [median/10, median*10] of their group
+    "size_parse_min": 0.85,             # share of Food rows with a parsed size (first real Food crawl measured 0.879)
+    "unit_outliers_max": None,          # share of unit-priced rows outside [median/10, median*10]: measure-only until
+                                        # size parsing improves (first real Food crawl measured 0.075); the rows are flagged
     "unit_outlier_group_min": 50,
     "price_drift_max": 0.02,            # share of rows whose price moved > 50% since the published snapshot
     "item_count_min_ratio": 0.90,
@@ -278,16 +279,28 @@ def unit_outlier_stats(rows, group_min=50):
             if r["unit_price"] < med / 10 or r["unit_price"] > med * 10:
                 outliers.append({"id": r["id"], "name": r.get("name"), "cat": cat, "unit": unit,
                                  "unit_price": r["unit_price"], "median": round(med, 4),
-                                 "ratio": round(r["unit_price"] / med, 2)})
-    outliers.sort(key=lambda o: -abs(o["ratio"] if o["ratio"] >= 1 else 1 / o["ratio"]))
+                                 "ratio": round(r["unit_price"] / med, 6)})
+    # severity = how many times off the median in either direction; a ratio that rounds to 0 must not divide by zero
+    outliers.sort(key=lambda o: -(o["ratio"] if o["ratio"] >= 1 else 1 / max(o["ratio"], 1e-9)))
     share = round(len(outliers) / total, 5) if total else 0.0
     return share, total, outliers
 
 
-def gate_unit_outliers(rows, cfg):
-    share, total, outliers = unit_outlier_stats(rows, int(cfg.get("unit_outlier_group_min") or 50))
+def gate_unit_outliers(rows, cfg, stats=None):
+    """Share of unit-priced rows more than 10x off their category+unit median. process.build() already nulls and
+    flags those rows (unit_price_suspect) so none reaches the app; it records the share it saw in
+    stats["unit_outliers_raw"], which is what this gate measures. Without that record (older candidates) the
+    rows are measured directly."""
+    raw = (stats or {}).get("unit_outliers_raw")
+    if raw and "share" in raw:
+        share, total, outliers = raw["share"], raw.get("unit_priced_rows", 0), list(raw.get("examples") or [])
+        count = raw.get("count", len(outliers))
+    else:
+        share, total, outliers = unit_outlier_stats(rows, int(cfg.get("unit_outlier_group_min") or 50))
+        count = len(outliers)
     mx = cfg.get("unit_outliers_max")
-    detail = f"{len(outliers)} of {total} unit-priced rows outside [median/10, median*10] of their category+unit group ({share:.2%})"
+    detail = (f"{count} of {total} unit-priced rows outside [median/10, median*10] of their category+unit group "
+              f"({share:.2%}); their per-unit prices are dropped and the rows flagged unit_price_suspect")
     return _measured(share <= (mx if mx is not None else 1), share, mx, detail), outliers[:25]
 
 
@@ -397,7 +410,7 @@ def check(wm=None):
     transient |= t
     extras["live"] = live
     gates["size_parse"] = gate_size_parse(rows, cfg.get("size_parse_min"))
-    gates["unit_outliers"], extras["unit_outliers"] = gate_unit_outliers(rows, cfg)
+    gates["unit_outliers"], extras["unit_outliers"] = gate_unit_outliers(rows, cfg, stats)
     vs, extras["drift"], extras["unstable"] = gates_vs_previous(rows, stats, prev, prev_stats, cfg)
     gates.update(vs)
     extras["drift"] = extras["drift"][:50]

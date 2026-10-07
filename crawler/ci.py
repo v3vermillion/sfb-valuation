@@ -375,8 +375,11 @@ def compact_store():
 
 
 def _wm():
+    """One Walmart client per run, paced by the per-minute cap the last crawl inferred (state.pace.per_min),
+    so sizing, crawling, the live gate and the audit all share the same budget and the same cap."""
     from .wm import Walmart
-    return Walmart()
+    cap = ((store.read_json(_state_path()) or {}).get("pace") or {}).get("per_min")
+    return Walmart(max_per_min=cap)
 
 
 def _read_state(strict=True):
@@ -432,6 +435,11 @@ def _crawl(budget_min, inp, start_plan=None, wm=None):
     try:
         _ensure_sizing(wm, inp, now)
         outcome = crawl.run(budget_min, wm=wm)
+        pace = (store.read_json(_state_path()) or {}).get("pace") or {}
+        if pace.get("per_min") or pace.get("inferred"):
+            inf = pace.get("inferred") or {}
+            summary(f"- pace: {pace.get('per_min') or 'no'}/min cap for the next run; this run: "
+                    f"{inf.get('status_429', '?')} x 429, {inf.get('pattern', '?')} pattern, {inf.get('reason', '')}")
     except Throttled as e:
         print(f"paused during sizing: {e}")
         outcome = "throttled"
@@ -589,10 +597,17 @@ def _audit():
     except ImportError as e:
         raise SystemExit(f"crawler/audit.py is missing: {e}")
     res = audit.run(_wm()) or {}
+    status = res.get("status", "ok")
+    if status == "skipped":
+        # audit.run wrote nothing; remember the attempt so the next audit waits a full period instead of 30 minutes
+        store.write_json(_audit_path(), {"status": "skipped", "checked": utcnow().isoformat(timespec="seconds"),
+                                         "reason": res.get("reason")})
     store.checkpoint("audit")
     lines = [f"- {k}: {v}" for k, v in sorted(res.items()) if not isinstance(v, (list, dict))]
     body = "## Audit\n\n" + "\n".join(lines)
     summary(body)
+    if status != "ok":
+        return res          # skipped: waits a period; error: nothing written, retried at the next run; no alert either way
     if res.get("alert"):
         rate = res.get("match_rate")
         shown = f"{rate} ({rate:.0%})" if isinstance(rate, (int, float)) and not isinstance(rate, bool) else "?"
