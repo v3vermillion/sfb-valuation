@@ -1,5 +1,5 @@
 {
-  "calls": 2454,
+  "calls": 2594,
   "calls_base": 2029,
   "departments": [
     {
@@ -14,11 +14,11 @@
     },
     {
       "id": "976760",
-      "items": 53000,
+      "items": 74200,
       "name": "Health and Medicine",
-      "next": "/api-proxy/service/affil/product/v2/paginated/items?category=976760&soldByWmt=true&count=200&lastDoc=116448142&remainingHits=120825",
-      "pages": 265,
-      "parts": 3,
+      "next": "/api-proxy/service/affil/product/v2/paginated/items?category=976760&soldByWmt=true&count=200&lastDoc=221185263&remainingHits=99625",
+      "pages": 371,
+      "parts": 4,
       "status": "crawling",
       "total_pages": 870
     },
@@ -238,6 +238,6 @@
   "started": "2026-10-07T18:24:39+00:00",
   "status": "crawling",
   "throttle_base": 5413,
-  "throttle_wait_s": 6581,
-  "updated": "2026-10-07T22:50:17+00:00"
+  "throttle_wait_s": 6949,
+  "updated": "2026-10-07T23:05:21+00:00"
 }
