@@ -2,6 +2,8 @@
 import unittest
 from unittest import mock
 
+import requests
+
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
@@ -24,14 +26,17 @@ class _Resp:
 
 
 class _Session:
-    """Answers each request with the next scripted status code."""
+    """Answers each request with the next scripted status code, or raises it when it is an exception."""
     def __init__(self, statuses):
         self.statuses = list(statuses)
         self.requests = 0
 
     def get(self, url, headers=None, timeout=None):
         self.requests += 1
-        return _Resp(self.statuses.pop(0))
+        nxt = self.statuses.pop(0)
+        if isinstance(nxt, BaseException):
+            raise nxt
+        return _Resp(nxt)
 
 
 def _client(statuses, **kw):
@@ -62,21 +67,26 @@ class Pacing(unittest.TestCase):
         self.assertEqual(len([l for l in logs if l.startswith("pace:")]), 2)
 
     def test_the_streak_restarts_after_any_non_success(self):
-        c, _ = _client([429] + [200] * 49 + [429] + [200] * 30 + [500] + [200] * 20 + [200] * 30)
+        slowed = 1.25 * 1.15 ** 2
+        c, _ = _client([429] + [200] * 49 + [429] + [200] * 30 + [500] + [200] * 20
+                       + [requests.ConnectionError("connection reset")] + [200] * 50)
         for _ in range(49):                           # 49 ok after the first 429: no easing yet
             c.get("/x")
         self.assertAlmostEqual(c.min_interval, 1.25 * 1.15)
         c.get("/x")                                   # second 429 resets the streak and slows again
-        self.assertAlmostEqual(c.min_interval, 1.25 * 1.15 ** 2)
+        self.assertAlmostEqual(c.min_interval, slowed)
         for _ in range(29):                           # 30 ok
             c.get("/x")
         c.get("/x")                                   # 500 (retried) -> 200: the streak restarts at 1
         for _ in range(19):                           # 20 ok since the 500
             c.get("/x")
-        self.assertAlmostEqual(c.min_interval, 1.25 * 1.15 ** 2, msg="no easing before 50 consecutive successes")
-        for _ in range(30):                           # 50 ok since the 500
+        self.assertAlmostEqual(c.min_interval, slowed, msg="no easing before 50 consecutive successes")
+        c.get("/x")                                   # network error (retried) -> 200: restarts at 1 again
+        for _ in range(48):                           # 49 ok since the network error
             c.get("/x")
-        self.assertAlmostEqual(c.min_interval, 1.25 * 1.15 ** 2 * 0.9)
+        self.assertAlmostEqual(c.min_interval, slowed, msg="a network error must restart the streak")
+        c.get("/x")                                   # 50th consecutive success
+        self.assertAlmostEqual(c.min_interval, slowed * 0.9)
 
     def test_never_below_the_starting_interval_without_a_429(self):
         c, logs = _client([200] * 120, min_interval=2.0)
@@ -87,16 +97,26 @@ class Pacing(unittest.TestCase):
         self.assertFalse([l for l in logs if l.startswith("pace:")])
 
     def test_429_backoff_and_wait_cap_are_unchanged(self):
-        c, _ = _client([429, 429, 200])
+        c, _ = _client([429, 429, 429, 200])
         c.get("/x")
         throttle_sleeps = [s for s in self.sleeps if s >= 5]  # pacing waits are far shorter than the 5 s backoff
-        self.assertEqual(len(throttle_sleeps), 2)
-        self.assertTrue(5 <= throttle_sleeps[0] <= 7 and 10 <= throttle_sleeps[1] <= 12, throttle_sleeps)
+        self.assertEqual(len(throttle_sleeps), 3)
+        for got, base in zip(throttle_sleeps, (5, 10, 20)):   # doubling back-off plus up to 2 s of jitter
+            self.assertTrue(base <= got <= base + 2, throttle_sleeps)
         self.assertAlmostEqual(c.throttle_waited, sum(throttle_sleeps))
-        self.assertAlmostEqual(c.min_interval, min(1.25 * 1.15 ** 2, 5.0))
+        self.assertAlmostEqual(c.min_interval, 1.25 * 1.15 ** 3)
         capped, _ = _client([429, 200], max_throttle_wait=0)
         with self.assertRaises(wm.Throttled):
             capped.get("/x")
+
+    def test_interval_ceiling_holds_and_recovery_starts_from_it(self):
+        c, _ = _client([429] * 10 + [200] * 50)       # 1.25 * 1.15**10 would be 5.06 s: the 5 s ceiling applies
+        c.get("/x")
+        self.assertEqual(c.min_interval, 5.0)
+        self.assertLess(c.throttle_waited, c.max_throttle_wait, "ten 429s stay inside the 45-minute cap")
+        for _ in range(49):
+            c.get("/x")
+        self.assertAlmostEqual(c.min_interval, 4.5)
 
 
 if __name__ == "__main__":
