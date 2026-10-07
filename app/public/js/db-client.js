@@ -12,6 +12,8 @@
 
 const KEY = "sfb.db";
 const PENDING_KEY = "sfb.db.pending";
+const PERSIST_KEY = "sfb.persist";       // when persistent storage was last requested
+const PERSIST_RETRY_MS = 86_400_000;     // ask again at most once a day until it is granted
 const DB_ROOT = "./db/";
 const CACHE_PREFIX = "sfb-db-";
 
@@ -30,6 +32,7 @@ export class DbClient extends EventTarget {
     this.manifest = null;
     this.stats = null;
     this.pendingUpdate = null;
+    this.persisted = undefined;   // true | false | null (the browser cannot say) | undefined (not asked yet)
     this.ready = new Promise((r) => (this.#resolveReady = r));
   }
   #resolveReady = null;
@@ -189,6 +192,7 @@ export class DbClient extends EventTarget {
     this.#emit("ready", { stats: this.stats, manifest });
     this.#resolveReady?.(true);
     this.#cleanup().catch(() => {});
+    this.requestPersistence().catch(() => {});
   }
 
   /**
@@ -247,6 +251,34 @@ export class DbClient extends EventTarget {
   }
 
   async storageEstimate() { try { return await navigator.storage.estimate(); } catch { return null; } }
+
+  /** true when the browser has promised not to evict the pack, false when storage is best-effort, null when it cannot say. */
+  async persistenceStatus() {
+    try {
+      if (!navigator.storage?.persisted) return null;
+      this.persisted = !!(await navigator.storage.persisted());
+      return this.persisted;
+    } catch { return null; }
+  }
+
+  /**
+   * Ask the browser to keep the pack through storage pressure. Chrome decides silently (installed app, bookmark or
+   * enough engagement), Safari grants it to Home Screen apps, Firefox asks the user: cheap to repeat, so it is asked
+   * after every successful load, but at most once a day unless `force` (the app was just installed, which changes
+   * the answer). Resolves to the same values as persistenceStatus(); never throws.
+   */
+  async requestPersistence({ force = false } = {}) {
+    const s = navigator.storage;
+    if (!s?.persist) { this.persisted = null; return null; }
+    try {
+      if (s.persisted && (await s.persisted())) { this.persisted = true; return true; }
+      const askedAt = Number(this.#readKey(PERSIST_KEY)?.askedAt) || 0;
+      if (!force && Date.now() - askedAt < PERSIST_RETRY_MS) { this.persisted = false; return false; }
+      this.#writeKey(PERSIST_KEY, { askedAt: Date.now() });
+      this.persisted = !!(await s.persist());
+      return this.persisted;
+    } catch { return null; }
+  }
 
   // ---- queries
   search(q, limit = 40) { return this.call({ type: "search", q, limit }); }

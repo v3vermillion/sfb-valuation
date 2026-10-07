@@ -5,10 +5,11 @@ import { DbClient } from "./db-client.js";
 import { classifyCode, formatGtin } from "./barcode.js";
 import { resolveCode, fromItem, kindLabel, titleOf, splitTitle, sizeText, fmtNum, notesFor } from "./resolve.js";
 import { tokenize } from "./tokenize.js";
+import { stalenessLevel, stalenessText, daysSince } from "./staleness.js";
 
 // ------------------------------------------------------------------ setup
 const $ = (id) => document.getElementById(id);
-const el = Object.fromEntries(["top", "main", "dock", "status", "statusText", "tallyBtn", "tallyCount", "tallyTotal", "settingsBtn", "progress", "progressBar", "home", "results", "list", "resultsMeta", "recent", "recentList", "q", "clearBtn", "scanBtn", "searchForm", "sheet", "tallySheet", "settings", "scanner", "video", "overlay", "scanClose", "torchBtn", "reticle", "scanHint", "scanTypeForm", "scanTypeInput", "scanTypeBtn", "toasts", "quick", "heroEyebrow"].map((k) => [k, $(k)]));
+const el = Object.fromEntries(["top", "main", "dock", "status", "statusText", "tallyBtn", "tallyCount", "tallyTotal", "settingsBtn", "progress", "progressBar", "stale", "home", "results", "list", "resultsMeta", "recent", "recentList", "q", "clearBtn", "scanBtn", "searchForm", "sheet", "tallySheet", "settings", "scanner", "video", "overlay", "scanClose", "torchBtn", "reticle", "scanHint", "scanTypeForm", "scanTypeInput", "scanTypeBtn", "toasts", "quick", "heroEyebrow"].map((k) => [k, $(k)]));
 
 const LIVE_URL = (document.querySelector('meta[name="sfb-live-check"]')?.content || "").trim().replace(/\/$/, "");
 const BUILD = document.querySelector('meta[name="sfb-build"]')?.content || "dev";
@@ -25,6 +26,7 @@ const state = {
   query: "", seq: 0, last: null, codeHit: null, pending: null, sheetRes: null, qty: 1,
   scan: null, scanOpen: false, scanGen: 0, scanPausedByVisibility: false, engine: "", source: null, pendingReload: false,
   openScannerAfterSheet: false, closeScannerAfterSheet: false, focusSearchAfterSheet: false,
+  stale: "fresh", staleBusy: false, persisted: undefined,
 };
 
 const db = new DbClient();
@@ -167,6 +169,7 @@ db.addEventListener("state", (e) => {
     case "offline-empty": setStatus("offline", "Offline — connect once to get prices"); setProgress(null); if (state.query.trim()) runSearch(state.query); break;
     case "error": setStatus("error", "Database problem — tap for details"); setProgress(null); state.dbError = d.message; if (state.query.trim()) runSearch(state.query); break;
   }
+  renderStale();
 });
 db.addEventListener("progress", (e) => {
   const d = e.detail;
@@ -196,9 +199,58 @@ function maybeApplyPending(offer = false) {
 }
 window.addEventListener("online", () => {
   if (db.version) setStatus("ready", readyText());
+  renderStale();
   (db.version ? db.checkForUpdate() : db.start()).catch(() => {});
 });
-window.addEventListener("offline", () => { if (db.version) setStatus("ready", readyText()); toast("Offline — scanning and search still work", { iconName: "wifi-off" }); });
+window.addEventListener("offline", () => { if (db.version) setStatus("ready", readyText()); renderStale(); toast("Offline — scanning and search still work", { iconName: "wifi-off" }); });
+// an installed app (Android's "Add to Home screen") is what makes Chrome grant persistent storage: ask again right then
+window.addEventListener("appinstalled", () => { db.requestPersistence({ force: true }).catch(() => {}); });
+
+// ------------------------------------------------------------------ prices-as-of banner (amber from 14 days, red from 45)
+// Sits under the header, above the content; the dock never moves. Re-evaluated on every database state change,
+// when the app comes back to the foreground, when the network comes and goes, and once an hour for a phone left open.
+let staleHtml = "";
+function renderStale() {
+  const date = priceDate();
+  const level = db.version ? stalenessLevel(date) : "fresh";
+  state.stale = level;
+  el.status.dataset.stale = level;
+  if (level === "fresh") {
+    if (!el.stale.hidden) { el.stale.hidden = true; el.stale.innerHTML = ""; staleHtml = ""; }
+    syncBannerInset();
+    return;
+  }
+  const hint = navigator.onLine ? "" : " Connect to the internet, then tap Update now.";
+  const html = `${icon("clock")}<div class="stale-text"><b>${esc(stalenessText(level, daysSince(date)))}</b><span>Checked ${esc(fmtDate(date, true))}.${hint}</span></div><button class="btn btn--sm" type="button" data-act="update"${state.staleBusy ? " disabled" : ""}>${state.staleBusy ? "Checking…" : "Update now"}</button>`;
+  // only touch the DOM when the words change: a re-render would drop focus from the button
+  if (html !== staleHtml) { el.stale.innerHTML = html; staleHtml = html; }
+  el.stale.dataset.level = level;
+  el.stale.hidden = false;
+  syncBannerInset();
+}
+/** The banner is fixed under the header, so the content below is pushed down by its measured height (0 when hidden). */
+function syncBannerInset() { document.documentElement.style.setProperty("--banner-h", el.stale.hidden ? "0px" : `${el.stale.offsetHeight}px`); }
+if ("ResizeObserver" in window) new ResizeObserver(syncBannerInset).observe(el.stale);
+el.stale.addEventListener("click", (e) => { if (e.target.closest("[data-act=update]")) checkNow(); });
+document.addEventListener("visibilitychange", () => { if (!document.hidden) renderStale(); });
+setInterval(renderStale, 3600_000);
+
+/** Settings' "Check for new prices" and the banner's "Update now" share one path: check, download, apply, say what happened. */
+async function checkNow(btn = null) {
+  if (!navigator.onLine) { toast("You're offline — will check when back online", { iconName: "wifi-off" }); return; }
+  if (state.staleBusy) { toast("Already checking"); return; }
+  const wasStale = state.stale !== "fresh";
+  state.staleBusy = true; if (btn) btn.disabled = true; renderStale();
+  const d = toast("Checking for new prices…", { ms: 0, iconName: "refresh" });
+  try {
+    const r = await db.checkForUpdate({ apply: true });
+    d();
+    toast(r.upToDate ? (wasStale ? "No newer prices have been published yet" : "Prices are up to date") : r.applied || r.installed ? `Prices as of ${fmtDate(priceDate(), true)}` : r.busy ? "Already checking" : "Nothing new yet");
+    if (db.version) setStatus("ready", readyText());
+    if (el.settings.open) refreshSettings();
+  } catch (err) { d(); toast(`Couldn't check: ${err.message}`, { iconName: "info" }); }
+  finally { state.staleBusy = false; if (btn?.isConnected) btn.disabled = false; renderStale(); }
+}
 
 // ------------------------------------------------------------------ search
 el.q.addEventListener("input", () => {
@@ -622,34 +674,37 @@ function settingsHtml() {
       <dt>Barcodes</dt><dd>${fmtInt(m.upcs)}</dd>
       <dt>Equivalents</dt><dd>${fmtInt(m.equivalents)}</dd>
       <dt>On this phone</dt><dd>${(m.totalGzBytes / 1048576).toFixed(1)} MB</dd>
+      <dt>Storage</dt><dd id="storageMode">${esc(storageText(state.persisted))}</dd>
       <dt>Opened in</dt><dd>${s?.wallMs ?? "—"} ms</dd>
       <dt>Snapshot</dt><dd class="mono">${esc(m.version)}</dd>
       <dt>App build</dt><dd class="mono">${esc(BUILD)}</dd>
-    </dl>` : `<p class="note${state.dbError ? " note--warn" : ""}">${esc(state.dbError ? `The database couldn't be opened: ${state.dbError}` : db.state === "offline-empty" ? "Prices haven't been downloaded yet. Connect once and they stay on this phone." : "The price database hasn't finished loading.")}</p>`}
+    </dl>
+    <p class="note" id="storageNote"${state.persisted === false ? "" : " hidden"}>Storage is best-effort: the phone may clear the prices to free space (they re-download when online). Adding the app to the Home Screen keeps them.</p>` : `<p class="note${state.dbError ? " note--warn" : ""}">${esc(state.dbError ? `The database couldn't be opened: ${state.dbError}` : db.state === "offline-empty" ? "Prices haven't been downloaded yet. Connect once and they stay on this phone." : "The price database hasn't finished loading.")}</p>`}
     ${db.pendingUpdate ? `<p class="note">Newer prices (${esc(fmtDate(db.pendingUpdate.manifest?.priceDate, true))}) are downloaded and will be used as soon as nothing is open.</p>` : ""}
     ${m?.fixture ? `<p class="note note--warn">Sample data. This snapshot is a synthetic, full-size stand-in built in the shape of the real crawl so speed and behaviour can be proven before the first published crawl. Prices are plausible, not real.</p>` : ""}
     <div class="actions"><button class="btn btn--ghost" type="button" data-act="update">${icon("refresh")} Check for new prices</button><button class="btn btn--danger" type="button" data-act="reset">${icon("trash")} Reset app data</button></div>
     <p class="fine">Prices are Walmart.com prices for the Strongsville area captured by the food bank's price pipeline. “Equivalent value” items aren't sold at Walmart; they take the price of the closest Walmart item by type and size. Everything works offline once the database is on the phone. Non-Walmart barcodes are identified with data from Open Food Facts, Open Beauty Facts and Open Products Facts (ODbL). Barcode decoding by zxing-cpp (Apache-2.0).</p>
   </div>`;
 }
-function openSettings() { modals.open(el.settings, settingsHtml()); }
-function refreshSettings() { el.settings.innerHTML = settingsHtml(); el.settings.querySelector(".x-btn")?.addEventListener("click", () => modals.close(el.settings)); grabToDismiss(el.settings); }
+/** "Persistent" means the browser promised not to evict the pack; "best-effort" means it may, under storage pressure. */
+const storageText = (p) => (p === true ? "Persistent" : p === false ? "Best-effort" : p === null ? "Not reported" : "Checking…");
+function fillStorage() {
+  db.persistenceStatus().then((p) => {
+    state.persisted = p;
+    const dd = el.settings.querySelector("#storageMode"); if (dd) dd.textContent = storageText(p);
+    const note = el.settings.querySelector("#storageNote"); if (note) note.hidden = p !== false;
+  }).catch(() => {});
+}
+function openSettings() { modals.open(el.settings, settingsHtml()); fillStorage(); }
+function refreshSettings() { el.settings.innerHTML = settingsHtml(); el.settings.querySelector(".x-btn")?.addEventListener("click", () => modals.close(el.settings)); grabToDismiss(el.settings); fillStorage(); }
 el.settings.addEventListener("click", async (e) => {
   const th = e.target.closest("[data-theme]");
   if (th) { prefs.theme = th.dataset.theme; writeJson(PREFS_KEY, prefs); applyTheme(); el.settings.querySelectorAll("[data-theme]").forEach((b) => b.setAttribute("aria-pressed", String(b === th))); return; }
   const sw = e.target.closest("[data-pref]");
   if (sw) { const k = sw.dataset.pref; prefs[k] = !prefs[k]; writeJson(PREFS_KEY, prefs); sw.setAttribute("aria-checked", String(prefs[k])); haptic(5); return; }
-  const act = e.target.closest("[data-act]")?.dataset.act;
-  if (act === "update") {
-    if (!navigator.onLine) { toast("You're offline — will check when back online", { iconName: "wifi-off" }); return; }
-    const d = toast("Checking for new prices…", { ms: 0, iconName: "refresh" });
-    try {
-      const r = await db.checkForUpdate({ apply: true });
-      d();
-      toast(r.upToDate ? "Prices are up to date" : r.applied || r.installed ? `Prices as of ${fmtDate(db.manifest?.priceDate, true)}` : r.busy ? "Already checking" : "Nothing new yet");
-      setStatus("ready", readyText()); refreshSettings();
-    } catch (err) { d(); toast(`Couldn't check: ${err.message}`, { iconName: "info" }); }
-  } else if (act === "reset") {
+  const actBtn = e.target.closest("[data-act]"), act = actBtn?.dataset.act;
+  if (act === "update") await checkNow(actBtn);
+  else if (act === "reset") {
     if (!confirm("Remove the downloaded prices, tally and recents from this phone? The app will re-download prices when online.")) return;
     await db.reset(); tally = []; recent = [];
     for (const k of [TALLY_KEY, RECENT_KEY, PREFS_KEY]) { try { localStorage.removeItem(k); } catch { /* ignore */ } }
