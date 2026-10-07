@@ -638,7 +638,7 @@ def main():
     for f in [Path(__file__), Path(__file__).with_name("fixture_vocab.py"), Path(__file__).with_name("sentinel_items.py"),
               ROOT / "crawler" / "normalize.py", ROOT / "crawler" / "identify.py", ROOT / "data" / "categories.json", ROOT / "data" / "sentinels.json"]:
         h.update(f.read_bytes() if f.exists() else b"")
-    h.update(str(args.items).encode()); h.update(str(args.seed).encode() if hasattr(args, "seed") else b"")
+    h.update(f"{a.items}:{a.seed}:{a.equivalents}".encode())
     run_id = "fixture-" + h.hexdigest()[:10]
     stats = {"built": stamp, "run_id": run_id, "plan": "full", "items": n, "upcs": upcs, "carried_over": 0,
              "raw_by_department": dict(Counter(r["dept"] for r in rows)),
