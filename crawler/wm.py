@@ -11,6 +11,10 @@ HOST = "https://developer.api.walmart.com"
 API = HOST + "/api-proxy/service/affil/product/v2"
 
 
+RECOVER_AFTER = 50      # consecutive successful requests before the pace eases
+RECOVER_STEP = 0.10     # fraction of min_interval removed at each easing
+
+
 class Throttled(Exception):
     """Raised when Walmart keeps returning 429 beyond the allowed wait budget."""
 
@@ -30,7 +34,9 @@ class Walmart:
         self.key = _load_key(private_key or os.environ["WM_PRIVATE_KEY"])
         self.key_version = (key_version or os.environ.get("WM_KEY_VERSION") or "1").strip()
         self.min_interval = min_interval          # seconds between requests (429 seen at ~1/s)
+        self.base_interval = min_interval         # the floor pacing recovers back to
         self.max_throttle_wait = max_throttle_wait  # total 429 wait allowed per run before pausing
+        self._ok_streak = 0                       # consecutive 200s since the last non-success
         self.throttle_waited = 0.0
         self.calls = 0
         self._last = 0.0
@@ -69,6 +75,7 @@ class Walmart:
             try:
                 r = self.s.get(self.url(path_or_url), headers=self._headers(), timeout=60)
             except requests.RequestException as e:
+                self._ok_streak = 0
                 server_errors += 1
                 if server_errors > 5:
                     raise
@@ -77,7 +84,9 @@ class Walmart:
                 backoff = min(backoff * 2, 300)
                 continue
             if r.status_code == 200:
+                self._recover_pace()
                 return r.json()
+            self._ok_streak = 0
             if r.status_code == 429:
                 if self.throttle_waited >= self.max_throttle_wait:
                     raise Throttled(f"429 persisted; waited {self.throttle_waited/60:.0f} min this run")
@@ -97,3 +106,13 @@ class Walmart:
                 backoff = min(backoff * 2, 300)
                 continue
             raise RuntimeError(f"HTTP {r.status_code} for {path_or_url}: {r.text[:500]}")
+
+    def _recover_pace(self):
+        """A 429 raises min_interval for the rest of the run (see get); this lets it come back down.
+        After every RECOVER_AFTER consecutive successful requests the interval drops by RECOVER_STEP,
+        never below the interval the client started with."""
+        self._ok_streak += 1
+        if self.min_interval <= self.base_interval or self._ok_streak % RECOVER_AFTER:
+            return
+        self.min_interval = max(self.base_interval, self.min_interval * (1 - RECOVER_STEP))
+        self.log(f"pace: {self._ok_streak} ok in a row; interval back to {self.min_interval:.2f}s")
