@@ -1,0 +1,63 @@
+name: keepalive
+
+# GitHub disables scheduled workflows after 60 days without repository activity. Once a week this
+# re-enables every scheduled workflow and, when main has been quiet for 45 days, commits a one-line
+# timestamp to .github/keepalive so the repository shows activity. Commits made with the workflow
+# token do not trigger other workflows.
+
+on:
+  schedule:
+    - cron: "23 5 * * 1"   # Mondays 05:23 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: keepalive
+  cancel-in-progress: false
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BRANCH: ${{ github.event.repository.default_branch || 'main' }}
+      QUIET_DAYS: "45"
+    steps:
+      - name: Re-enable scheduled workflows
+        run: |
+          set -u
+          for wf in pipeline.yml deploy-app.yml keepalive.yml tests.yml; do
+            if gh api -X PUT "repos/${GITHUB_REPOSITORY}/actions/workflows/${wf}/enable" >/dev/null 2>&1; then
+              echo "enabled ${wf}"
+            else
+              echo "::warning::could not enable ${wf} (missing workflow or insufficient permission)"
+            fi
+          done
+
+      - name: Touch .github/keepalive when the branch has been quiet
+        run: |
+          set -u
+          last="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${BRANCH}" --jq '.commit.committer.date' 2>/dev/null || true)"
+          if [ -z "$last" ]; then
+            echo "::warning::could not read the newest commit on ${BRANCH}; skipping the keepalive commit"; exit 0
+          fi
+          last_s="$(date -u -d "$last" +%s 2>/dev/null || echo 0)"
+          now_s="$(date -u +%s)"
+          age_days=$(( (now_s - last_s) / 86400 ))
+          echo "newest commit on ${BRANCH}: ${last} (${age_days} days ago)"
+          if [ "$last_s" -gt 0 ] && [ "$age_days" -lt "$QUIET_DAYS" ]; then
+            echo "active within ${QUIET_DAYS} days; nothing to do"; exit 0
+          fi
+          sha="$(gh api "repos/${GITHUB_REPOSITORY}/contents/.github/keepalive?ref=${BRANCH}" --jq '.sha' 2>/dev/null || true)"
+          content="$(printf 'keepalive %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" | base64 -w0)"
+          args=(-f message="keepalive: keep scheduled workflows enabled" -f content="$content" -f branch="$BRANCH")
+          if [ -n "$sha" ]; then args+=(-f sha="$sha"); fi
+          if gh api -X PUT "repos/${GITHUB_REPOSITORY}/contents/.github/keepalive" "${args[@]}" >/dev/null; then
+            echo "committed .github/keepalive on ${BRANCH}"
+          else
+            echo "::warning::could not commit .github/keepalive"; exit 1
+          fi
