@@ -1,14 +1,18 @@
 // scanner.js — camera barcode scanning with a native-first, wasm-fallback engine.
 //
 // Engine choice: BarcodeDetector when the browser has it AND it passes a self-test (iOS 18 shipped a
-// BarcodeDetector that silently detects nothing), otherwise zxing-wasm running in a dedicated worker so
-// the UI stays at 60fps while frames are decoded. Detection requires two agreeing reads (or one native
-// read) before it fires, which removes the misreads that make volunteers distrust a scanner.
+// BarcodeDetector that silently detects nothing), otherwise zxing-cpp (wasm) in a dedicated worker so the
+// UI stays at 60fps while frames are decoded. Two agreeing reads are required before a result fires, and a
+// code that was just accepted is ignored for a couple of seconds so the item still in frame after
+// "Add to tally" does not fire again.
 
 import { toGtin14, checkDigit } from "./barcode.js";
 
-const FORMATS = ["ean_13", "ean_8", "upc_a", "upc_e", "itf", "code_128"];
-const ZXING_FORMATS = ["EAN-13", "EAN-8", "UPC-A", "UPC-E", "ITF", "Code128"];
+// Retail symbologies only: anything else (Code 128 shipping labels, QR) is not a product code.
+const FORMATS = ["ean_13", "ean_8", "upc_a", "upc_e", "itf"];
+const ZXING_FORMATS = ["EAN-13", "EAN-8", "UPC-A", "UPC-E", "ITF"];
+const DETECT_TIMEOUT_MS = 4000;
+const REFIRE_SUPPRESS_MS = 2500;
 
 let enginePromise = null;
 
@@ -47,10 +51,12 @@ async function nativeWorks() {
 }
 
 function makeZxingWorker() {
-  // module worker: imports the vendored zxing-wasm reader; wasm is fetched relative to the module
+  // module worker built from a Blob: relative imports are rewritten to absolute URLs so the vendored
+  // reader (and its wasm, via locateFile) resolve from any page URL
+  const vendor = new URL("../vendor/", new URL("./js/", location.href)).href;
   const code = `
-    import { readBarcodes, prepareZXingModule } from "../vendor/zxing-reader.js";
-    prepareZXingModule({ overrides: { locateFile: (f) => new URL("../vendor/" + f, import.meta.url).href }, fireImmediately: true });
+    import { readBarcodes, prepareZXingModule } from ${JSON.stringify(vendor + "zxing-reader.js")};
+    prepareZXingModule({ overrides: { locateFile: (f) => ${JSON.stringify(vendor)} + f }, fireImmediately: true });
     self.onmessage = async (e) => {
       const { id, bitmap, width, height } = e.data;
       try {
@@ -59,17 +65,12 @@ function makeZxingWorker() {
         const img = g.getImageData(0, 0, width, height);
         const res = await readBarcodes(img, { formats: ${JSON.stringify(ZXING_FORMATS)}, tryHarder: false, tryRotate: true, tryInvert: false, maxNumberOfSymbols: 1 });
         postMessage({ id, results: res.filter((r) => r.isValid).map((r) => ({ rawValue: r.text, format: r.format, points: r.position ? [r.position.topLeft, r.position.topRight, r.position.bottomRight, r.position.bottomLeft] : null })) });
-      } catch (err) { postMessage({ id, error: String(err) }); }
+      } catch (err) { postMessage({ id, error: String(err && err.message || err) }); }
     };`;
-  const blob = new Blob([code], { type: "text/javascript" });
-  // Blob workers lose the base URL; build with an absolute import by rewriting relative paths
-  const base = new URL("./js/", location.href).href;
-  const abs = code.replaceAll('"../vendor/zxing-reader.js"', JSON.stringify(new URL("../vendor/zxing-reader.js", base).href)).replace('new URL("../vendor/" + f, import.meta.url).href', `${JSON.stringify(new URL("../vendor/", base).href)} + f`);
-  URL.revokeObjectURL; // no-op reference keeps linters quiet
-  return new Worker(URL.createObjectURL(new Blob([abs], { type: "text/javascript" })), { type: "module" });
+  return new Worker(URL.createObjectURL(new Blob([code], { type: "text/javascript" })), { type: "module" });
 }
 
-/** Resolve the detection engine once per session. */
+/** Resolve the detection engine once per session (reset on a fatal failure so the next open retries). */
 export function getEngine() {
   if (!enginePromise) {
     enginePromise = (async () => {
@@ -78,11 +79,14 @@ export function getEngine() {
         return { name: "native", detect: async (source) => (await det.detect(source)).map((r) => ({ rawValue: r.rawValue, format: r.format, points: r.cornerPoints })) };
       }
       const w = makeZxingWorker();
-      let seq = 0; const pending = new Map();
-      w.onmessage = (e) => { const p = pending.get(e.data.id); if (!p) return; pending.delete(e.data.id); e.data.error ? p.reject(new Error(e.data.error)) : p.resolve(e.data.results); };
+      let seq = 0, broken = null; const pending = new Map();
+      const failAll = (err) => { broken = err; for (const p of pending.values()) { clearTimeout(p.timer); p.reject(err); } pending.clear(); };
+      w.onmessage = (e) => { const p = pending.get(e.data.id); if (!p) return; pending.delete(e.data.id); clearTimeout(p.timer); e.data.error ? p.reject(new Error(e.data.error)) : p.resolve(e.data.results); };
+      w.onerror = (e) => failAll(new Error(e.message || "barcode decoder failed to start"));
       return {
         name: "zxing",
         detect: async (video) => {
+          if (broken) throw broken;
           const vw = video.videoWidth, vh = video.videoHeight;
           if (!vw) return [];
           const scale = Math.min(1, 720 / vw);
@@ -90,7 +94,7 @@ export function getEngine() {
           // no resize options here: Safari ignores/rejects them for video sources; the worker scales when it draws
           const bitmap = await createImageBitmap(video);
           const id = ++seq;
-          const pr = new Promise((resolve, reject) => pending.set(id, { resolve, reject }));
+          const pr = new Promise((resolve, reject) => pending.set(id, { resolve, reject, timer: setTimeout(() => { pending.delete(id); reject(new Error("decoder timed out")); }, DETECT_TIMEOUT_MS) }));
           w.postMessage({ id, bitmap, width, height }, [bitmap]);
           const res = await pr;
           // points are in the downscaled frame; map back to video pixels
@@ -102,12 +106,23 @@ export function getEngine() {
   return enginePromise;
 }
 
+/** Only retail product codes, as the symbology reports them: no digit scraping from other formats. */
+function productDigits(r) {
+  const v = String(r.rawValue || "");
+  if (!/^\d+$/.test(v)) return null;
+  const f = String(r.format || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (f === "ean13" || f === "upca") return v.length === 12 || v.length === 13 ? v : null;
+  if (f === "ean8" || f === "upce") return v.length === 8 ? v : null;
+  if (f === "itf") return v.length === 14 ? v : null;
+  return [8, 12, 13, 14].includes(v.length) ? v : null;
+}
+
 /**
  * Start the camera + detection loop.
  * @param {HTMLVideoElement} video
  * @param {HTMLCanvasElement} overlay
  * @param {(hit:{gtin:object, raw:string, format:string, ms:number}) => void} onHit
- * @param {(info) => void} onStatus
+ * @param {(info) => void} onStatus   {engine} | {torch} | {error} | {fatal, error}
  */
 export async function startScanner(video, overlay, onHit, onStatus) {
   const engine = await getEngine();
@@ -123,8 +138,9 @@ export async function startScanner(video, overlay, onHit, onStatus) {
   // try to focus continuously; harmless when unsupported
   try { await track.applyConstraints({ advanced: [{ focusMode: "continuous" }] }); } catch { /* optional */ }
 
-  let running = true, busy = false, torchOn = false;
+  let running = true, stopped = false, busy = false, torchOn = false, errors = 0;
   let lastValue = null, lastCount = 0, lastT = 0;
+  let acceptedValue = null, acceptedT = 0;
   const g = overlay.getContext("2d");
 
   function drawPoints(points) {
@@ -146,34 +162,45 @@ export async function startScanner(video, overlay, onHit, onStatus) {
   }
 
   async function tick() {
-    if (!running) return;
+    if (!running || stopped) return;
     if (!busy && video.readyState >= 2) {
       busy = true;
       const t0 = performance.now();
       try {
         const res = await engine.detect(video);
-        const hit = res.find((r) => /^\d{8,14}$/.test((r.rawValue || "").replace(/\D/g, "")));
+        errors = 0;
+        if (!running || stopped) return;                     // stopped or paused while the frame was decoding
+        let hit = null, digits = null;
+        for (const r of res) { const d = productDigits(r); if (d) { hit = r; digits = d; break; } }
         if (hit) {
-          const digits = hit.rawValue.replace(/\D/g, "");
           const now = performance.now();
-          if (digits === lastValue && now - lastT < 1500) lastCount++; else { lastValue = digits; lastCount = 1; }
-          lastT = now;
-          drawPoints(hit.points);
-          const needed = engine.name === "native" ? 1 : 2;
-          if (lastCount >= needed) {
-            const gtin = toGtin14(digits, hit.format);
-            running = false;
-            onHit({ gtin, raw: digits, format: hit.format, points: hit.points, ms: Math.round(now - t0), engine: engine.name });
-            return;
+          if (digits === acceptedValue && now - acceptedT < REFIRE_SUPPRESS_MS) { acceptedT = now; lastT = now; drawPoints(hit.points); }   // the item just priced is still in frame
+          else {
+            if (digits === lastValue && now - lastT < 1500) lastCount++; else { lastValue = digits; lastCount = 1; }
+            lastT = now;
+            drawPoints(hit.points);
+            if (lastCount >= 2) {                              // two agreeing reads, whichever engine
+              const gtin = toGtin14(digits, hit.format, { scanned: true });
+              acceptedValue = digits; acceptedT = now;
+              running = false;
+              onHit({ gtin, raw: digits, format: hit.format, points: hit.points, ms: Math.round(now - t0), engine: engine.name });
+              return;
+            }
           }
         } else if (performance.now() - lastT > 600) {
           drawPoints(null);
         }
       } catch (err) {
-        onStatus?.({ error: String(err) });
+        errors++;
+        if (errors >= 8 || /failed to start|timed out/.test(String(err?.message))) {
+          running = false; enginePromise = null;             // let the next open rebuild the engine
+          onStatus?.({ fatal: true, error: String(err?.message || err) });
+          return;
+        }
+        onStatus?.({ error: String(err?.message || err) });
       } finally { busy = false; }
     }
-    if (running) setTimeout(tick, engine.name === "native" ? 90 : 70);
+    if (running && !stopped) setTimeout(tick, engine.name === "native" ? 90 : 70);
   }
   tick();
 
@@ -182,7 +209,9 @@ export async function startScanner(video, overlay, onHit, onStatus) {
     hasTorch,
     async setTorch(on) { try { await track.applyConstraints({ advanced: [{ torch: !!on }] }); torchOn = !!on; return torchOn; } catch { return torchOn; } },
     get torch() { return torchOn; },
-    resume() { if (!running) { running = true; lastValue = null; lastCount = 0; drawPoints(null); tick(); } },
-    stop() { running = false; stream.getTracks().forEach((t) => t.stop()); video.srcObject = null; drawPoints(null); },
+    get running() { return running && !stopped; },
+    pause() { running = false; drawPoints(null); },
+    resume() { if (stopped) return; if (!running) { running = true; lastValue = null; lastCount = 0; drawPoints(null); tick(); } },
+    stop() { running = false; stopped = true; stream.getTracks().forEach((t) => t.stop()); video.srcObject = null; drawPoints(null); },
   };
 }

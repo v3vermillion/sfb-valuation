@@ -20,7 +20,14 @@ on:
         default: "true"
   push:
     branches: [main]
-    paths: ["app/**", ".github/workflows/deploy-app.yml"]
+    paths:
+      - "app/**"
+      - ".github/workflows/deploy-app.yml"
+      - "crawler/normalize.py"
+      - "crawler/identify.py"
+      - "data/categories.json"
+      - "data/sentinels.json"
+      - "requirements.txt"
   workflow_run:
     workflows: [pipeline]
     types: [completed]
@@ -34,6 +41,8 @@ concurrency:
 
 jobs:
   build-deploy:
+    # a pipeline run only triggers a deploy when it succeeded (a failed or no-op run has nothing new)
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     defaults:
@@ -42,6 +51,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check out the published snapshot (data-store branch, if it exists)
+        id: store
         uses: actions/checkout@v4
         continue-on-error: true
         with:
@@ -64,6 +74,12 @@ jobs:
           MODE: ${{ github.event.inputs.data || 'auto' }}
         run: |
           STORE="$GITHUB_WORKSPACE/store"
+          if [ "${{ steps.store.outcome }}" != "success" ] && [ "$MODE" != "fixture" ]; then
+            # the checkout failed: only fall back to the fixture when the branch truly does not exist
+            if git ls-remote --exit-code --heads origin data-store >/dev/null 2>&1; then
+              echo "::error::The data-store checkout failed although the branch exists; refusing to deploy synthetic prices over a real snapshot. Re-run the workflow."; exit 1
+            fi
+          fi
           if [ "$MODE" != "fixture" ] && [ -f "$STORE/build/published/manifest.json" ]; then
             echo "source=snapshot" >> "$GITHUB_OUTPUT"; echo "store=$STORE" >> "$GITHUB_OUTPUT"
             echo "Using published snapshot $(python3 -c "import json;print(json.load(open('$STORE/build/published/manifest.json'))['version'])")"
@@ -72,6 +88,10 @@ jobs:
           else
             echo "source=fixture" >> "$GITHUB_OUTPUT"; echo "store=$GITHUB_WORKSPACE/app/build/fixture-store" >> "$GITHUB_OUTPUT"
             echo "No published snapshot: building the 760k-item synthetic fixture (the app will say 'sample data')"
+            if [ "${{ github.event_name }}" = "workflow_run" ]; then
+              # a pipeline run that published nothing changes nothing for the app: do not redeploy the fixture
+              echo "deploy=false" >> "$GITHUB_OUTPUT"; echo "Pipeline run without a published snapshot: build only, no deploy"
+            fi
           fi
 
       - name: Build the fixture (only when there is no published snapshot)
@@ -98,7 +118,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Deploy to Cloudflare Workers (static assets)
-        if: ${{ (github.event.inputs.deploy || 'true') == 'true' }}
+        if: ${{ (github.event.inputs.deploy || 'true') == 'true' && steps.data.outputs.deploy != 'false' }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

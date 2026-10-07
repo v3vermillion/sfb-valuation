@@ -21,7 +21,8 @@ app/
     js/scanner.js    camera + native BarcodeDetector (self-tested) or zxing-cpp wasm in a worker
     vendor/          zxing-wasm reader (ESM + wasm, Apache-2.0)   fonts/  Geist + Geist Mono (OFL)
   tools/
-    make_fixture.py  760k-row synthetic snapshot in the crawler's row format (through crawler/normalize.py)
+    make_fixture.py  760k-row synthetic snapshot in the crawler's row format (through crawler/normalize.py); its
+                     version is a hash of the inputs, so unchanged inputs never make phones re-download
     build-db.mjs     snapshot (items.jsonl.gz + equivalents) → sfb-pack v1 under dist/db/<version>/
     build-site.mjs   public/ → dist/, stamps sw.js + config meta, writes _headers
     serve.mjs        local static server that mirrors production headers
@@ -86,7 +87,9 @@ are warmed after load and the rest live in a small LRU.
 version, remembers the version in localStorage and asks the worker to open it. Opening means: read each file
 from Cache Storage, inflate with `DecompressionStream`, wrap typed arrays over the buffers (no parsing, no copy),
 decode the dictionary. On every launch the app fetches `db/current.json` (network-first, 1 KB); a newer
-snapshot downloads in the background into its own bucket and is swapped in when nothing is open (or on tap).
+snapshot downloads in the background into its own bucket while the current one keeps answering, and is swapped in
+when nothing is open (or on tap, or at the next launch). The swap is committed only after the new pack opens; a pack
+that fails to open is deleted and the previous one restored.
 The service worker precaches only the app shell (HTML, CSS, JS, fonts, wasm, icons: ~1.2 MB).
 
 **Search** (`db-worker.js`) — tokenize the query (shared tokenizer), expand abbreviations (gv, pb, oz, pk…),
@@ -101,7 +104,9 @@ off-screen rows skip layout via `content-visibility`.
 **Barcodes** (`barcode.js`) — GS1 check digits, UPC-E → UPC-A expansion, 11-digit typed codes completed, EAN-13
 with a leading zero folded into UPC-A, GTIN-14 keys as exact doubles (≤ 2^53), GS1 US store labels
 `2 IIIII V PPPP C` with the 4-digit price verifier (and the 5-digit no-verifier fallback), PLU 3000–4999 with
-8/9 prefixes. The scanner requires two agreeing reads before it fires.
+8/9 prefixes (8xxxx codes are their own items). The scanner accepts retail symbologies only, requires two agreeing
+reads on either engine before it fires, and ignores the code it just priced for 2.5 s so an item left in frame after
+"Add to tally" is not counted twice.
 
 ## Performance budget and measured numbers
 
@@ -136,5 +141,7 @@ The latest run is summarised in `docs/perf/README.md` next to the raw JSON.
 
 Every control has a name; targets are ≥ 44 px; text ≥ 13 px with ≥ 4.5:1 contrast (audited by `tools/shots.mjs`);
 dialogs are real `<dialog>` elements with focus trapping and Escape/back-button close; results and status use
-`aria-live`; the whole app works one-handed from the bottom of the screen and with an external keyboard
-(`/` focuses search, Enter opens the best result, digits + Enter from a keyboard-wedge scanner work).
+`aria-live`; the scanner makes the page behind it inert and closes on Escape; the dock precedes the list in the DOM so
+Tab order follows the thumb (search → Scan → best result). The whole app works one-handed from the bottom of the
+screen and with an external keyboard (`/` focuses search, Enter opens the best result, digits + Enter from a
+keyboard-wedge scanner resolve the code directly).

@@ -48,22 +48,20 @@ const assets = ["./", ...files.filter((f) => f !== "sw.js" && f !== "index.html"
 const swPath = path.join(OUT, "sw.js");
 fs.writeFileSync(swPath, fs.readFileSync(swPath, "utf8").replace("__BUILD__", BUILD).replace("__ASSETS__", JSON.stringify(assets)));
 
-// Cloudflare static-asset headers: immutable for versioned packs/fonts/vendor, revalidate the shell.
+// Cloudflare static-asset headers. Rules that match the same path are joined, so the immutable rule is scoped to
+// the versioned pack directories and never overlaps current.json. Shell files use the default revalidation; the
+// service worker precaches them with cache: "reload" anyway.
 fs.writeFileSync(path.join(OUT, "_headers"), `/*
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(self), geolocation=()
-/index.html
+/
   Cache-Control: no-cache
 /sw.js
   Cache-Control: no-cache
 /db/current.json
   Cache-Control: no-cache
-/db/*
-  Cache-Control: public, max-age=31536000, immutable
-/fonts/*
-  Cache-Control: public, max-age=31536000, immutable
-/vendor/*
+/db/:version/*
   Cache-Control: public, max-age=31536000, immutable
 `);
 

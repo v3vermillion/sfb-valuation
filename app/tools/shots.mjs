@@ -34,7 +34,7 @@ for (const scheme of ["light", "dark"]) {
     await page.click("#sheet [data-act=add]"); await page.waitForTimeout(300);
     await page.fill("#q", "4011"); await page.waitForTimeout(300); await page.press("#q", "Enter"); await page.waitForSelector("#sheet[open]"); await page.waitForTimeout(500); await shoot("4-plu");
     await page.click("#sheet .x-btn"); await page.waitForTimeout(400);
-    await page.fill("#q", "201234928759"); await page.waitForTimeout(300); await page.press("#q", "Enter"); await page.waitForSelector("#sheet[open]"); await page.waitForTimeout(500); await shoot("5-label");
+    await page.fill("#q", "201234928751"); await page.waitForTimeout(300); await page.press("#q", "Enter"); await page.waitForSelector("#sheet[open]"); await page.waitForTimeout(500); await shoot("5-label");
     await page.click("#sheet .x-btn"); await page.waitForTimeout(400);
     await page.fill("#q", "corn 99 oz"); await page.waitForTimeout(400); await shoot("6-closest");
     await page.locator("#list .row").first().click(); await page.waitForSelector("#sheet[open]"); await page.waitForTimeout(500); await shoot("7-closest-sheet");

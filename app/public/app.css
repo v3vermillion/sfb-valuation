@@ -452,3 +452,25 @@ input::-webkit-search-decoration, input::-webkit-search-cancel-button { -webkit-
 :root[data-theme="dark"] { --toast-accent: oklch(46% 0.15 152); }
 .toast button, .toast .ico { color: var(--toast-accent); }
 .legend li .kind { font-size: 13px; }
+
+/* ---------- review fixes ---------- */
+/* the result count / "Closest matches" flag sits at the thumb end of the list and stays visible while scrolling */
+.results-meta { order: -1; position: sticky; bottom: 0; z-index: 1; background: color-mix(in oklab, var(--bg) 94%, transparent); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); padding: 8px 4px 6px; }
+/* light-theme label hues at ≥ 4.5:1 on their own tint and on the page */
+:root { --closest: oklch(50% 0.17 35); --live: oklch(45% 0.13 205); --exact: oklch(46% 0.15 152); --accent: oklch(46% 0.15 152); --equiv: oklch(48% 0.14 62); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --closest: oklch(76% 0.15 35); --live: oklch(80% 0.12 205); --exact: oklch(80% 0.17 152); --accent: oklch(80% 0.17 152); --equiv: oklch(85% 0.15 78); } }
+:root[data-theme="dark"] { --closest: oklch(76% 0.15 35); --live: oklch(80% 0.12 205); --exact: oklch(80% 0.17 152); --accent: oklch(80% 0.17 152); --equiv: oklch(85% 0.15 78); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.btn:disabled, .switch:disabled { opacity: .4; pointer-events: none; }
+.switch { background: var(--ink-3); }
+.switch[aria-checked="true"] { background: var(--accent); }
+.status, .tally-pill { height: 44px; }
+.live-row .btn--sm { min-height: 44px; }
+.scan-bottom, .scan-top { min-width: 0; }
+.scan-type .q { width: 0; min-width: 0; }
+.scan-type .q::placeholder { font-family: var(--font); letter-spacing: 0; }
+.pack-seg { display: grid; grid-template-columns: 1fr 1fr; margin-top: 14px; }
+.pack-seg button { min-height: 48px; font-size: 15px; }
+.price-big.is-none { font-size: 26px; line-height: 1.4; }
+@media (max-width: 440px) { .top:has(.tally-pill:not([hidden])) .status .n { display: none; } .top:has(.tally-pill:not([hidden])) .status { max-width: none; flex: 0 1 auto; } }
+@media (max-height: 820px), (max-width: 374px) { .legend { display: none; } }

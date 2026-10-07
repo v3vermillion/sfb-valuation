@@ -75,7 +75,7 @@ async function newPage(ctx) {
 
   // ---- 4. typed-barcode -> price (resolution + sheet render), no camera involved
   const lookups = [];
-  for (const code of ["078742054261", "4011", "201234928759", "012345678905", "078742054261"]) {
+  for (const code of ["078742054261", "4011", "201234928751", "012345678905", "078742054261"]) {
     await page.fill("#q", "");
     const t = await page.evaluate(async (c) => { const t0 = performance.now(); const r = await window.__sfb.resolveCode(c); const t1 = performance.now(); window.__sfb.openCode(c); await new Promise((r2) => requestAnimationFrame(() => requestAnimationFrame(r2))); return { code: c, kind: r?.kind, resolveMs: +(t1 - t0).toFixed(1), toSheetMs: +(performance.now() - t0).toFixed(1) }; }, code);
     lookups.push(t);

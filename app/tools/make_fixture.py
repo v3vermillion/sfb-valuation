@@ -632,7 +632,14 @@ def main():
     pub = store / "build" / "published"
     n = write_jsonl_gz(pub / "items.jsonl.gz", rows)
     stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    run_id = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S") + "-fixture"
+    # The version is a hash of everything that shapes the fixture, so rebuilding unchanged inputs yields the
+    # same snapshot version and phones that already have it download nothing.
+    h = hashlib.sha1()
+    for f in [Path(__file__), Path(__file__).with_name("fixture_vocab.py"), Path(__file__).with_name("sentinel_items.py"),
+              ROOT / "crawler" / "normalize.py", ROOT / "crawler" / "identify.py", ROOT / "data" / "categories.json", ROOT / "data" / "sentinels.json"]:
+        h.update(f.read_bytes() if f.exists() else b"")
+    h.update(str(args.items).encode()); h.update(str(args.seed).encode() if hasattr(args, "seed") else b"")
+    run_id = "fixture-" + h.hexdigest()[:10]
     stats = {"built": stamp, "run_id": run_id, "plan": "full", "items": n, "upcs": upcs, "carried_over": 0,
              "raw_by_department": dict(Counter(r["dept"] for r in rows)),
              "kept_by_category": dict(Counter(r["cat"] for r in rows)), "kept_by_department": dict(Counter(r["dept"] for r in rows)),

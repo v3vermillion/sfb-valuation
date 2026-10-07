@@ -126,8 +126,10 @@ const header = (magic, ...nums) => Buffer.concat([MAGIC(magic), u32(nums)]);
 
 fs.mkdirSync(path.join(OUT, version), { recursive: true });
 const files = {};
+const MAX_ASSET_BYTES = 25 * 1048576;   // Cloudflare Workers static assets reject any single file over 25 MiB
 function writeGz(name, buf) {
   const gz = zlib.gzipSync(buf, { level: 6 });
+  if (gz.length > MAX_ASSET_BYTES) throw new Error(`${name}.gz is ${(gz.length / 1048576).toFixed(1)} MiB, over Cloudflare's 25 MiB per-file limit: shard it (see SHARD_BYTES for strings)`);
   fs.writeFileSync(path.join(OUT, version, name + ".gz"), gz);
   files[name] = { path: name + ".gz", bytes: buf.length, gzBytes: gz.length };
   log(`wrote ${name}.gz  ${(buf.length / 1048576).toFixed(1)} MB raw -> ${(gz.length / 1048576).toFixed(1)} MB`);

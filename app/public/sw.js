@@ -9,7 +9,8 @@ const DYN = "sfb-dyn";
 const ASSETS = __ASSETS__;
 
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(SHELL).then((c) => c.addAll(ASSETS)));
+  // bypass the browser's HTTP cache: a new build must precache the bytes on the server, never a year-old copy
+  e.waitUntil(caches.open(SHELL).then((c) => c.addAll(ASSETS.map((u) => new Request(u, { cache: "reload" })))));
 });
 
 self.addEventListener("activate", (e) => {

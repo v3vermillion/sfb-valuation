@@ -346,7 +346,7 @@ function search(q, limit = 40) {
   let fuzzy = false, relaxed = false, dropped = [];
   // typo tolerance: a group that matches nothing at all gets one-edit alternatives
   if (bitsets.some((b) => !b)) {
-    groups = groups.map((g, i) => (bitsets[i] ? g : { ...g, alts: [...g.alts, ...fuzzyAlternatives(g.alts[0])] }));
+    groups = groups.map((g, i) => (bitsets[i] || /^\d/.test(g.src) ? g : { ...g, alts: [...g.alts, ...fuzzyAlternatives(g.alts[0])] }));
     bitsets = groups.map((g) => groupBits(g.alts));
     fuzzy = groups.some((g, i) => bitsets[i] && g.alts.length > 1 && !hasAnyToken(g.src) && !SYN.has(g.src) && !ABBREV[g.src]);   // a typo was actually corrected
   }
@@ -377,7 +377,7 @@ self.onmessage = async (e) => {
       case "load": { const stats = await load(m); postMessage({ type: "ready", id: m.id, stats }); break; }
       case "search": { postMessage({ type: "result", id: m.id, result: db ? search(m.q, m.limit) : { query: m.q, items: [], notReady: true } }); break; }
       case "upc": { postMessage({ type: "result", id: m.id, result: db ? { items: lookupUpc(m.key), equivalent: lookupEquivalent(m.key) } : { notReady: true } }); break; }
-      case "plu": { postMessage({ type: "result", id: m.id, result: db ? lookupPlu(m.code) : null }); break; }
+      case "plu": { postMessage({ type: "result", id: m.id, result: db ? lookupPlu(m.code) : { notReady: true } }); break; }
       case "item": { postMessage({ type: "result", id: m.id, result: db ? item(m.rank) : null }); break; }
       case "unload": { db = null; bitCache.clear(); tokCache.clear(); warmed = false; postMessage({ type: "result", id: m.id, result: true }); break; }
       default: postMessage({ type: "error", id: m.id, error: "unknown message " + m.type });

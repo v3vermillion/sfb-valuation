@@ -20,9 +20,12 @@ Public key format accepted by the portal: base64 body only (no BEGIN/END lines).
 4. Redeploy (or push any commit) so secrets apply.
 
 ## Endpoints
-- GET /v1/price/<gtin> — PUBLIC (no token): live Walmart price for the app. Rate limited 30/min per IP
-  (`[[ratelimits]]` binding PRICE_LIMITER in wrangler.toml), 6 h edge cache per GTIN, CORS GET only.
-  Returns `{ok:true, price, name, brand, upc, stock, checkedAt}` or `{ok:false, reason}`; 429 when limited.
+- GET /v1/price/<gtin> — PUBLIC (no token): live Walmart price for the app. Rate limited 30/min per IP and
+  60 Walmart calls/min in total (`[[ratelimits]]` bindings PRICE_LIMITER and PRICE_GLOBAL_LIMITER in
+  wrangler.toml; charged only on a cache miss), 6 h edge cache per GTIN, CORS GET only.
+  Returns `{ok:true, price, name, brand, upc, stock, listings[], checkedAt}` or `{ok:false, reason}`;
+  429 when limited, 503 (`retry-after`) when Walmart throttles/fails or the bindings are missing.
+  Local dev without bindings: set `ALLOW_UNLIMITED_DEV=1` in `.dev.vars` (never in production).
 - GET /health?token=ADMIN_TOKEN — config check, never prints secret values
 - GET /taxonomy?token=ADMIN_TOKEN — signed Walmart Taxonomy call; top-level departments
 - GET /taxonomy/<id>?token=ADMIN_TOKEN — children of one category node
@@ -62,7 +65,8 @@ Local: `cd app && npm run fixture && npm run build && npm run serve` → http://
 Tests: `npm test`. Performance numbers: `npm run measure` (Playwright, 4× CPU throttle; add `--video barcode.y4m`
 for a fake camera). Screenshots: `npm run shots`.
 
-### Rate limit binding for the live check
-`pipeline/wrangler.toml` declares `[[ratelimits]] name = "PRICE_LIMITER"`. On the first deploy after this change
-Cloudflare creates the binding automatically; nothing to configure in the dashboard. `namespace_id` only has to be
-unique within the account.
+### Rate limit bindings for the live check
+`pipeline/wrangler.toml` declares two `[[ratelimits]]` bindings (PRICE_LIMITER per IP, PRICE_GLOBAL_LIMITER for
+the whole key). On the first deploy after this change Cloudflare creates them automatically; nothing to configure
+in the dashboard. `namespace_id` only has to be unique within the account. `/health` reports whether both are bound;
+without them the public route answers 503 instead of spending the Walmart key without a cap.

@@ -75,6 +75,7 @@ const json = (obj, status = 200) =>
 // (GET only, no credentials). Applies the same Walmart-sold-only rule as crawler/normalize.py.
 
 const PRICE_TTL_SECONDS = 6 * 60 * 60;
+const THROTTLE_TTL_SECONDS = 60;          // how long a Walmart 429/5xx answer is remembered so the shared key is not hammered
 const CORS = {
   "access-control-allow-origin": "*",
   "access-control-allow-methods": "GET, OPTIONS",
@@ -110,11 +111,17 @@ function walmartSold(it) {
   return typeof it.salePrice === "number" && it.salePrice > 0;
 }
 
+// Two limits guard the shared Walmart key: per caller (30/min per IP) and in aggregate (60 Walmart calls/min
+// across everyone), both charged only when a Walmart call is actually about to be made. A deploy without the
+// bindings fails closed: the route answers 503 rather than serving the key without a cap.
 async function rateLimited(env, req) {
-  if (!env.PRICE_LIMITER) return false;                      // binding missing locally -> no limit (never in prod)
+  if (!env.PRICE_LIMITER || !env.PRICE_GLOBAL_LIMITER) return env.ALLOW_UNLIMITED_DEV === "1" ? false : "not configured";
   const ip = req.headers.get("cf-connecting-ip") || "unknown";
-  const { success } = await env.PRICE_LIMITER.limit({ key: ip });
-  return !success;
+  const per = await env.PRICE_LIMITER.limit({ key: ip });
+  if (!per.success) return "rate limited";
+  const all = await env.PRICE_GLOBAL_LIMITER.limit({ key: "walmart" });
+  if (!all.success) return "rate limited";
+  return false;
 }
 
 async function livePrice(req, env, ctx, gtinRaw) {
@@ -122,22 +129,33 @@ async function livePrice(req, env, ctx, gtinRaw) {
   if (req.method !== "GET") return pub({ ok: false, reason: "method" }, 405);
   const gtin = parseGtin(gtinRaw);
   if (!gtin) return pub({ ok: false, reason: "not a product barcode" }, 400);
-  if (await rateLimited(env, req)) return pub({ ok: false, reason: "rate limited" }, 429, { "retry-after": "60" });
 
   // Edge cache keyed by GTIN only (never by client), so one Walmart call serves every volunteer for 6 hours.
+  // Hits are answered before any rate limit is charged, and are never cached again by the phone.
   const cache = caches.default;
   const cacheKey = new Request(`https://cache.sfb-valuation.internal/v1/price/${gtin}`, { method: "GET" });
   const hit = await cache.match(cacheKey);
-  if (hit) { const h = new Headers(hit.headers); h.set("x-cache", "hit"); for (const [k, v] of Object.entries(CORS)) h.set(k, v); return new Response(hit.body, { status: hit.status, headers: h }); }
+  if (hit) {
+    const h = new Headers(hit.headers);
+    h.set("x-cache", "hit"); h.set("cache-control", "no-store");
+    for (const [k, v] of Object.entries(CORS)) h.set(k, v);
+    return new Response(hit.body, { status: hit.status, headers: h });
+  }
 
-  if (!env.WM_PRIVATE_KEY || !env.WM_CONSUMER_ID) return pub({ ok: false, reason: "not configured" }, 503);
-  let payload, status = 200;
+  const limited = await rateLimited(env, req);
+  if (limited === "not configured") return pub({ ok: false, reason: "not configured" }, 503, { "retry-after": "300" });
+  if (limited) return pub({ ok: false, reason: "rate limited" }, 429, { "retry-after": "60" });
+  if (!env.WM_PRIVATE_KEY || !env.WM_CONSUMER_ID) return pub({ ok: false, reason: "not configured" }, 503, { "retry-after": "300" });
+
+  let payload, status = 200, ttl = PRICE_TTL_SECONDS;
   try {
-    // UPC-A/EAN-13 lookups use the familiar 12/13-digit form; GTIN-14 cases go through the gtin parameter.
-    const upc = gtin.replace(/^0+(?=\d{12}$)/, "");
-    const path = upc.length === 12 || upc.length === 13 ? `/items?upc=${upc}` : `/items?gtin=${gtin}`;
+    // UPC-A (12 digits, also when scanned as a 0-prefixed EAN-13) uses the upc parameter; everything else the 14-digit gtin.
+    const raw = String(gtinRaw).replace(/\D/g, "");
+    const upcA = gtin.replace(/^0+(?=\d{12}$)/, "");
+    const path = upcA.length === 12 && (raw.length === 12 || raw.length === 13) ? `/items?upc=${upcA}` : `/items?gtin=${gtin}`;
     const r = await walmartGet(env, path);
     if (r.status === 404) payload = { ok: false, reason: "not found", gtin };
+    else if (r.status === 429 || r.status >= 500) { status = 503; ttl = THROTTLE_TTL_SECONDS; payload = { ok: false, reason: "walmart unavailable", gtin }; }
     else if (r.status !== 200) { status = 502; payload = { ok: false, reason: "walmart unavailable", gtin }; }
     else {
       const d = JSON.parse(r.body);
@@ -148,16 +166,19 @@ async function livePrice(req, env, ctx, gtinRaw) {
         payload = {
           ok: true, gtin, itemId: it.itemId, upc: it.upc || null, name: it.name || null, brand: it.brandName || null, size: it.size || null,
           price: it.salePrice, offer: it.offerType || null, stock: it.stock || null, online: it.availableOnline ?? null,
+          // every Walmart-sold listing for the barcode, so the app can compare with the listing it is showing
+          listings: items.map((l) => ({ itemId: l.itemId, price: l.salePrice, name: l.name || null, size: l.size || null, stock: l.stock || null })),
           checkedAt: new Date().toISOString(),
         };
       }
     }
   } catch (e) {
-    status = 502; payload = { ok: false, reason: "walmart error", gtin };
+    status = 503; ttl = THROTTLE_TTL_SECONDS; payload = { ok: false, reason: "walmart unavailable", gtin };
   }
-  const res = pub(payload, status);
-  if (status === 200) {
-    const toCache = new Response(JSON.stringify(payload), { status: 200, headers: { "content-type": "application/json", "cache-control": `public, max-age=${PRICE_TTL_SECONDS}` } });
+  const res = pub(payload, status, status === 503 ? { "retry-after": "30" } : {});
+  if (status === 200 || status === 503) {
+    // positive answers are kept for 6 hours; a throttled/failed Walmart call for 1 minute, so a throttled key is not hammered
+    const toCache = new Response(JSON.stringify(payload), { status, headers: { "content-type": "application/json", "cache-control": `public, max-age=${ttl}`, ...(status === 503 ? { "retry-after": "30" } : {}) } });
     ctx.waitUntil(cache.put(cacheKey, toCache));
     res.headers.set("x-cache", "miss");
   }
@@ -181,6 +202,8 @@ export default {
         WM_PRIVATE_KEY: Boolean(env.WM_PRIVATE_KEY),
         WM_CONSUMER_ID: Boolean(env.WM_CONSUMER_ID),
         WM_KEY_VERSION: env.WM_KEY_VERSION || null,
+        PRICE_LIMITER: Boolean(env.PRICE_LIMITER),
+        PRICE_GLOBAL_LIMITER: Boolean(env.PRICE_GLOBAL_LIMITER),
       });
     }
 
