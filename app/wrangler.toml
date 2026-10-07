@@ -1,0 +1,9 @@
+# SFB Value — the volunteer app, served as Cloudflare Workers static assets (no Worker code, free plan is fine).
+# Deployed by .github/workflows/deploy-app.yml; `dist/` is produced by `npm run build` and never committed.
+name = "sfb-value"
+compatibility_date = "2026-10-01"
+
+[assets]
+directory = "./dist"
+html_handling = "auto-trailing-slash"
+not_found_handling = "404-page"   # a missing pack file must be a 404, never index.html with a 200

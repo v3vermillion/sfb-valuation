@@ -1,0 +1,22 @@
+{
+  "name": "sfb-valuation-app",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Strongsville Emergency Food Bank — offline donation valuation PWA",
+  "type": "module",
+  "scripts": {
+    "fixture": "python3 tools/make_fixture.py --store build/fixture-store --items 760000",
+    "build:db": "node --max-old-space-size=4096 tools/build-db.mjs --store build/fixture-store --out dist/db",
+    "build:site": "node tools/build-site.mjs",
+    "build": "npm run build:db && npm run build:site",
+    "serve": "node tools/serve.mjs dist 8787",
+    "test": "node --test tests/*.test.mjs",
+    "measure": "node tools/measure.mjs",
+    "shots": "node tools/shots.mjs",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "playwright": "^1.56.1",
+    "wrangler": "^4.34.0"
+  }
+}

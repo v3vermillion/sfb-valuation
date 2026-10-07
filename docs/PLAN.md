@@ -11,7 +11,7 @@ Fully offline PWA: local item DB in IndexedDB + fuzzy search bar. Volunteer type
 2. Map 23 categories to Walmart taxonomy IDs (data/categories.json).
 3. Pull Product Catalog per taxonomy ID (paginated) → data/items/<category>.jsonl. QA each category before merging.
 4. Normalize: parse size/unit/pack from product names; fail loudly on unexpected API fields.
-5. Build the PWA; ship DB as versioned compressed JSON via service worker.
+5. Build the PWA; ship DB as versioned compressed pack files, updated in the background. DONE (app/, see app/README.md)
 6. Pilot: one real donation batch + 50-item spot-check vs. a physical Walmart shelf.
 7. Quarterly refresh via Worker cron trigger.
 8. Phase 2: other-store brands (Aldi, Giant Eagle, Meijer).

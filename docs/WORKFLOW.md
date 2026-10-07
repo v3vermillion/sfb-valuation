@@ -7,7 +7,8 @@ price, offline, never a blank. Everything below serves that.
 - **Crawler + processing: GitHub Actions** (`.github/workflows/pipeline.yml`, code in `crawler/`).
   Runs for hours, no CPU/DB limits, $0. Working data lives on the `data-store` branch.
 - **Live check: Cloudflare Worker** (`pipeline/`). Signs Walmart requests; the app calls it only when online.
-- **App: offline PWA** (`app/`, not built yet). Local database + barcode camera scanner, both offline.
+- **App: offline PWA** (`app/`, see `app/README.md`). Local database + barcode camera scanner, both offline;
+  deployed to Cloudflare Workers static assets by `.github/workflows/deploy-app.yml`.
 
 ## Pipeline (automatic)
 1. **Crawl** every in-scope Walmart department (`data/categories.json`), every page, `soldByWmt=true`

@@ -33,6 +33,6 @@ exact item and its current price. Prices come from the Walmart I/O Affiliate API
 - data/categories.json — scope (departments), category rules, exclusions
 - data/sentinels.json — items that must always be found and priced
 - .github/workflows/pipeline.yml — schedules + manual runs
-- pipeline/ — Cloudflare Worker (live checks, test routes)
-- app/ — PWA (not started)
+- pipeline/ — Cloudflare Worker (public /v1/price/<gtin> live check, token-gated test routes)
+- app/ — PWA (public/ shell + workers, tools/ fixture + pack builder + measure, tests/); deploy-app.yml deploys it
 - docs/ — PLAN, DECISIONS, SCHEMA, RUNBOOK, WORKFLOW

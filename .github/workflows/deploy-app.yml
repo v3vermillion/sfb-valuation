@@ -1,0 +1,129 @@
+name: deploy-app
+
+# Builds the volunteer app (app/) and deploys it to Cloudflare Workers static assets.
+# Data: the latest published snapshot on the data-store branch. Until the first snapshot is published
+# (or when asked), the full-size synthetic fixture is used so the app is testable at real scale.
+#
+# Required repository secrets: CLOUDFLARE_API_TOKEN (Workers Scripts: Edit), CLOUDFLARE_ACCOUNT_ID.
+# Optional repository variable: LIVE_CHECK_URL (the pipeline Worker URL, e.g. https://sfb-valuation.<acct>.workers.dev).
+
+on:
+  workflow_dispatch:
+    inputs:
+      data:
+        description: "auto (published snapshot if any, else fixture) | fixture | snapshot"
+        required: true
+        default: auto
+      deploy:
+        description: "deploy to Cloudflare (false = build and test only)"
+        required: true
+        default: "true"
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - ".github/workflows/deploy-app.yml"
+      - "crawler/normalize.py"
+      - "crawler/identify.py"
+      - "data/categories.json"
+      - "data/sentinels.json"
+      - "requirements.txt"
+  workflow_run:
+    workflows: [pipeline]
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-app
+  cancel-in-progress: true
+
+jobs:
+  build-deploy:
+    # a pipeline run only triggers a deploy when it succeeded (a failed or no-op run has nothing new)
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check out the published snapshot (data-store branch, if it exists)
+        id: store
+        uses: actions/checkout@v4
+        continue-on-error: true
+        with:
+          ref: data-store
+          path: store
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Unit tests
+        run: node --test tests/*.test.mjs
+
+      - name: Choose the data source
+        id: data
+        env:
+          MODE: ${{ github.event.inputs.data || 'auto' }}
+        run: |
+          STORE="$GITHUB_WORKSPACE/store"
+          if [ "${{ steps.store.outcome }}" != "success" ] && [ "$MODE" != "fixture" ]; then
+            # the checkout failed: only fall back to the fixture when the branch truly does not exist
+            if git ls-remote --exit-code --heads origin data-store >/dev/null 2>&1; then
+              echo "::error::The data-store checkout failed although the branch exists; refusing to deploy synthetic prices over a real snapshot. Re-run the workflow."; exit 1
+            fi
+          fi
+          if [ "$MODE" != "fixture" ] && [ -f "$STORE/build/published/manifest.json" ]; then
+            echo "source=snapshot" >> "$GITHUB_OUTPUT"; echo "store=$STORE" >> "$GITHUB_OUTPUT"
+            echo "Using published snapshot $(python3 -c "import json;print(json.load(open('$STORE/build/published/manifest.json'))['version'])")"
+          elif [ "$MODE" = "snapshot" ]; then
+            echo "::error::No published snapshot on data-store yet (run the pipeline to 'published' first, or choose data=fixture)"; exit 1
+          else
+            echo "source=fixture" >> "$GITHUB_OUTPUT"; echo "store=$GITHUB_WORKSPACE/app/build/fixture-store" >> "$GITHUB_OUTPUT"
+            echo "No published snapshot: building the 760k-item synthetic fixture (the app will say 'sample data')"
+            if [ "${{ github.event_name }}" = "workflow_run" ]; then
+              # a pipeline run that published nothing changes nothing for the app: do not redeploy the fixture
+              echo "deploy=false" >> "$GITHUB_OUTPUT"; echo "Pipeline run without a published snapshot: build only, no deploy"
+            fi
+          fi
+
+      - name: Build the fixture (only when there is no published snapshot)
+        if: steps.data.outputs.source == 'fixture'
+        run: |
+          pip install -q -r ../requirements.txt
+          python3 tools/make_fixture.py --store build/fixture-store --items 760000
+
+      - name: Build the database pack
+        run: node --max-old-space-size=6144 tools/build-db.mjs --store "${{ steps.data.outputs.store }}" --out dist/db
+
+      - name: Build the site
+        env:
+          LIVE_CHECK_URL: ${{ vars.LIVE_CHECK_URL }}
+        run: node tools/build-site.mjs
+
+      - name: Summary
+        run: |
+          {
+            echo "### SFB Value build"
+            echo "- data: **${{ steps.data.outputs.source }}**"
+            echo '```'; cat dist/db/current.json; echo; echo '```'
+            du -sh dist dist/db | sed 's/^/- /'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Deploy to Cloudflare Workers (static assets)
+        if: ${{ (github.event.inputs.deploy || 'true') == 'true' && steps.data.outputs.deploy != 'false' }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::error::Add repository secrets CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID (Settings > Secrets and variables > Actions)"; exit 1
+          fi
+          npx --yes wrangler@4 deploy
