@@ -1,14 +1,14 @@
 {
-  "calls": 1165,
+  "calls": 1307,
   "calls_base": 1022,
   "departments": [
     {
       "id": "976759",
-      "items": 175200,
+      "items": 196800,
       "name": "Food",
-      "next": "/api-proxy/service/affil/product/v2/paginated/items?category=976759&soldByWmt=true&count=200&lastDoc=459216859&remainingHits=140594",
-      "pages": 876,
-      "parts": 9,
+      "next": "/api-proxy/service/affil/product/v2/paginated/items?category=976759&soldByWmt=true&count=200&lastDoc=643455134&remainingHits=118994",
+      "pages": 984,
+      "parts": 10,
       "status": "crawling",
       "total_pages": 1579
     },
@@ -238,6 +238,6 @@
   "started": "2026-10-07T18:24:39+00:00",
   "status": "crawling",
   "throttle_base": 2702,
-  "throttle_wait_s": 3135,
-  "updated": "2026-10-07T20:28:17+00:00"
+  "throttle_wait_s": 3494,
+  "updated": "2026-10-07T20:43:22+00:00"
 }
