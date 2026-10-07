@@ -79,3 +79,13 @@
   Operating rule: Claude Code takes charge of this list and ships tested, adversarially reviewed changes without waiting;
   David's remaining decisions arrive as alert issues. Secrets, Cloudflare account changes, crawl scope and anything outside the
   list are still proposed first.
+- 2026-10-07 — Proposal modifications (David), decided: (4) the 30-minute resume check stays, lower priority: a scheduled run queued
+  behind an active crawl already resumes it right after a throttle pause, so the check only closes the case where a pause happens with
+  nothing queued; it is cheap (state read only) so it is kept. (1b, high priority) 429 back-off consumed ~26 of the first 61 minutes of
+  the first crawl (576 calls, 1544 s of throttle sleep), and the 50-success recovery cannot help while 429s keep breaking the streak.
+  Decision: the client logs every request and throttle sleep with timestamps (data-store `throttle/<run>.events.jsonl`),
+  `crawler/throttle.py` infers whether Walmart limits per second or per minute and at roughly what rate, and the next run paces just under
+  it with a sliding-window cap (`state.pace.per_min`: 0.85× the inferred limit, raised 10% after a clean run, lowered 15% after a
+  throttled one, clamped 6–48/min). Back-off, ceiling, wait cap and the recovery stay unchanged as the safety net; the cap is the
+  lever on total crawl time. Also requested: a full repository clean-up (docs and files current, accurate, consistent) after the
+  automation lands, as its own pull request.
