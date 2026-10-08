@@ -1,5 +1,5 @@
 {
-  "calls": 6932,
+  "calls": 7066,
   "calls_base": 6060,
   "departments": [
     {
@@ -74,11 +74,11 @@
     },
     {
       "id": "5440",
-      "items": 23800,
+      "items": 44000,
       "name": "Pets",
-      "next": "/api-proxy/service/affil/product/v2/paginated/items?category=5440&soldByWmt=true&count=200&lastDoc=27882996&remainingHits=212758",
-      "pages": 119,
-      "parts": 2,
+      "next": "/api-proxy/service/affil/product/v2/paginated/items?category=5440&soldByWmt=true&count=200&lastDoc=37082145&remainingHits=192558",
+      "pages": 220,
+      "parts": 3,
       "status": "crawling",
       "total_pages": 1183
     },
@@ -233,11 +233,31 @@
       "total_pages": null
     }
   ],
+  "pace": {
+    "inferred": {
+      "consistent": null,
+      "limit_from_429s": 7,
+      "limit_per_min": 7,
+      "limit_per_min_median": 10.0,
+      "ok": 756,
+      "ok_per_min": 7.02,
+      "pattern": "per-minute",
+      "reason": "0.85 x inferred limit 7/min, clamped to 6",
+      "requests": 1006,
+      "safe_per_min": null,
+      "sleep_s": 2702.6,
+      "span_s": 6464.1,
+      "status_429": 250
+    },
+    "per_min": 6,
+    "run_id": "20261007-182439-full",
+    "updated": "2026-10-08T17:37:45+00:00"
+  },
   "plan": "full",
   "run_id": "20261007-182439-full",
   "started": "2026-10-07T18:24:39+00:00",
   "status": "crawling",
   "throttle_base": 16234,
-  "throttle_wait_s": 18601,
-  "updated": "2026-10-08T17:23:36+00:00"
+  "throttle_wait_s": 18936,
+  "updated": "2026-10-08T17:37:45+00:00"
 }
