@@ -2310,17 +2310,57 @@
           "min": 7
         }
       }
+    },
+    {
+      "analyzed": "2026-10-08T22:48:00+00:00",
+      "cap": 6,
+      "client": {
+        "cap_wait_s": 14683.8,
+        "max_per_min": 6,
+        "min_interval": 1.25,
+        "requests": 1801,
+        "sleep_s": 0.0,
+        "status_429": 0
+      },
+      "consistent": null,
+      "events": 1801,
+      "gap_s": null,
+      "limit_from_429s": null,
+      "limit_per_min": null,
+      "limit_per_min_median": null,
+      "limit_per_s": null,
+      "lost_share": 0.0,
+      "network_errors": 0,
+      "ok": 1801,
+      "ok_per_min": 6.0,
+      "pattern": null,
+      "per_429": [],
+      "per_min": 7,
+      "reason": "no 429s under the 6/min cap: probing up 10%",
+      "requests": 1801,
+      "run_id": "20261007-182439-full",
+      "safe_per_min": 6,
+      "sleep_s": 0,
+      "span_s": 18000.0,
+      "status_429": 0,
+      "status_5xx": 0,
+      "windows": {
+        "10s": null,
+        "1s": null,
+        "300s": null,
+        "60s": null
+      }
     }
   ],
   "run_id": "20261007-182439-full",
   "totals": {
-    "invocations": 1,
+    "invocations": 2,
     "network_errors": 0,
-    "ok": 756,
-    "ok_per_min": 7.02,
-    "requests": 1006,
+    "ok": 2557,
+    "ok_per_min": 6.27,
+    "requests": 2807,
     "sleep_s": 2702.6,
-    "span_s": 6464.1,
+    "span_s": 24464.1,
     "status_429": 250,
     "status_5xx": 0
   }

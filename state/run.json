@@ -1,5 +1,5 @@
 {
-  "calls": 8793,
+  "calls": 8867,
   "calls_base": 7066,
   "departments": [
     {
@@ -94,11 +94,11 @@
     },
     {
       "id": "4044",
-      "items": 76600,
+      "items": 91400,
       "name": "Home",
-      "next": "/api-proxy/service/affil/product/v2/paginated/items?category=4044&soldByWmt=true&count=200&lastDoc=17278459&remainingHits=6278514",
-      "pages": 383,
-      "parts": 5,
+      "next": "/api-proxy/service/affil/product/v2/paginated/items?category=4044&soldByWmt=true&count=200&lastDoc=19335368&remainingHits=6263714",
+      "pages": 457,
+      "parts": 6,
       "status": "crawling",
       "total_pages": 31776
     },
@@ -236,22 +236,22 @@
   "pace": {
     "inferred": {
       "consistent": null,
-      "limit_from_429s": 7,
-      "limit_per_min": 7,
-      "limit_per_min_median": 10.0,
-      "ok": 756,
-      "ok_per_min": 7.02,
-      "pattern": "per-minute",
-      "reason": "0.85 x inferred limit 7/min, clamped to 6",
-      "requests": 1006,
-      "safe_per_min": null,
-      "sleep_s": 2702.6,
-      "span_s": 6464.1,
-      "status_429": 250
+      "limit_from_429s": null,
+      "limit_per_min": null,
+      "limit_per_min_median": null,
+      "ok": 1801,
+      "ok_per_min": 6.0,
+      "pattern": null,
+      "reason": "no 429s under the 6/min cap: probing up 10%",
+      "requests": 1801,
+      "safe_per_min": 6,
+      "sleep_s": 0,
+      "span_s": 18000.0,
+      "status_429": 0
     },
-    "per_min": 6,
+    "per_min": 7,
     "run_id": "20261007-182439-full",
-    "updated": "2026-10-08T17:37:45+00:00"
+    "updated": "2026-10-08T22:48:00+00:00"
   },
   "plan": "full",
   "run_id": "20261007-182439-full",
@@ -260,5 +260,5 @@
   "throttle_base": 18936,
   "throttle_wait_s": 18936,
   "throttled_runs": 1,
-  "updated": "2026-10-08T22:35:26+00:00"
+  "updated": "2026-10-08T22:48:00+00:00"
 }
