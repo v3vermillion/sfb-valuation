@@ -26,6 +26,7 @@ Walmart listing, written by `crawler/process.py` from `crawler/normalize.py`. Th
 | `primary` | the listing a barcode lookup shows first among listings sharing a UPC |
 | `prev_price`, `promo` | previous snapshot's price; the deal price when a promo price was replaced by the normal one |
 | `price_withheld` | true when `price` is outside the department's plausible range (data/gates.json price_sanity) |
+| `listed_name`, `name_src` | barcode-only rows: the feed's placeholder text, and where `name` came from (`walmart_listing`, `open_facts`, or `none` for "(name not provided)") |
 | `equiv` | for a withheld price: `{price, method, confidence, basis_id, basis_name}`, the value the app shows |
 | `flags` | see below |
 
@@ -33,9 +34,9 @@ Flags: `no_size`, `sold_each` (priced per piece; sized by its basis), `size_conf
 `promo_price`, `kept_normal_price`, `carried_over` (department not re-crawled this run), `pack_resolved`,
 `unit_price_suspect` (per-unit price more than 10x off comparable items; dropped), `placeholder` (name identifies no
 product: barcode lookup only, never in typed search, not in the size-parse rate), `discontinued` (Walmart marks it so),
-`price_withheld`.
+`price_withheld`, `name_filled` (a barcode-only row named from another listing or Open Facts).
 
 Not carried at all (rejected with a reason in `stats.json` `rejects_by_department`): `apparel`, `footwear`, `pet_bed`,
-`alcohol`, `tobacco`, `media`, `large_equipment`, `test_listing`, `service`, `coming_soon`, `store_display`, `marketplace`,
+`alcohol`, `tobacco`, `media`, `large_equipment`, `test_listing`, `store_display`, `marketplace`,
 `third_party_seller`, `no_price`, `no_name`, `duplicate`, `food_without_upc_or_size`, `placeholder_no_barcode`,
 `placeholder_price` (a barcode-only listing whose price is outside its department's plausible range).

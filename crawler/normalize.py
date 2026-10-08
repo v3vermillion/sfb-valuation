@@ -348,10 +348,12 @@ def normalize(item: dict, dept: dict, cfg: dict):
     raw_name = re.sub(r"\s+", " ", item["name"]).strip()
     name, discontinued = classify.clean_name(raw_name)
     kind = classify.placeholder_kind(raw_name, item.get("brandName"), item.get("salePrice"))
-    if kind in classify.DROPPED_PLACEHOLDERS:
-        return None, classify.DROPPED_PLACEHOLDERS[kind]      # not a product: test listings, services, "coming soon", displays
-    is_placeholder = kind == "generic"
     key, retired, check_ok = gtin14(item.get("upc"))
+    if kind and key and key[1:3] == "04":
+        kind = "test"                             # a placeholder name on an internal (restricted-circulation 04x) barcode
+    if kind in classify.DROPPED_PLACEHOLDERS:
+        return None, classify.DROPPED_PLACEHOLDERS[kind]      # not a product: test listings and store displays
+    is_placeholder = kind == "generic"
     if is_placeholder and not (key and check_ok and not retired):
         return None, "placeholder_no_barcode"     # a placeholder is kept only for barcode lookup, so it needs a valid barcode
     # a stated weight or volume (name first, then the size field) beats a piece count or a bare "Pint"

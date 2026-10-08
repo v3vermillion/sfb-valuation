@@ -179,8 +179,8 @@ class Placeholders(unittest.TestCase):
             self.assertFalse(C.placeholder(name, "", price), name)
 
     def test_kinds_decide_what_is_kept(self):
-        for name, price, kind in (("Signing Test 9027 Dummy Stress Test", 2.27, "test"), ("DO NOT USE- Barbecue Beans", 3.0, "test"),
-                                  ("Extended Warranty 2 Year", 30.0, "service"), ("(12 pack) coming soon", 45.84, "coming_soon"),
+        for name, price, kind in (("Signing Test 9027 Dummy Stress Test", 2.27, "test"), ("DO NOT USE- Barbecue Beans", 3.0, "generic"),
+                                  ("Extended Warranty 2 Year", 30.0, "generic"), ("(12 pack) coming soon", 45.84, "generic"),
                                   ("64PC OS SOS 1/2 Plt", 510.08, "display"), ("0523 Infinity PDQ", 107.64, "display"),
                                   ("Merchandise", 18.24, "generic"), ("***Discontinued***", 40.77, "generic"),
                                   ("NRDCAUCA20WALKEL,P009376-LC001,P014192-BA003,S", 18.48, "generic"),

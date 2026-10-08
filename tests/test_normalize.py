@@ -204,11 +204,21 @@ class Decisions20261008(unittest.TestCase):
                         ("Pamela's Oat Cranberry Almond Bars 7.05 oz (6x5 Ct)", 30), ("Mama Vermicelli, 55 g (Innerpack of 30)", 30)):
             self.assertIn(n, N.pack_options(name), name)
 
-    def test_listings_that_are_not_products_are_not_carried(self):
-        for name, price, why in (("Signing Test 3178 Dummy Stress Test", 15.77, "test_listing"), ("coming soon", 2.98, "coming_soon"),
-                                 ("14pc Delsym Pdq", 151.76, "store_display"), ("Protection Plan 3 Year", 29.0, "service")):
+    def test_test_listings_and_store_displays_are_not_carried(self):
+        for name, price, why in (("Signing Test 3178 Dummy Stress Test", 15.77, "test_listing"),
+                                 ("14pc Delsym Pdq", 151.76, "store_display")):
             row, reason = N.normalize(self.item(name, price=price), FOOD, CFG)
             self.assertIsNone(row); self.assertEqual(reason, why, name)
+        # a placeholder name on an internal (restricted-circulation 4-prefix) barcode is a test listing
+        row, reason = N.normalize(self.item("Merchandise", upc="406727352130", price=2.27), FOOD, CFG)
+        self.assertIsNone(row); self.assertEqual(reason, "test_listing")
+
+    def test_other_placeholders_are_kept_for_barcode_lookup(self):
+        for name in ("coming soon", "Merchandise", "Discontinued Item by supplier", "Protection Plan 3 Year"):
+            row, reason = N.normalize(self.item(name, price=2.98), FOOD, CFG)
+            self.assertIsNone(reason, name); self.assertIn("placeholder", row["flags"])
+        row, _ = N.normalize(self.item("Great Value Corn, 15 oz", upc="406727352130"), FOOD, CFG)
+        self.assertNotIn("placeholder", row["flags"], "a real product name on a 4-prefix barcode is a product")
 
     def test_apparel_found_under_food_is_not_carried(self):
         _, why = N.normalize(self.item("White Stag® Long Sleeve Ribbed Turtleneck", path="Home Page/Food/Fresh Food"), FOOD, CFG)

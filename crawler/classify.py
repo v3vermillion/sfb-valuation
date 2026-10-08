@@ -185,14 +185,11 @@ def large_equipment(name, price=None):
 
 
 # ---------------------------------------------------------------------------------------------- placeholders
-# not a product at all, dropped (2026-10-08): test and internal listings, services, "coming soon"
+# test listings, dropped: test and dummy names (a placeholder name on an internal 04x / 4-prefix barcode is a test listing
+# too: normalize.INTERNAL_UPC)
 TEST_RX = re.compile(
     r"\bsigning\s+test\b|\bstress\s+test\b|\btest\s+(?:item|product|brand|listing|sku)\b|^\W*test(?:ing)?\W*$|"
-    r"\bdummy\s+(?:item|test|product|sku)\b|\bdo\s+not\s+(?:use|sell|order|buy|purchase)\b|^\W*delete\b|"
-    r"\*+\s*to\s+be\s+deleted\s*\*+|^\W*(?:placeholder|tbd)\W*$|\bcvp\b.*\bitem\b|\bnon-tax\b.*\bitem\b|\bfy\d\d\s+wk\d+\b",
-    re.I)
-SERVICE_RX = re.compile(r"^\W*services?\b.*\bprogram\b|\bextended\s+(?:warranty|service)\b|\bprotection\s+plan\b", re.I)
-COMING_SOON_RX = re.compile(r"\bcoming\s+soon\b", re.I)
+    r"\bdummy\s+(?:item|test|product|sku)\b", re.I)
 # a name that identifies no product but may still be a real item's barcode: kept for barcode lookup only
 PLACEHOLDER_RX = re.compile(
     r"^\W*(?:merchandise|item|items|product|products|sample|n/?a|unknown|"
@@ -202,7 +199,10 @@ PLACEHOLDER_RX = re.compile(
     r"\bnot\s+for\s+(?:sale|resale)\b(?!\s+in\b)|^\W*\*+[^*]*\*+\s*\w+\s*$|"
     r"^\W*shop\s+[\w-]+(?:\s+[\w-]+){0,3}\s+(?:nutrition|products|brand)\s*$|"
     r"\bmerchandise\s*$|^\d+\s*pc\s*\d+\s*pk\b|\b\d+\s*pc\b.*\b(?:tray|assortment)\b|"
-    r"\*+\s*(?:holiday|parent)\b|^\W*(?:\*+[^*]*\*+\s*)+\w*\s*$",
+    r"\*+\s*(?:holiday|parent)\b|^\W*(?:\*+[^*]*\*+\s*)+\w*\s*$|\bcoming\s+soon\b|\bdo\s+not\s+(?:use|sell|order|buy|purchase)\b|"
+    r"^\W*delete\b|\*+\s*to\s+be\s+deleted\s*\*+|^\W*(?:placeholder|tbd)\W*$|\bcvp\b.*\bitem\b|\bnon-tax\b.*\bitem\b|"
+    r"\bfy\d\d\s+wk\d+\b|^\W*services?\b.*\bprogram\b|\bextended\s+(?:warranty|service)\b|\bprotection\s+plan\b|"
+    r"\bnon[\s-]*tech\b|\bfitting\s+sku\b",
     re.I)
 # store display units (PDQ trays, shippers, pallets, planogram modules): a whole display priced as one listing. Only a
 # display with a piece count or a display-sized price counts ("Tones T Grnd Sage Pdq" at $1.20 is one jar of sage)
@@ -218,8 +218,7 @@ FIXTURE_RX = re.compile(r"\b(?:retail|store|counter|floor)\s+display\b|\bdisplay
                         r"\*+\s*pdq\b|\b\d+\s*pc\b.*\bdisplay\b|"
                         r"\bfixture\b|\bmerchandising\s+tray\b|\bsidekick\s+display\b|\bpowerwing\b|^disp\b(?!\.)|"
                         r"(?:^|[-\u2013,]\s*|\b(?:system|seat|model|center|stroller|chair)\s+)display\s*$|"
-                        r"\bsection\s+header\b|\bshelf\s+(?:rise|talker|strip|kit)\b|\bcustomer\s+value\s+program\b|"
-                        r"\bnon[\s-]*tech\b|\bfitting\s+sku\b|\b\d+\s*skus?\s*$", re.I)
+                        r"\bsection\s+header\b|\bshelf\s+(?:rise|talker|strip|kit)\b|\b\d+\s*skus?\s*$", re.I)
 PIECE_COUNT_RX = re.compile(r"\b\d{2,}\s*pcs?(?:\b|[a-z])", re.I)
 # a register name that starts with a piece count ("300PC CH GHST PPR HP", "312PC RLETTE PALLET") is a display assortment;
 # a full product name with a count ("First Aid Kit, 107 pc", "100pc Eye Shadow Set" at $13) is not
@@ -975,24 +974,20 @@ DISCONTINUED_STRIP_RX = re.compile(r"\s*\*+\s*discontinu\w*[^*]*\*+\s*|\s*\(?\bd
                                    r"vendor)\)?\s*", re.I)
 
 
-PLACEHOLDER_KINDS = ("test", "service", "coming_soon", "display", "generic")
-DROPPED_PLACEHOLDERS = {"test": "test_listing", "service": "service", "coming_soon": "coming_soon", "display": "store_display"}
+PLACEHOLDER_KINDS = ("test", "display", "generic")
+DROPPED_PLACEHOLDERS = {"test": "test_listing", "display": "store_display"}
 
 
 def placeholder_kind(name, brand, price=None):
-    """Why the listing's name identifies no product, or None for a product: "test" (test and internal listings),
-    "service" (warranties, programs), "coming_soon", "display" (store displays, pallets, fixtures) are not carried;
-    "generic" ("Merchandise", a brand alone, a supplier code) is kept for barcode lookup only."""
+    """Why the listing's name identifies no product, or None for a product: "test" (test and dummy listings) and
+    "display" (store displays, pallets, modules, endcaps, shippers, fixtures) are not carried; "generic" ("Merchandise",
+    a brand alone, "Discontinued", "coming soon", a supplier code) is kept for barcode lookup only."""
     n = (name or "").strip()
     core = re.sub(r"^\s*(?:\(\d+\s*pack\)\s*)+", "", n, flags=re.I).strip()
     if not core:
         return "generic"
     if TEST_RX.search(core):
         return "test"
-    if SERVICE_RX.search(core):
-        return "service"
-    if COMING_SOON_RX.search(core):
-        return "coming_soon"
     if FIXTURE_RX.search(core):
         return "display"
     if COUNT_CODE_RX.search(core) and len(core) <= COUNT_CODE_MAX and (price is None or price >= DISPLAY_PRICE_MIN):

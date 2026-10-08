@@ -609,10 +609,12 @@ def _report(state, stats, g):
         ph = stats.get("placeholders")
         if ph:
             L += ["", f"## Placeholder listings ({ph['count']}): barcode lookup only, not in typed search",
-                  "Names that identify no product (\"Merchandise\", a brand alone, a supplier code, a discontinued entry with no "
-                  "name); kept so a scan of the barcode still prices the item. Test listings, services, \"coming soon\" and store "
-                  "displays are not carried (rejects above). First examples:"]
-            L += [f"- {e['id']} UPC {e['upc']} {e['dept']}: {e['name']} (${e['price']})" for e in ph["examples"][:15]]
+                  "Names that identify no product (\"Merchandise\", a brand alone, \"Discontinued\", \"coming soon\", a supplier "
+                  "code); kept so a scan of the barcode still prices the item, named from another listing with the same UPC or "
+                  "Open Facts when possible. Test listings and store displays are not carried (rejects above). "
+                  f"Names filled: {ph.get('names_filled') or {}}. First examples:"]
+            L += [f"- {e['id']} UPC {e['upc']} {e['dept']}: {e.get('listed_name') or e['name']} -> {e['name']} (${e['price']})"
+                  for e in ph["examples"][:15]]
         verdict = store.read_json(CAND / "review-verdict.json") or {}
         if verdict.get("miscategorized_rate") is not None:
             L += ["", f"## Category labels in the sample review: {verdict['miscategorized_rate']:.1%} judged wrong"]

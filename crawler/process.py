@@ -14,7 +14,7 @@ from collections import Counter, defaultdict
 from datetime import datetime, timezone
 
 from . import classify, store, valuation
-from .normalize import normalize
+from .normalize import normalize, parse_quantity, to_base
 
 BUILD = store.ROOT / "build"
 
@@ -74,6 +74,8 @@ def build():
         if iid not in rows and r.get("dept") not in crawled_names:
             r = dict(r); r.setdefault("flags", []).append("carried_over")
             rows[iid] = r; carried += 1
+
+    names_filled = fill_placeholder_names(rows)
 
     # categories: the name's noun decided against how coherent each Walmart path is across the whole snapshot
     # (classify.PathStats); rows carried over from an earlier snapshot are classified again with today's rules
@@ -149,8 +151,9 @@ def build():
         "upc_price_conflicts": len(conflicts), "upc_price_conflict_examples": conflicts[:25],
         "unit_outliers_raw": unit_outliers_raw,
         "price_bounds": price_bounds, "price_withheld": withheld,
-        "placeholders": {"count": sum(1 for r in rows.values() if "placeholder" in r["flags"]),
-                         "examples": [{"id": r["id"], "upc": r.get("upc"), "name": r["name"], "dept": r["dept"],
+        "placeholders": {"count": sum(1 for r in rows.values() if "placeholder" in r["flags"]), "names_filled": names_filled,
+                         "examples": [{"id": r["id"], "upc": r.get("upc"), "name": r["name"], "listed_name": r.get("listed_name"),
+                                       "name_src": r.get("name_src"), "dept": r["dept"],
                                        "price": r["price"]} for r in rows.values() if "placeholder" in r["flags"]][:50]},
     }
     store.write_json(out / "stats.json", stats)
@@ -158,6 +161,58 @@ def build():
     store.write_json(store.ROOT / "state" / "run.json", state)
     print(f"candidate: {n} items, {len(by_upc)} UPCs, {carried} carried over")
     return stats
+
+
+NAME_NOT_PROVIDED = "(name not provided)"
+
+
+def fill_placeholder_names(rows):
+    """Give barcode-only (placeholder) rows a real name, so a scan shows what the item is: the name of another Walmart
+    listing with the same UPC, else the Open Food/Beauty/Products Facts name for the UPC (identify/products_us), else
+    NAME_NOT_PROVIDED (the app shows it after the brand); never the feed's placeholder text, which stays in
+    `listed_name`. A size is taken from the new name, or the Open Facts quantity, when the row has none. Returns counts by
+    source."""
+    todo = [r for r in rows.values() if "placeholder" in r.get("flags", []) and "listed_name" not in r]
+    counts = Counter()
+    if not todo:
+        return dict(counts)
+    need = {r["upc"] for r in todo if r.get("upc")}
+    walmart = {}
+    for r in rows.values():
+        if r.get("upc") in need and "placeholder" not in r.get("flags", []) and r["upc"] not in walmart:
+            walmart[r["upc"]] = (r["name"], r.get("brand"), None)
+    facts = {}
+    src = store.ROOT / "identify" / "products_us.jsonl.gz"
+    if store.jsonl_exists(src):
+        for p in store.iter_jsonl_gz(src):
+            if p.get("upc") in need and p.get("name"):
+                facts[p["upc"]] = (p["name"], p.get("brand"), p.get("quantity"))
+    for r in todo:
+        hit, how = walmart.get(r.get("upc")), "walmart_listing"
+        if not hit:
+            hit, how = facts.get(r.get("upc")), "open_facts"
+        r["listed_name"] = r["name"]
+        if not hit:
+            r["name"], r["name_src"] = NAME_NOT_PROVIDED, "none"
+            counts["none"] += 1
+            continue
+        name, brand, qty = hit
+        r["name"], r["name_src"] = name, how
+        if brand and (not r.get("brand") or r["brand"].strip().lower() in ("unbranded", "online", "generic")):
+            r["brand"] = brand
+        r["flags"].append("name_filled")
+        r.pop("noun", None)                            # classified again from the real name
+        if r.get("size") is None:
+            size, unit, _ = parse_quantity(name)
+            if size is None and qty:
+                size, unit, _ = parse_quantity(qty)
+            if size is not None:
+                base, dim = to_base(size, unit)
+                r.update(size=size, unit=unit, base_qty=base, base_unit=dim)
+                if "no_size" in r["flags"]:
+                    r["flags"].remove("no_size")
+        counts[how] += 1
+    return dict(counts)
 
 
 def resolve_packs(rows, group_min=50, passes=2):
