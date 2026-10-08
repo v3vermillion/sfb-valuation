@@ -1,5 +1,5 @@
 {
-  "calls": 6037,
+  "calls": 6060,
   "calls_base": 5052,
   "departments": [
     {
@@ -64,11 +64,11 @@
     },
     {
       "id": "5427",
-      "items": 74000,
+      "items": 77600,
       "name": "Baby",
-      "next": "/api-proxy/service/affil/product/v2/paginated/items?category=5427&soldByWmt=true&count=200&lastDoc=188219351&remainingHits=106009",
-      "pages": 370,
-      "parts": 4,
+      "next": "/api-proxy/service/affil/product/v2/paginated/items?category=5427&soldByWmt=true&count=200&lastDoc=213476194&remainingHits=102409",
+      "pages": 388,
+      "parts": 5,
       "status": "crawling",
       "total_pages": 901
     },
@@ -238,6 +238,6 @@
   "started": "2026-10-07T18:24:39+00:00",
   "status": "crawling",
   "throttle_base": 13523,
-  "throttle_wait_s": 16190,
-  "updated": "2026-10-08T15:26:31+00:00"
+  "throttle_wait_s": 16234,
+  "updated": "2026-10-08T15:28:50+00:00"
 }
