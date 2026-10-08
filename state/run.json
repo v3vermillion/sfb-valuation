@@ -1,5 +1,5 @@
 {
-  "calls": 3598,
+  "calls": 3738,
   "calls_base": 3031,
   "departments": [
     {
@@ -34,11 +34,11 @@
     },
     {
       "id": "1005862",
-      "items": 51000,
+      "items": 72000,
       "name": "Personal Care",
-      "next": "/api-proxy/service/affil/product/v2/paginated/items?category=1005862&soldByWmt=true&count=200&lastDoc=822280346&remainingHits=32207",
-      "pages": 255,
-      "parts": 3,
+      "next": "/api-proxy/service/affil/product/v2/paginated/items?category=1005862&soldByWmt=true&count=200&lastDoc=11631962293&remainingHits=11207",
+      "pages": 360,
+      "parts": 4,
       "status": "crawling",
       "total_pages": 417
     },
@@ -238,6 +238,6 @@
   "started": "2026-10-07T18:24:39+00:00",
   "status": "crawling",
   "throttle_base": 8113,
-  "throttle_wait_s": 9647,
-  "updated": "2026-10-08T04:38:32+00:00"
+  "throttle_wait_s": 10023,
+  "updated": "2026-10-08T04:53:39+00:00"
 }
