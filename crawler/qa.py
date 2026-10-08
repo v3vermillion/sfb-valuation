@@ -38,7 +38,7 @@ DEFAULTS = {
     "sentinel_misses_max": 0,
     "live_sample": 500,                 # rows re-checked live against /items?ids=
     "live_match_min": 0.97,
-    "size_parse_min": 0.85,             # share of Food rows with a parsed size (first real Food crawl measured 0.879)
+    "size_parse_min": 0.92,             # share of Food rows sized (parsed, by the pound or sold each); 0.927 measured 2026-10-08
     "unit_outliers_max": None,          # share of unit-priced rows outside [median/10, median*10]: measure-only until
                                         # size parsing improves (first real Food crawl measured 0.075); the rows are flagged
     "unit_outlier_group_min": 50,
@@ -254,9 +254,19 @@ def gate_size_parse(rows, min_rate):
     food = [r for r in rows if r.get("dept") == "Food"]
     if not food:
         return _gate(True, None, min_rate, "no Food rows to measure")
-    parsed = sum(1 for r in food if isinstance(r.get("base_qty"), (int, float)) and r["base_qty"] > 0)
-    rate = round(parsed / len(food), 4)
-    return _measured(rate >= (min_rate or 0), rate, min_rate, f"{parsed}/{len(food)} Food rows with a parsed size ({rate:.1%})")
+    parsed = by_weight = each = 0
+    for r in food:
+        if isinstance(r.get("base_qty"), (int, float)) and r["base_qty"] > 0:
+            parsed += 1
+        elif r.get("basis") == "lb":
+            by_weight += 1                      # priced per pound: the basis is the size
+        elif "sold_each" in (r.get("flags") or []):
+            each += 1                           # priced per piece (produce each, store cakes, gifts): the basis is the size
+    sized = parsed + by_weight + each
+    rate = round(sized / len(food), 4)
+    return _measured(rate >= (min_rate or 0), rate, min_rate,
+                     f"{sized}/{len(food)} Food rows sized ({rate:.1%}): {parsed} with a parsed size, {by_weight} sold by "
+                     f"the pound, {each} sold each")
 
 
 def unit_outlier_stats(rows, group_min=50):
@@ -346,6 +356,13 @@ def gate_review_pending(sr):
     return _gate(None, None, sr.get("max_junk_rate"), "pending: `python -m crawler.review run`, then `qa finalize`")
 
 
+REVIEW_FIXES = {
+    "auth": "the Anthropic API rejected ANTHROPIC_API_KEY as invalid or revoked (HTTP 401) -> replace the repository secret",
+    "permission": "the Anthropic API refused ANTHROPIC_API_KEY permission (HTTP 403) -> check the key's workspace and model access",
+    "credits": "the Anthropic account is out of credits -> add credits in the Anthropic Console (auto-reload is off)",
+}
+
+
 def evaluate_review(verdict, run_id, sr):
     """The sample_review gate from build/candidate/review-verdict.json. Returns (gate, transient)."""
     required = bool(sr.get("required", True)) if sr else False
@@ -375,8 +392,12 @@ def evaluate_review(verdict, run_id, sr):
         if notes:
             detail += f"; notes: {notes[:400]}"
         return _gate(ok, rate, max_junk, detail), False
-    # "error" or anything unknown: no usable verdict
+    # "error" or anything unknown: no usable verdict. Retried every TRANSIENT_RETRY_HOURS, so once the key or the
+    # credits are fixed the next retry clears the hold by itself.
     if required:
+        fix = REVIEW_FIXES.get(verdict.get("error_kind"))
+        if fix:
+            return _gate(False, None, max_junk, f"review failed: {fix} ({reason})"), True
         return _gate(False, None, max_junk, f"review {status or 'unknown'}: {reason} (transient; re-run review and finalize)"), True
     return _gate(True, None, max_junk, f"not required; review {status or 'unknown'}: {reason}"), False
 

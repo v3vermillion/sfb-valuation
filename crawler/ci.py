@@ -33,6 +33,8 @@ Alert keys (one GitHub issue per key, label pipeline-alert, see .github/actions/
   pipeline-failed     the workflow failed (raised by the workflow's `if: failure()` step, resolved by the
                       next successful run)
   gates-hold          the candidate snapshot is held by the gates; body = build/candidate/report.md
+  review-key-invalid  the sample review's API call was rejected: invalid/revoked key (401) or no permission (403)
+  review-credits      the sample review's API call failed because the Anthropic account is out of credits
   review-key-missing  the sample review was skipped because ANTHROPIC_API_KEY is not set, so the
                       snapshot is held
   audit-regression    the weekly live audit found the published prices drifting (audit.run alert flag)
@@ -41,7 +43,7 @@ Alert keys (one GitHub issue per key, label pipeline-alert, see .github/actions/
   throttled           three or more consecutive crawl runs ended rate limited (state.throttled_runs)
   deploy-failed / deploy-mismatch   raised by deploy-app.yml
   tests-failed        raised by tests.yml on main
-Resolution: published -> gates-hold, review-key-missing, stale-prices; crawl progress -> throttled;
+Resolution: published -> gates-hold, review-key-missing, review-key-invalid, review-credits, stale-prices; crawl progress -> throttled;
 audit ok -> audit-regression, audit-failed; a successful run -> pipeline-failed (done by the workflow).
 
 Local use: WM_CONSUMER_ID / WM_PRIVATE_KEY set and SFB_STORE pointing at a data-store checkout.
@@ -67,7 +69,7 @@ SIZING_ERROR_RETRY_DAYS = 1
 # a hold that qa marked transient (live check or review could not run) is re-checked this often, not every 30 min
 TRANSIENT_RETRY_HOURS = 6
 AUDIT_ERRORS_ALERT = 3          # consecutive failed audit attempts (one per TRANSIENT_RETRY_HOURS) before audit-failed
-PUBLISH_RESOLVES = ("gates-hold", "review-key-missing", "stale-prices")
+PUBLISH_RESOLVES = ("gates-hold", "review-key-missing", "review-key-invalid", "review-credits", "stale-prices")
 
 # store paths (functions, so a reloaded store.ROOT is honoured)
 _state_path = lambda: store.ROOT / "state" / "run.json"
@@ -557,7 +559,26 @@ def _hold(state):
     run_id = state.get("run_id", "?")
     report = _read_text(_report_path(), "(no report written)")
     verdict, _ = _load(_verdict_path())
-    if isinstance(verdict, dict) and verdict.get("status") == "skipped":
+    kind = verdict.get("error_kind") if isinstance(verdict, dict) and verdict.get("status") == "error" else None
+    if kind in ("auth", "permission", "credits"):
+        key = "review-credits" if kind == "credits" else "review-key-invalid"
+        if kind == "credits":
+            title = f"sample review: Anthropic credits exhausted, snapshot {run_id} held"
+            fix = ("**Add credits** to the Anthropic account that owns `ANTHROPIC_API_KEY` (Anthropic Console > Billing; "
+                   "auto-reload is off, so it does not top up by itself). The key itself is fine.")
+        elif kind == "auth":
+            title = f"sample review: Anthropic API key invalid, snapshot {run_id} held"
+            fix = ("**Replace the key**: the Anthropic API rejected `ANTHROPIC_API_KEY` as invalid or revoked (HTTP 401). "
+                   "Create a new key in the Anthropic Console and update the repository secret. Credits are not the problem.")
+        else:
+            title = f"sample review: Anthropic API key not permitted, snapshot {run_id} held"
+            fix = ("**Check the key's access**: the Anthropic API refused `ANTHROPIC_API_KEY` permission (HTTP 403), e.g. a "
+                   "workspace without access to the review model. Use a key from a workspace that has it.")
+        body = (fix + f"\n\nAPI response: `{str(verdict.get('reason') or '')[:300]}`\n\n"
+                "The held candidate is re-checked every few hours; once fixed, the next re-check runs the review and "
+                "publishes if it passes (this issue then closes). To publish without the review, run the workflow with "
+                "plan=approve.\n\n## Report\n\n" + report)
+    elif isinstance(verdict, dict) and verdict.get("status") == "skipped":
         key = "review-key-missing"
         title = f"sample review skipped, snapshot {run_id} held"
         body = (f"The sample review did not run: {verdict.get('reason', 'ANTHROPIC_API_KEY missing')}.\n\n"

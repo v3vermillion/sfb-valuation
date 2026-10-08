@@ -11,14 +11,19 @@ UNIT_ALIASES = {
     "g": "g", "gram": "g", "grams": "g", "kg": "kg", "kilogram": "kg", "kilograms": "kg",
     "ml": "ml", "milliliter": "ml", "milliliters": "ml", "l": "l", "liter": "l", "liters": "l", "litre": "l", "litres": "l",
     "gal": "gal", "gallon": "gal", "gallons": "gal", "qt": "qt", "quart": "qt", "quarts": "qt", "pt": "pt", "pint": "pt", "pints": "pt",
+    # abbreviations Walmart's truncated feed names use: "16.9 Fo", "22 Fz", "104 Gm", "150 grs", "1.5 Lt"
+    "fz": "fl oz", "fo": "fl oz", "gm": "g", "gms": "g", "gr": "g", "grs": "g", "lt": "l", "ltr": "l", "ltrs": "l",
 }
 # convert to base: weight -> oz, volume -> fl oz
 TO_BASE = {"oz": ("oz", 1), "lb": ("oz", 16), "g": ("oz", 0.035274), "kg": ("oz", 35.274),
            "fl oz": ("fl oz", 1), "ml": ("fl oz", 0.033814), "l": ("fl oz", 33.814), "gal": ("fl oz", 128),
            "qt": ("fl oz", 32), "pt": ("fl oz", 16), "ct": ("ct", 1)}
 
-_UNIT_RX = r"(fl\.?\s?oz|fluid\s+ounces?|ounces?|oz|lbs?|pounds?|kilograms?|kg|grams?|g|milliliters?|ml|liters?|litres?|l|gallons?|gal|quarts?|qt|pints?|pt)"
+_UNIT_RX = (r"(fl\.?\s?oz|fluid\s+ounces?|fz|fo|ounces?|oz|lbs?|pounds?|kilograms?|kg|grams?|gms?|grs?|g|milliliters?|ml|"
+            r"liters?|litres?|ltrs?|lt|l|gallons?|gal|quarts?|qt|pints?|pt)")
 QTY = re.compile(r"(?<![\w.])(\d+(?:\.\d+)?|\.\d+)\s*-?\s*" + _UNIT_RX + r"(?![a-z])", re.I)
+# a proper fraction of a unit: "1/2 oz", "1 1/2oz", "3/4 LT" (only halves, thirds, quarters and eighths: "6/16fo" is a pack)
+FRACTION = re.compile(r"(?<![\w./])(?:(\d+)[\s-]+)?([1-7])/([2348])(?=\s*-?\s*" + _UNIT_RX + r"(?![a-z]))", re.I)
 MULTI = re.compile(r"(?<![\w.])(\d+)\s*(?:x|-|×)\s*(\d+(?:\.\d+)?)\s*-?\s*" + _UNIT_RX + r"(?![a-z])", re.I)
 PACK = [
     re.compile(r"\((\d+)\s*(?:-\s*)?(?:pack|pk|count|ct)\)", re.I),
@@ -26,6 +31,47 @@ PACK = [
     re.compile(r"\b(?:pack|case|box|set)\s+of\s+(\d+)\b", re.I),
 ]
 COUNT = re.compile(r"(?<![\w.])(\d+)\s*-?\s*(?:count|ct|cnt)\b\.?", re.I)
+# extended counts, used only when neither the name nor the size field states a weight or volume:
+# "20 Tea Bags", "12 Bars", "40 K-Cup Pods", "100 Each", "42 pc", "18 Packets", "24 Stems"
+COUNT_EXT = re.compile(r"(?<![\w.])(\d+)\s*-?\s*(?:count|ct|cnt|ea|each|pcs?|pieces?|(?:tea\s+)?bags?|teabags|bg|bars?|"
+                       r"(?:k-?cup\s+)?pods?|k-?cups?|capsules?|packets?|sticks?|sachets?|pouches|bottles?|cans|"
+                       r"servings?|svgs|sheets?|drinks?|stems?|candles?)\b\.?", re.I)
+# containers that multiply a stated weight or volume into a pack: "4 oz, 8 Bars", "0.5 oz, 12 Packets"
+PACK_NOUNS = re.compile(r"(?<![\w.])(\d+)\s*-?\s*(?:count|ct|cnt|bars?|bottles?|cans|pouches|packets?|(?:k-?cup\s+)?pods?|"
+                        r"k-?cups?|capsules?|sticks?|sachets?)\b\.?", re.I)
+TOTAL = re.compile(r"(?<![\w.])(\d+)\s+total(?:\s+(?:count|ct|pieces?|pcs|wipes|packets?|pods|k-?cups|bars|bags|sticks|"
+                   r"servings|capsules|cups|units?|drinks)\b|(?!\s*[a-z]))", re.I)      # "(144 Total Pieces)", "270 Total"
+OF_EACH = re.compile(r"(?<![\w.])(\d+)\s*(?:packs?|boxes|bags|cartons|cases|pk)\s+(?:of|with)\s+(\d+)\b", re.I)
+WRAPPER = re.compile(r"^\s*\((\d+)\s*pack\)", re.I)       # Walmart's multipack listing: "(6 pack) <one unit's name>"
+DOZEN = re.compile(r"\b(?:(\d+|a|one|two|three|four|five|six)\s+)?dozen\b", re.I)
+POUND_SIGN = re.compile(r"(?<![\w.#])(\d+(?:\.\d+)?)#(?![\w#])")                  # "Strawberries 1#" = 1 lb
+BARE_VOLUME = re.compile(r"\b(half[\s-]+gallon|gallon|quart|pint)\b(?!\s+glass)", re.I)  # "Eggnog, Quart"
+WORD_NUM = {"a": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9,
+            "ten": 10, "eleven": 11, "twelve": 12}
+WORD_QTY = re.compile(r"\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+(?=(?:pounds?|lbs?|ounces?|"
+                      r"gallons?|liters?|litres?)\b)", re.I)                    # not "two pint glasses"
+# feed shorthands rewritten before parsing: "24. OZ", "16 Fl O" cut off at 40 characters, "27.4ozx6", "1 Fl Dram" (1/8 fl oz)
+REWRITES = [
+    (re.compile(r"(?<![\w.])([1-9]\d*)\.\s+(oz|fl)\b", re.I), lambda m: f"{m.group(1)} {m.group(2)}"),
+    (re.compile(r"(?<![\w.])(\d+(?:\.\d+)?)\s*fl(?:\s*o)?\s*$", re.I), lambda m: f"{m.group(1)} fl oz"),
+    # "28.2ozx14" is the supplier's case count; Walmart prices one box ($3-8 measured on the live crawl): size only
+    (re.compile(r"(?<![\w.])(\d+(?:\.\d+)?)\s*(oz|fl\s?oz)x\d+\b", re.I), lambda m: f"{m.group(1)} {m.group(2)}"),
+    (re.compile(r"(?<![\w.])(\d+(?:\.\d+)?)\s*(?:fl\.?\s*)?drams?\b", re.I), lambda m: f"{float(m.group(1)) / 8:g} fl oz"),
+]
+# "11.5z" for oz is read only in the extended pass (a stated size anywhere wins) and never above 200: "Nissan 350z"
+Z_OUNCES = re.compile(r"(?<![\w.])(\d{1,3}(?:\.\d+)?)z\b", re.I)
+Z_MAX = 200
+LITRE_MAX = 10      # "1.5 Lt" is litres; "46 LT" is a hair-colour shade ("light")
+GRAM_ABBR_MIN = 10  # "165gr", "45 GM" are grams; "7GM" is a hair-colour shade (golden mahogany)
+# sold per piece: the price is for one item and no net quantity applies (produce "each", store cakes, gifts, flowers)
+EACH_RX = re.compile(r"(?:,|-|\()\s*(?:1\s+)?(?:each|ea)\s*\)?\s*$|\bper\s+each\b|\bsold\s+(?:by\s+the\s+)?each\b", re.I)
+EACH_SIZE = {"each", "ea", "1ea", "1 ea", "1 each", "1 gift", "one gift", "1 bouquet", "1 cake", "1 plant"}
+EACH_PATHS = ("/produce/", "fresh produce", "/fresh fruit", "/fresh vegetables", "flower shop", "/food gifts",
+              "fruit & nut gifts", "coffee, cocoa, & tea gifts", "/cakes/", "custom cakes", "easter food gifts",
+              "easter candy baskets")      # cake decorations count only by name (toppers, candles, kits), never by path
+EACH_WORDS = re.compile(r"\b(?:gift\s+(?:basket|set|box|tower|tin|bag|crate)|basket|bouquet|cake\s+topper|toppers?|"
+                        r"candles?|bonsai|live\s+plant|sheet\s+cake|smash\s+cake|bundt\s+cake|cupcake\s+cake|"
+                        r"decorating\s+(?:kit|set)|cookie\s+cutters?|serving\s+(?:board|tray|pedestal)|cake\s+stand)\b", re.I)
 PER_LB = re.compile(r"(?:per|/)\s*(?:lb|pound)\b|\bsold by (?:the )?(?:lb|pound|weight)\b", re.I)
 
 VARIANT_WORDS = [
@@ -72,33 +118,116 @@ def _unit(u: str) -> str:
     return UNIT_ALIASES.get(u, UNIT_ALIASES.get(u.rstrip("s"), u))
 
 
-def parse_quantity(text: str):
-    """Return (size, unit, pack) from free text. pack is None when not stated."""
+def _fraction(m) -> str:
+    whole = int(m.group(1) or 0)
+    if int(m.group(2)) >= int(m.group(3)):
+        return m.group(0)
+    return f"{whole + int(m.group(2)) / int(m.group(3)):g}"
+
+
+def _plausible(q) -> bool:
+    """Reject numbers that cannot be the stated quantity: zero, and abbreviations that collide with shade codes."""
+    n, u = float(q.group(1)), q.group(2).lower()
+    if n <= 0:
+        return False
+    if u.startswith("lt") and n > LITRE_MAX:
+        return False
+    if u in ("gm", "gms", "gr", "grs") and n < GRAM_ABBR_MIN:
+        return False
+    return True
+
+
+def parse_quantity(text: str, extended: bool = True):
+    """Return (size, unit, pack) from free text. pack is None when not stated.
+
+    The basic pass reads a weight or volume ("29 oz", "1.5 Lt", "Two Pounds", "1#") or a plain count ("24 ct").
+    With extended=True, when that finds nothing, count nouns ("20 Tea Bags", "12 Bars", "2 Dozen") and a bare
+    "Quart" / "Pint" / "Half Gallon" are read as well. normalize() tries the size field's basic pass before the
+    name's extended pass, so a stated weight always beats a piece count."""
     if not text:
         return None, None, None
     t = text.replace("\u00d7", "x")
+    t = WORD_QTY.sub(lambda m: f"{WORD_NUM[m.group(1).lower()]} ", t)          # "Two Pounds" -> "2 Pounds"
+    t = POUND_SIGN.sub(lambda m: f"{m.group(1)} lb", t)                         # "1#" -> "1 lb"
+    t = FRACTION.sub(lambda m: _fraction(m), t)                                  # "1 1/2oz" -> "1.5oz"
+    for rx, fn in REWRITES:
+        t = rx.sub(fn, t)
+    if extended:
+        t = Z_OUNCES.sub(lambda m: f"{m.group(1)} oz" if float(m.group(1)) <= Z_MAX else m.group(0), t)
     pack = None
     m = MULTI.search(t)
     if m:
         return float(m.group(2)), _unit(m.group(3)), int(m.group(1))
+    wrapper = WRAPPER.match(t)
+    wrapped = bool(wrapper and int(wrapper.group(1)) > 0)
+    pack_span = None
     for rx in PACK:
-        pm = rx.search(t)
+        pm = next((x for x in rx.finditer(t) if int(x.group(1)) > 0), None)   # "(0 pack)" is a feed artifact
         if pm:
-            pack = int(pm.group(1)); break
-    sizes = [(float(q.group(1)), _unit(q.group(2))) for q in QTY.finditer(t)]
+            pack, pack_span = int(pm.group(1)), pm.span(); break
+    sizes = [(float(q.group(1)), _unit(q.group(2))) for q in QTY.finditer(t) if _plausible(q)]
     # prefer metric-free US unit if both "11 oz (312 g)" present: first mention wins
     size, unit = (sizes[0] if sizes else (None, None))
-    if size is None:
+    if size is not None:
+        if pack is None:
+            c = (PACK_NOUNS if extended else COUNT).search(t)
+            if c and unit != "ct" and int(c.group(1)) > 0:
+                pack = int(c.group(1))
+        return size, unit, pack
+    if not extended:
+        # the long-standing reading: a plain count is the size only when no pack is stated beside it, so a pack's
+        # size comes from the size field ("(12 Count)" drinks of "12 oz")
         c = COUNT.search(t)
-        if c:
-            if pack is None:
-                return float(c.group(1)), "ct", None
+        if c and pack is None and int(c.group(1)) > 0:
+            return float(c.group(1)), "ct", None
         return None, None, pack
-    if pack is None:
-        c = COUNT.search(t)
-        if c and unit != "ct":
-            pack = int(c.group(1))
-    return size, unit, pack
+    for rx in (COUNT, COUNT_EXT):
+        total = TOTAL.search(t)
+        if total and rx is COUNT_EXT:
+            # the stated total already includes inner packs; under a "(6 pack)" wrapper it is one unit's total
+            return float(total.group(1)), "ct", (pack if wrapped else None)
+        c = rx.search(t)
+        if c and int(c.group(1)) > 0:
+            n = int(c.group(1))
+            if pack_span and pack_span[0] <= c.start() < pack_span[1]:
+                # "(20 Count)" is the count, not a pack as well (this pass runs only when no weight or volume is
+                # stated anywhere, so it is 20 pieces)
+                if rx is COUNT:
+                    return float(n), "ct", None
+                pack = None
+            if total and int(total.group(1)) == n and not wrapped:
+                return float(n), "ct", None
+            of = None if wrapped else OF_EACH.search(t)
+            if of and int(of.group(1)) * int(of.group(2)) == n:
+                return float(n), "ct", None                                    # "108 Count (6 Packs of 18)": n is the total
+            return float(n), "ct", pack
+    if extended:
+        d = DOZEN.search(t)
+        if d:
+            k = d.group(1)
+            return float(12 * (int(k) if k and k.isdigit() else WORD_NUM.get((k or "a").lower(), 1))), "ct", pack
+        bare = BARE_VOLUME.search(t)
+        if bare:
+            word = re.sub(r"[\s-]+", " ", bare.group(1).lower())
+            size, unit = (0.5, "gal") if word == "half gallon" else (1.0, _unit(word))
+            if pack is None:
+                c = PACK_NOUNS.search(t)
+                pack = int(c.group(1)) if c and int(c.group(1)) > 0 else None
+            return size, unit, pack
+    return None, None, pack
+
+
+def sold_each(name: str, size_field, path) -> bool:
+    """True when the listing is priced per piece with no net quantity to state: produce sold each, store-made cakes,
+    gift baskets, flowers and plants, cake toppers and candles. Such a row is sized by its basis (one item), not a
+    parse failure; packaged goods whose size is simply missing from the name are never matched here."""
+    if EACH_RX.search(name or ""):
+        return True
+    sf = re.sub(r"\s+", " ", str(size_field or "")).strip().lower()
+    if sf in EACH_SIZE:
+        return True
+    p = (path or "").lower()
+    return any(k in p for k in EACH_PATHS) or bool(EACH_WORDS.search(name or ""))
 
 
 def to_base(size, unit):
@@ -159,10 +288,15 @@ def normalize(item: dict, dept: dict, cfg: dict):
         return None, reason
     name = re.sub(r"\s+", " ", item["name"]).strip()
     key, retired, check_ok = gtin14(item.get("upc"))
-    size, unit, pack = parse_quantity(name)
+    # a stated weight or volume (name first, then the size field) beats a piece count or a bare "Pint"
+    size, unit, pack = parse_quantity(name, extended=False)
     flags = []
     src = "name"
-    fs, fu, fp = parse_quantity(item.get("size") or "")
+    fs, fu, fp = parse_quantity(item.get("size") or "", extended=False)
+    if size is None and fs is None:
+        size, unit, pack = parse_quantity(name)
+        if size is None:
+            fs, fu, fp = parse_quantity(item.get("size") or "")
     if size is None and fs is not None:
         size, unit, src = fs, fu, "size_field"
     elif size is not None and fs is not None:
@@ -176,6 +310,9 @@ def normalize(item: dict, dept: dict, cfg: dict):
     base, dim = to_base(size, unit)
     unit_price = round(price / (base * pack), 4) if base and pack else None
     if size is None:
+        # sized by its basis instead: sold by weight (basis "lb") or sold per piece (flag "sold_each")
+        if basis == "each" and sold_each(name, item.get("size"), item.get("categoryPath")):
+            flags.append("sold_each")
         flags.append("no_size")
     if retired:
         flags.append("retired_upc")

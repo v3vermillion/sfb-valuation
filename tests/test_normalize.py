@@ -23,6 +23,80 @@ class T(unittest.TestCase):
         self.assertEqual(self.q("Dan-O's Original Seasoning - 3.5oz"), (3.5, "oz", None))
         self.assertEqual(self.q("Bananas, each"), (None, None, None))
 
+    def test_count_beside_a_pack(self):
+        # the count survives a stated pack; a stated total is never multiplied again
+        self.assertEqual(self.q("(5 pack) (5 Pack) Miracle Tree Tea Organic Moringa, 16 Count"), (16.0, "ct", 5))
+        self.assertEqual(self.q("Lipton Decaf Tea Bags Family Size, 24 ct (Pack of 6)"), (24.0, "ct", 6))
+        self.assertEqual(self.q("Senseo Decaf Coffee Pods, 108 Count (6 Packs of 18 Pods)"), (108.0, "ct", None))
+        self.assertEqual(self.q("Trident Gum, 9 Packs of 16 Pieces (144 Total Pieces)"), (144.0, "ct", None))
+        self.assertEqual(self.q("GUM Soft-Picks, 90 Count (Pack of 3) 270 Total"), (90.0, "ct", 3))
+        self.assertEqual(self.q("(6 pack) Equate Wipes, 40 Total Wipes"), (40.0, "ct", 6), "under a (6 pack) wrapper the total is per unit")
+        self.assertEqual(self.q("Equate Tampons (20 Count)"), (20.0, "ct", None), "(20 Count) is not a pack of 20 as well")
+        self.assertEqual(self.q("Colgate 360 Total Advanced Toothbrush - 2 Count"), (2.0, "ct", None))
+        self.assertEqual(self.q("(0 pack) (12 Pack) Kedem Juice Grape, 22 Fz"), (22.0, "fl oz", 12), "(0 pack) is ignored")
+        # the basic pass keeps the long-standing reading so a size field's weight still wins over "(12 Count)"
+        self.assertEqual(N.parse_quantity("Powerful Greek Yogurt Protein Drink (12 Count)", extended=False), (None, None, 12))
+
+    def test_count_nouns_dozen_and_word_numbers(self):
+        self.assertEqual(self.q("Celestial Seasonings Peppermint, 20 Tea Bags"), (20.0, "ct", None))
+        self.assertEqual(self.q("CLIF BAR Peanut Butter Banana, 12 Bars"), (12.0, "ct", None))
+        self.assertEqual(self.q("Brooklyn Bean Breakfast Blend, 40 K-Cup Pods"), (40.0, "ct", None))
+        self.assertEqual(self.q("Sunbeam Coffee Filters, 100 Each"), (100.0, "ct", None))
+        self.assertEqual(self.q("Red Roses with Premium Greens, Two Dozen"), (24.0, "ct", None))
+        self.assertEqual(self.q("Two Pounds Of Fresh Raw Walnuts"), (2.0, "lb", None))
+        self.assertEqual(self.q("Fieldpack Fresh Stem Strawberries 1#"), (1.0, "lb", None))
+        self.assertEqual(self.q("Covermark SPF 15 # 50 Beige, 1 oz"), (1.0, "oz", None), "a shade number is not pounds")
+        self.assertEqual(self.q("Oakhurst Pumpkin Spice Eggnog, Quart"), (1.0, "qt", None))
+        self.assertEqual(self.q("Swiss Premium Orange Blast Drink - 1 Half Gallon Jug"), (0.5, "gal", None))
+        self.assertEqual(self.q("Bud Light Gift Bucket with Two Pint Glasses, 5.5 oz"), (5.5, "oz", None))
+        self.assertEqual(N.parse_quantity("Celestial Seasonings Peppermint, 20 Tea Bags", extended=False), (None, None, None),
+                         "count nouns are read only when no weight or volume is stated anywhere")
+
+    def test_unit_abbreviations_fractions_and_shorthands(self):
+        self.assertEqual(self.q("Kedem Juice Grape, 22 Fz"), (22.0, "fl oz", None))
+        self.assertEqual(self.q("Gel Shwr White Tea, 16.9 Fo (pack Of 1)"), (16.9, "fl oz", 1))
+        self.assertEqual(self.q("Orion Choco Chip Cookie, 104 Gm"), (104.0, "g", None))
+        self.assertEqual(self.q("Pom Peach Passion White Tea 1.5lt"), (1.5, "l", None))
+        self.assertEqual(self.q("Naturtint 7GM Chocolate Caramel Hair Color"), (None, None, None), "7GM is a shade")
+        self.assertEqual(self.q("MISS CLAIROL 46 LT COOL"), (None, None, None), "46 LT is a shade")
+        self.assertEqual(self.q("Stay Hard 1 1/2oz"), (1.5, "oz", None))
+        self.assertEqual(self.q("Wilton Icing Tube, 4-1/4 ounces"), (4.25, "oz", None))
+        self.assertEqual(self.q("RICA PEAR NECTAR 1/2 LT 500ml 18/1"), (0.5, "l", None))
+        self.assertEqual(self.q("Orajel Kids Toothpaste 24/2oz"), (2.0, "oz", None), "N/size keeps the long-standing reading")
+        self.assertEqual(self.q("Betty Crocker Complete Meals | 24. OZ"), (24.0, "oz", None))
+        self.assertEqual(self.q("Sechler's Jalapeno Sweet Relish, 16 Fl O"), (16.0, "fl oz", None))
+        self.assertEqual(self.q("Raisin Bran Rb 28.2ozx14 Bns Pk"), (28.2, "oz", None), "x14 is the supplier case; Walmart prices one box")
+        self.assertEqual(self.q("LorAnn Oils Flavoring | 1 Fl Dram"), (0.125, "fl oz", None))
+        self.assertEqual(self.q("11.5z Mh Dark Roast Can"), (11.5, "oz", None))
+        self.assertEqual(N.parse_quantity("11.5z Mh Dark Roast Can", extended=False), (None, None, None))
+        self.assertEqual(self.q("Nissan 350z by Nissan for Men"), (None, None, None))
+
+    def test_sold_each_counts_as_sized_by_basis(self):
+        def row(name, path, size=None):
+            r, _ = N.normalize({"itemId": 9, "name": name, "salePrice": 1.0, "size": size, "upc": "078742054261", "categoryPath": path}, FOOD, CFG)
+            return r
+        for name, path, size in [("Red Grapefruit, each", "Home Page/Food/Fresh Produce/Fresh Fruit", None),
+                                 ("Hass Avocado", "Home Page/Food/Fresh Produce/Fresh Fruit/Avocados", None),
+                                 ("Louisiana Grills Sweet Heat Rub", "Home Page/Food/Pantry", "EA"),
+                                 ("1/4 Marble Sheet Cake with Batman Kit", "Home Page/Food/Bakery & Bread/Cakes/Shop all cakes", None),
+                                 ("Nostalgic Gift Basket", "Home Page/Food/Food Gifts/All Food Gifts", None),
+                                 ("Polka Dot Number 7 Birthday Candle", "Home Page/Food/Baking/Baking Ingredients/Frosting, Toppings & Decorations", None),
+                                 ("Farm Direct Bouquet of 12 Roses", "Home Page/Food/Flower Shop/All Flowers", None)]:
+            r = row(name, path, size)
+            self.assertIn("sold_each", r["flags"], name); self.assertIsNone(r["size"]); self.assertIsNone(r["unit_price"])
+        for name, path in [("Louisiana Hot Sauce", "Home Page/Food/Pantry/Pantry meal essentials"),
+                           ("Wilton Easter Clr Egg Sprinkl Mix", "Home Page/Food/Baking/Baking Ingredients/Frosting, Toppings & Decorations"),
+                           ("Merchandise", "Home Page/Food/Pantry/Pantry meal essentials")]:
+            self.assertNotIn("sold_each", row(name, path)["flags"], f"{name}: a packaged good with a missing size is a failure")
+
+    def test_stated_weight_beats_a_piece_count(self):
+        r, _ = N.normalize({"itemId": 5, "name": "Powerful Coconut Greek Yogurt Protein Drink (12 Count)", "size": "12 oz",
+                            "salePrice": 24.0, "categoryPath": "Home Page/Food/Dairy"}, FOOD, CFG)
+        self.assertEqual((r["size"], r["unit"], r["pack"]), (12.0, "oz", 12))
+        r, _ = N.normalize({"itemId": 6, "name": "Haagen Dazs Chocolate Pint", "size": "14 fl oz", "salePrice": 5.0,
+                            "categoryPath": "Home Page/Food/Frozen"}, FOOD, CFG)
+        self.assertEqual((r["size"], r["unit"]), (14.0, "fl oz"), "the stated 14 fl oz beats the word Pint")
+
     def test_gtin(self):
         self.assertEqual(N.gtin14("078742054261")[0], "00078742054261")
         self.assertTrue(N.gtin14("078742054261")[2])

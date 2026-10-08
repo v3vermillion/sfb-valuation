@@ -177,6 +177,24 @@ class Gates(StoreCase, unittest.TestCase):
         self.write_gates(size_parse_min=None)
         self.assertEqual(self.qa.check(wm=FakeWM(rows)), "review")
 
+    def test_review_errors_name_the_fix_and_stay_transient(self):
+        for kind, words in (("auth", "replace the repository secret"), ("credits", "add credits"), ("permission", "workspace")):
+            gate, transient = self.qa.evaluate_review({"status": "error", "error_kind": kind, "reason": "HTTP 4xx", "run_id": RUN_ID},
+                                                      RUN_ID, {"required": True, "max_junk_rate": 0.05})
+            self.assertFalse(gate["pass"]); self.assertTrue(transient, "retried every few hours, so a fix clears it by itself")
+            self.assertIn(words, gate["detail"])
+
+    def test_size_parse_counts_rows_sized_by_their_basis(self):
+        # sold by the pound or sold each: the basis is the size, so these are not parse failures
+        rows = [dict(r, size=None, unit=None, base_qty=None, base_unit=None, unit_price=None,
+                     basis="lb" if i < 5 else r.get("basis"), flags=(["sold_each", "no_size"] if 5 <= i < 13 else ["no_size"]))
+                if i < 15 else r for i, r in enumerate(self.rows)]
+        self.write_candidate(rows)
+        self.qa.check(wm=FakeWM(rows))
+        x = self.gates()["gates"]["size_parse"]
+        self.assertAlmostEqual(x["value"], 119 / 121, places=3)
+        self.assertIn("5 sold by the pound, 8 sold each", x["detail"])
+
     def test_size_parse_ignores_other_departments(self):
         rows = [dict(r, base_qty=None, unit_price=None) if r["dept"] == "Pets" else r for r in self.rows]
         self.write_candidate(rows)
