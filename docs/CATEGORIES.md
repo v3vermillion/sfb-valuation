@@ -16,15 +16,21 @@ and every snapshot's 300-row sample review checks the category as well.
 | `alcohol` | Beer, wine, spirits, hard cider and hard seltzer. Non-alcoholic mixers and cooking wine stay in their aisle. |
 | `tobacco` | Cigarettes, cigars, tobacco, vapes and e-liquid. Stop-smoking aids (nicotine gum, patches, lozenges) are Health & Medicine. |
 | `media` | Books, music, movies and video games found outside the Books department (cookbooks under Food, CDs under Beverages). |
+| `large_equipment` | Massage chairs and recliners, mobility scooters, power wheelchairs, patient lifts, hospital beds, treadmills, ellipticals, exercise bikes and home gyms (multi-gyms, power racks and cages, power towers, functional trainers, Smith machines), priced $100 or more. Not excluded: walkers, rollators, canes, shower chairs, manual wheelchairs, dumbbells, bands, and parts or accessories (slings, sheets, ramps, baskets, cushions). |
 
-## Placeholder listings (barcode only)
+## Listings that are not products
 
-A listing whose name does not identify a product: `Merchandise`, `coming soon`, `Discontinued by Supplier`, test or
-do-not-use entries (`TEST ITEM 3`, `DO NOT USE- ...`), internal codes (`CVP NON-TAX FL6206 D3 CVP Item`), and names that
-are only the brand (`HUGGIES`, `CONAIR`). The barcode is real, so a scan still finds the item and its price, but it never
-appears in typed search and does not count in the size-parse rate. It is kept only when its check digit is valid and its
-price passes the price sanity rule. A real product name carrying a `***Discontinued***` marker is not a placeholder: the
-marker is removed from the name and the item is flagged `discontinued`.
+Not carried: test listings (`Signing Test 9027 Dummy Stress Test`, `TEST ITEM 3`, or any placeholder name on an internal
+4-prefix barcode) → `test_listing`; store displays and pallets (`0523 Infinity PDQ`, `64PC OS SOS 1/2 Plt`, `FF Half Mod`,
+`Axe Kenobi Split EC`, `C&B SS Shipper`, `DISP SLIDE2ME 2024`, `Section Header Kit`) → `store_display`.
+
+Kept for barcode lookup only (`placeholder` flag): every other name that identifies no product: `Merchandise`, a brand
+alone (`PROGRESSO`), `Discontinued by Supplier`, `coming soon`, a supplier code, `DO NOT USE- ...`, an old seasonal listing
+(`***holiday 2014***...`). Only with a valid check digit and a price that passes the price sanity rule; otherwise dropped
+(`placeholder_no_barcode`, `placeholder_price`). Never in typed search; not in the size-parse rate. The name is replaced by
+another Walmart listing's name for the same UPC, else the Open Facts name for the UPC (flag `name_filled`, source in
+`name_src`); with neither, the name is `(name not provided)`, shown after the brand. A real product name carrying a
+`***Discontinued***` marker is not a placeholder: the marker is removed and the item is flagged `discontinued`.
 
 ## Food
 

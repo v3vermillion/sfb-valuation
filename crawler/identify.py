@@ -24,6 +24,8 @@ SOURCES = [
     "https://static.openproductsfacts.org/data/en.openproductsfacts.org.products.csv.gz",
 ]
 OUT = store.ROOT / "identify"
+# Open Food Facts refuses requests without an identifying User-Agent (python-requests' default gets HTTP 403)
+USER_AGENT = "SFBValuation/1.0 (Strongsville Emergency Food Bank donation valuation; +https://github.com/v3vermillion/sfb-valuation)"
 
 OTHER_STORE_BRANDS = {
     # Aldi
@@ -53,36 +55,53 @@ def tokens(text, brand=None):
     return {w for w in words if w not in STOP and w not in btoks and len(w) > 1}
 
 
-def fetch():
+def fetch(attempts=4, wait_s=20):
+    """Download the Open Food/Beauty/Products Facts exports and keep US products with a valid barcode and a name.
+    Each source is retried (its S3 mirror answers 404 now and then); a source that still fails raises, so a partial
+    product list is never written."""
+    import time
     OUT.mkdir(parents=True, exist_ok=True)
     csv.field_size_limit(sys.maxsize)
     rows, seen = [], set()
     for url in SOURCES:
-        n = 0
-        with requests.get(url, stream=True, timeout=600) as r:
-            r.raise_for_status()
-            gz = gzip.GzipFile(fileobj=r.raw)
-            reader = csv.reader(io.TextIOWrapper(gz, encoding="utf-8", errors="replace"), delimiter="\t", quoting=csv.QUOTE_NONE)
-            header = next(reader)
-            ix = {h: i for i, h in enumerate(header)}
-            for rec in reader:
-                try:
-                    countries = rec[ix["countries_tags"]]
-                    if "en:united-states" not in countries:
-                        continue
-                    key, _, ok = gtin14(rec[ix["code"]])
-                    name = rec[ix["product_name"]].strip()
-                    if not key or not ok or not name or key in seen:
-                        continue
-                    seen.add(key)
-                    rows.append({"upc": key, "name": name, "brand": rec[ix["brands"]].split(",")[0].strip(),
-                                 "quantity": rec[ix["quantity"]].strip()})
-                    n += 1
-                except (IndexError, KeyError):
-                    continue
-        print(f"{url.split('/')[2]}: {n} US products")
+        for attempt in range(1, attempts + 1):
+            try:
+                got, keys = _read_source(url, seen)
+                break
+            except (requests.RequestException, OSError, EOFError) as e:
+                if attempt == attempts:
+                    raise
+                print(f"{url.split('/')[2]}: attempt {attempt} failed ({type(e).__name__}: {e}); retrying")
+                time.sleep(wait_s * attempt)
+        rows += got
+        seen |= keys
+        print(f"{url.split('/')[2]}: {len(got)} US products")
     store.write_jsonl_gz(OUT / "products_us.jsonl.gz", rows)
     print(f"total {len(rows)}")
+
+
+def _read_source(url, seen):
+    got, keys = [], set()
+    with requests.get(url, stream=True, timeout=600, headers={"User-Agent": USER_AGENT}) as r:
+        r.raise_for_status()
+        gz = gzip.GzipFile(fileobj=r.raw)
+        reader = csv.reader(io.TextIOWrapper(gz, encoding="utf-8", errors="replace"), delimiter="\t", quoting=csv.QUOTE_NONE)
+        header = next(reader)
+        ix = {h: i for i, h in enumerate(header)}
+        for rec in reader:
+            try:
+                if "en:united-states" not in rec[ix["countries_tags"]]:
+                    continue
+                key, _, ok = gtin14(rec[ix["code"]])
+                name = rec[ix["product_name"]].strip()
+                if not key or not ok or not name or key in seen or key in keys:
+                    continue
+                keys.add(key)
+                got.append({"upc": key, "name": name, "brand": rec[ix["brands"]].split(",")[0].strip(),
+                            "quantity": rec[ix["quantity"]].strip()})
+            except (IndexError, KeyError):
+                continue
+    return got, keys
 
 
 def match():

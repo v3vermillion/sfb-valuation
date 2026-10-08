@@ -511,6 +511,17 @@ def _candidate_complete():
     return store.jsonl_exists(cand / "items.jsonl.gz") and (cand / "stats.json").exists()
 
 
+def _ensure_identify_data():
+    """The build names barcode-only listings from the Open Facts product list (process.fill_placeholder_names): fetch it
+    once if it is missing (no Walmart calls). A failed download only means fewer names; the build goes on."""
+    if store.jsonl_exists(store.ROOT / "identify" / "products_us.jsonl.gz"):
+        return
+    try:
+        identify.fetch()
+    except Exception as e:                          # network or source format: names come from Walmart listings only
+        print(f"identification data not fetched ({type(e).__name__}: {e}); placeholder names from Walmart listings only")
+
+
 def _build(recheck=False):
     state = _read_state()
     if not state:
@@ -521,6 +532,7 @@ def _build(recheck=False):
         # rule edits only take effect through process.build(), so rebuild from the raw pages whenever
         # they still exist (deterministic, no Walmart calls); only a candidate whose raw pages are gone
         # is re-evaluated as it stands
+        _ensure_identify_data()
         process.build()
     wm = _wm() if _has_wm_credentials() else None
     status = _qa_check(wm)

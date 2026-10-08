@@ -307,6 +307,8 @@ class PlanBase(unittest.TestCase):
         self.root = self.store.ROOT
         self.wm = FakeWM()
         p = mock.patch.object(ci, "_wm", lambda: self.wm); p.start(); self.addCleanup(p.stop)
+        self.fetched = []                     # the Open Facts download is never made by a test
+        p = mock.patch.object(ci.identify, "fetch", lambda: self.fetched.append(True)); p.start(); self.addCleanup(p.stop)
         self.depts = [str(d["id"]) for d in self.store.config()["departments"]]
 
     def tearDown(self):

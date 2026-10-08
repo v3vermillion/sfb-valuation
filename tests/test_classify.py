@@ -113,6 +113,30 @@ class Exclusions(unittest.TestCase):
                                   brand="Warner Bros."))
 
 
+class LargeEquipment(unittest.TestCase):
+    def test_large_equipment_is_not_carried(self):
+        for name, price in (("Signature Massage Chair, Black", 5499.0), ("Faux Suede Heated Vibrating Massage Recliner Chair", 331.79),
+                            ("Drive Medical Ventura Power Mobility Scooter, 4 Wheel", 1899.0),
+                            ("Drive Medical Titan Transportable Front Wheel Power Wheelchair, 18\" Seat", 1899.0),
+                            ("Invacare Hydraulic Patient Lift with R115 Full Body Mesh Sling, 450 lb", 536.39),
+                            ("KFFKFF Electric Hospital Bed with Adjustable Backrest", 1118.69), ("Sole F65 Treadmill", 1257.14),
+                            ("Sunny Health Magnetic Exercise Bike", 299.0), ("Body-Solid GSFR100 All-In-One Functional Trainer", 4500.0),
+                            ("GymMaster Multifunctional Home Gym 100 Lbs with Upright Bench Press", 623.68)):
+            self.assertEqual(C.exclusion(name, "", "Home Page/Health and Medicine", "Health and Medicine", None, price),
+                             "large_equipment", name)
+
+    def test_small_mobility_and_fitness_items_and_accessories_stay(self):
+        for name, price in (("Drive Medical Folding Walker, Two Button", 45.0), ("Drive Medical Rollator Walker with Seat", 89.0),
+                            ("Medline Offset Cane", 19.0), ("Shower Chair with Back", 39.0), ("Manual Wheelchair 18\" Seat", 159.0),
+                            ("CAP Barbell Neoprene Dumbbell, 10 lb", 15.0), ("XPRT Fitness Resistance Band Home Gym Exercise Band", 8.6),
+                            ("Zippidy Mobility Scooter and Wheelchair Lap Blanket", 4.76), ("Nylon Sling For Patient Lift", 37.81),
+                            ("MDS88200D Patient Lift Hydraulic Cylinder - MDS88200DHC", 299.99),
+                            ("Drive Medical Hospital Bed Fitted Sheets, White", 38.99),
+                            ("Massage Cushion with Heat | Multiple Zone Back Massage Chair", 30.38),
+                            ("Folding Strong Electric Wheelchair Hitch Carrier Mobility Scooter Loading Ramp", 107.29)):
+            self.assertIsNone(C.exclusion(name, "", "Home Page/Health and Medicine", "Health and Medicine", None, price), name)
+
+
 class Placeholders(unittest.TestCase):
     def test_names_that_identify_no_product(self):
         for name, brand in (("Merchandise", "Unbranded"), ("coming soon", "Munchkin"), ("(5 pack) coming soon", ""),
@@ -153,6 +177,17 @@ class Placeholders(unittest.TestCase):
                             ("WINGS MEN SET EDT SPRAY 3.4 OZ.+ AFTER SHAVE 3.4 OZ. IN DISPLAY BOX", 41.28),
                             ("24pcs Lipstick Organizer Acrylic Makeup Case Cosmetic Display Stand Rack Holder", 7.17)):
             self.assertFalse(C.placeholder(name, "", price), name)
+
+    def test_kinds_decide_what_is_kept(self):
+        for name, price, kind in (("Signing Test 9027 Dummy Stress Test", 2.27, "test"), ("DO NOT USE- Barbecue Beans", 3.0, "generic"),
+                                  ("Extended Warranty 2 Year", 30.0, "generic"), ("(12 pack) coming soon", 45.84, "generic"),
+                                  ("64PC OS SOS 1/2 Plt", 510.08, "display"), ("0523 Infinity PDQ", 107.64, "display"),
+                                  ("Merchandise", 18.24, "generic"), ("***Discontinued***", 40.77, "generic"),
+                                  ("NRDCAUCA20WALKEL,P009376-LC001,P014192-BA003,S", 18.48, "generic"),
+                                  ("***holiday 2014***godiva Indulgence", 34.81, "generic"),
+                                  ("Great Value Whole Kernel Corn, 15.25 oz", 1.0, None)):
+            self.assertEqual(C.placeholder_kind(name, "", price), kind, name)
+        self.assertEqual(C.placeholder_kind("PROGRESSO", "Progresso", 2.08), "generic")
 
     def test_discontinued_marker_is_removed_from_a_real_name(self):
         self.assertEqual(C.clean_name("***DISCONTINUED***Generations Night Time Moisturizer"),

@@ -139,3 +139,64 @@ class PackResolution(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def upc(body11):
+    """A 12-digit UPC-A with a valid check digit."""
+    d = [int(c) for c in f"{body11:011d}"]
+    return f"{body11:011d}{(10 - (3 * sum(d[0::2]) + sum(d[1::2])) % 10) % 10}"
+
+
+class PlaceholderNames(unittest.TestCase):
+    """Barcode-only listings get a real name: another Walmart listing with the same UPC, else Open Facts, else
+    "(name not provided)" after the brand; the feed's text stays in listed_name."""
+
+    def test_names_come_from_a_listing_with_the_same_upc_then_open_facts(self):
+        beans = "Home Page/Food/Pantry/Canned goods/Canned beans"
+        same, facts, none = upc(7874206101), upc(7874206102), upc(7874206103)
+        raw = [item(i, f"Baked Beans, {15 + i % 3} oz Can", 1.5, beans) for i in range(10)]
+        raw.append(dict(item(901, "Merchandise", 1.8, beans), upc=same, brandName="Bush's"))
+        raw.append(dict(item(902, "Bush's Best Original Baked Beans, 16 oz", 1.8, beans), upc=same, brandName="Bush's"))
+        raw.append(dict(item(903, "coming soon", 2.5, beans), upc=facts, brandName="Unbranded"))
+        raw.append(dict(item(904, "PROGRESSO", 2.08, beans), upc=none, brandName="Progresso"))
+        import crawler.store
+        tmp = tempfile.mkdtemp(); self.addCleanup(shutil.rmtree, tmp)
+        os.environ["SFB_STORE"] = tmp
+        importlib.reload(crawler.store)
+        key = "00" + facts
+        crawler.store.write_jsonl_gz(Path(tmp) / "identify" / "products_us.jsonl.gz",
+                                     [{"upc": key, "name": "Organic Black Beans", "brand": "Simple Truth", "quantity": "15 oz"}])
+        rows, stats = self.build_in(tmp, raw)
+        a, b, c = rows[200901], rows[200903], rows[200904]
+        self.assertEqual((a["name"], a["name_src"], a["listed_name"]), ("Bush's Best Original Baked Beans, 16 oz", "walmart_listing", "Merchandise"))
+        self.assertEqual((b["name"], b["brand"], b["name_src"], b["size"], b["unit"]), ("Organic Black Beans", "Simple Truth", "open_facts", 15.0, "oz"))
+        self.assertEqual((c["name"], c["brand"], c["name_src"]), ("(name not provided)", "Progresso", "none"))
+        for r in (a, b, c):
+            self.assertIn("placeholder", r["flags"], "still barcode-only"); self.assertIsNone(r["unit_price"])
+        self.assertEqual(stats["placeholders"]["names_filled"], {"walmart_listing": 1, "open_facts": 1, "none": 1})
+
+    def test_a_brand_that_only_repeats_the_placeholder_is_dropped(self):
+        from crawler import process
+        rows = {1: {"id": 1, "upc": "1", "name": "Merchandise", "brand": "ONLINE", "flags": ["placeholder"]},
+                2: {"id": 2, "upc": "2", "name": "Merchandise", "brand": "Merchandise", "flags": ["placeholder"]},
+                3: {"id": 3, "upc": "3", "name": "Merchandise", "brand": "Hello Bello", "flags": ["placeholder"]},
+                4: {"id": 4, "upc": "3", "name": "(4 pack) Hello Bello Diapers", "brand": "Hello Bello", "flags": []},
+                5: {"id": 5, "upc": "3", "name": "Hello Bello Diapers Size 3, 32 ct", "brand": "Hello Bello", "flags": []}}
+        process.fill_placeholder_names(rows)
+        self.assertEqual([rows[i]["brand"] for i in (1, 2)], [None, None])
+        self.assertEqual(rows[3]["name"], "Hello Bello Diapers Size 3, 32 ct", "the plain listing beats the multipack")
+
+    def build_in(self, tmp, raw):
+        os.environ["SFB_STORE"] = tmp; os.environ["SFB_NO_COMMIT"] = "1"
+        import crawler.store, crawler.process, crawler.qa
+        for m in (crawler.store, crawler.process, crawler.qa):
+            importlib.reload(m)
+        store, process = crawler.store, crawler.process
+        root = Path(tmp)
+        store.write_jsonl_gz(root / "raw" / "run-1" / "976759" / "part-0001.jsonl.gz", raw)
+        depts = [{"id": d["id"], "name": d["name"], "status": "done" if d["id"] == "976759" else "pending", "next": None,
+                  "pages": 1 if d["id"] == "976759" else 0, "items": 0, "parts": 1, "total_pages": 1} for d in store.config()["departments"]]
+        store.write_json(root / "state" / "run.json", {"run_id": "run-1", "plan": "full", "status": "crawled", "started": "x",
+                                                       "updated": "x", "departments": depts, "calls": 1, "throttle_wait_s": 0})
+        stats = process.build()
+        return {r["id"]: r for r in store.iter_jsonl_gz(root / "build" / "candidate" / "items.jsonl.gz")}, stats
