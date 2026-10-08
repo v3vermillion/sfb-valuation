@@ -72,7 +72,9 @@ Every request and every 429 sleep is logged to `throttle/<run>.events.jsonl`; at
 `crawler/throttle.py` infers whether Walmart limits per second or per minute and at what rate, writes
 `throttle/<run>.analysis.json`, and sets `state.pace = {per_min, inferred, updated, run_id}`: the next run paces under that cap
 (0.85× the inferred limit after 3+ 429s; +10% after a clean run; −15% after a costly one; unchanged when 429s cost under 2%;
-clamped 6–48/min on top of the 1.25 s floor). The job summary prints one pace line per crawl.
+clamped 6–48/min on top of the 1.25 s floor). A cap is never lowered on a single 429, on a run under 2 minutes, or on 429s that
+came after fewer requests than a clean minute (an outage, not the cap) costing under 10%. Within a run, each 429 also lowers the
+cap 15% (not below 6) and every 50 successes raise it 10% back towards the starting cap. The job summary prints one pace line per crawl.
 Read a log by hand: `python -m crawler.throttle store/throttle/<run>.events.jsonl --cap <per_min>`.
 
 ### Holds and retries
@@ -101,8 +103,11 @@ Working data: branch `data-store` (state/, raw/, build/, identify/, history/, au
 
 ## App (Cloudflare Workers static assets, deployed by GitHub Actions)
 Code: `app/`. Workflow: `.github/workflows/deploy-app.yml` (runs on app changes, after every pipeline run, or manually).
-After a pipeline run it deploys only when the published version differs from what the live site serves (`$APP_URL/db/current.json`),
-and every deploy is verified against the live site; mismatches open `[deploy-mismatch]`, failures `[deploy-failed]`.
+Every build carries a build key in `$APP_URL/build.json` (a hash of the app code, the repo's build inputs, the published
+snapshot and the equivalents table). After a pipeline run it deploys only when that key differs from the live one, and every
+deploy is verified by polling `build.json` and `db/current.json` for the new build; mismatches open `[deploy-mismatch]`,
+failures `[deploy-failed]`. Deploys queue rather than cancel each other. The pack version is `<snapshot>-<hash>`, so an
+equivalents refresh or a builder change reaches phones as a new version.
 Optional repository variable: APP_URL — the app's address (default `https://sfb-value.forgetraining.workers.dev`); change it
 when the Worker moves to the food bank's account and custom domain.
 Required repository secrets (Settings → Secrets and variables → Actions):

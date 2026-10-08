@@ -116,9 +116,12 @@ export class DbClient extends EventTarget {
         }
         return;
       }
-      this.checkForUpdate().catch(() => {});
     })();
-    this.#updating = run.finally(() => { this.#updating = null; });
+    // the launch check runs once start() has released #updating; called inside run it would only see itself as busy
+    this.#updating = run.finally(() => {
+      this.#updating = null;
+      if (this.version) this.checkForUpdate().catch(() => {});
+    });
     return this.#updating;
   }
 
@@ -158,7 +161,6 @@ export class DbClient extends EventTarget {
     const files = FILES(manifest);
     const totalBytes = files.reduce((a, f) => a + (f.gzBytes || f.bytes || 0), 0);
     let doneBytes = 0;
-    try { await navigator.storage?.persist?.(); } catch { /* optional */ }
     // two at a time: fast enough on Wi-Fi, gentle on a phone's memory
     const queue = files.slice();
     const runOne = async () => {

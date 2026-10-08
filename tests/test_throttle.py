@@ -133,6 +133,32 @@ class Analyze(unittest.TestCase):
         self.assertEqual(throttle.analyze(ev, cap=6)["per_min"], 6, "never below the floor")
         self.assertEqual(throttle.analyze(ev, cap=7)["per_min"], 6)
 
+    def test_429s_the_cap_did_not_cause_leave_it_alone(self):
+        # 30 clean minutes at the 40/min cap, then a short outage: 429s after only a few requests, ~4% lost
+        ev = clean_stream(1800, interval=1.25, cap=40)
+        t = ev[-1][0] + 120
+        ev += [[t, 200], [t + 1.5, 429], [t + 1.5, "sleep", 5.0], [t + 6.5, 429], [t + 6.5, "sleep", 10.0],
+               [t + 16.5, 429], [t + 16.5, "sleep", 20.0], [t + 36.5, 429], [t + 36.5, "sleep", 40.0], [t + 76.5, 200]]
+        a = throttle.analyze(ev, cap=40)
+        self.assertGreater(a["lost_share"], throttle.INCIDENTAL_LOSS)
+        self.assertLess(a["lost_share"], throttle.BOUND_TOLERATED_LOSS)
+        self.assertIsNone(a["per_min"], a["reason"])
+        self.assertIn("not the cap's doing", a["reason"])
+
+    def test_a_single_429_in_a_short_capped_run_does_not_lower_the_cap(self):
+        ev = clean_stream(230, interval=1.5, cap=40)
+        t = ev[-1][0] + 1.5
+        ev += [[t, 429], [t, "sleep", 6.3], [t + 6.3, 200]]
+        a = throttle.analyze(ev, cap=40)
+        self.assertGreater(a["lost_share"], throttle.INCIDENTAL_LOSS)
+        self.assertIsNone(a["per_min"], a["reason"])
+        # the rule itself: one 429, or a run shorter than MIN_SPAN_S, never lowers a cap
+        nxt, why = throttle._recommend(1, 0.03, None, None, False, 40, 600)
+        self.assertIsNone(nxt); self.assertIn("too little to lower it on", why)
+        nxt, why = throttle._recommend(4, 0.05, None, None, False, 40, 60)
+        self.assertIsNone(nxt)
+        self.assertEqual(throttle._recommend(4, 0.05, None, None, False, 40, 600)[0], 34)
+
     def test_incidental_429s_leave_the_cap_alone(self):
         ev = clean_stream(3600, interval=3.0, cap=20)
         ev += [[T0 + 100.5, 429], [T0 + 100.5, "sleep", 6.0], [T0 + 2000.5, 429], [T0 + 2000.5, "sleep", 6.0]]

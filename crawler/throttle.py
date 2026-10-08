@@ -40,6 +40,8 @@ MARGIN_PCT = 85              # pace at this percentage of the inferred limit
 PROBE_UP_PCT = 110           # a clean capped run raises its cap to this percentage (at least +1)
 BACK_OFF_PCT = 85            # a capped run with costly but uninferable 429s lowers it to this percentage
 INCIDENTAL_LOSS = 0.02       # back-off under this share of the run is tolerated: lowering the cap 15%
+BOUND_TOLERATED_LOSS = 0.10  # 429s that came after fewer requests than a clean minute under the cap are not the
+                             # cap's doing (an outage, another client on the key): tolerated up to this share
                              # costs 15% of the next run, far more than the seconds these 429s cost
 MIN_SPAN_S = 120             # a clean run shorter than this proves nothing about the limit
 
@@ -111,6 +113,9 @@ def _recommend(n429, lost_share, pattern, limit, bound, cap, span_s):
         return nxt, f"no 429s under the {cap}/min cap: probing up 10%"
     if lost_share < INCIDENTAL_LOSS:
         return None, f"{n429} x 429 cost {lost_share:.1%} of the run: incidental"
+    if bound and cap is not None and lost_share < BOUND_TOLERATED_LOSS:
+        return None, (f"{n429} x 429 came after fewer requests than a clean minute under the {cap}/min cap "
+                      f"({lost_share:.1%} lost): not the cap's doing")
     if pattern == "per-minute" and n429 >= 3 and limit:
         nxt = _pct(limit, MARGIN_PCT)
         if cap is not None:
@@ -123,6 +128,8 @@ def _recommend(n429, lost_share, pattern, limit, bound, cap, span_s):
             reason += f", clamped to {clamped}"
         return clamped, reason
     if cap is not None:
+        if n429 < 2 or span_s < MIN_SPAN_S:
+            return None, f"{n429} x 429 in {span_s:.0f} s under the {cap}/min cap: too little to lower it on"
         return max(MIN_PER_MIN, _pct(cap, BACK_OFF_PCT)), f"{n429} x 429 under the {cap}/min cap: lowering 15%"
     if pattern == "per-second":
         return None, "per-second pattern: the request spacing, not a per-minute cap, is the lever"

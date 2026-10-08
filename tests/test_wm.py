@@ -134,6 +134,31 @@ class _Clock:
         self.t += s
 
 
+class _BadJson(_Resp):
+    def json(self):
+        raise ValueError("Expecting value: line 1 column 1 (char 0)")
+
+
+class NonJson(unittest.TestCase):
+    def test_a_200_with_a_body_that_is_not_json_is_retried_like_a_server_error(self):
+        sleeps = []
+        p = mock.patch("crawler.wm.time.sleep", side_effect=sleeps.append); p.start(); self.addCleanup(p.stop)
+        c, logs = _client([200, 200])
+        c.s.get = mock.Mock(side_effect=[_BadJson(200), _Resp(200)])
+        self.assertEqual(c.get("/x"), {"items": []})
+        self.assertEqual(c.calls, 2)
+        self.assertTrue(any("HTTP 502" in m for m in logs), logs)
+        self.assertEqual(c._ok_streak, 1, "only the parsed success counts towards pace recovery")
+
+    def test_a_200_that_never_parses_gives_up_after_the_server_error_retries(self):
+        p = mock.patch("crawler.wm.time.sleep"); p.start(); self.addCleanup(p.stop)
+        c, _ = _client([])
+        c.s.get = mock.Mock(side_effect=[_BadJson(200)] * 6)
+        with self.assertRaises(RuntimeError):
+            c.get("/x")
+        self.assertEqual(c.calls, 6)
+
+
 class Window(unittest.TestCase):
     def setUp(self):
         self.clock = _Clock()
@@ -168,6 +193,27 @@ class Window(unittest.TestCase):
         self.assertEqual(self.clock.sleeps, [1.25] * 5)
         self.assertEqual(c.cap_waited, 0.0)
         self.assertEqual(len(c._window), 0, "no timestamps are kept without a cap")
+
+    def test_a_429_lowers_the_cap_for_the_run_and_successes_raise_it_back_to_the_start(self):
+        c, logs = _client([429, 429] + [200] * 400, max_per_min=40)
+        c.get("/x")                                   # two 429s, then a success
+        self.assertEqual(c.max_per_min, 28, "40 -> 34 -> 28: the interval alone cannot pace below 12/min")
+        self.assertEqual(c.base_per_min, 40)
+        for _ in range(49):                           # 50 consecutive successes
+            c.get("/x")
+        self.assertEqual(c.max_per_min, 30)           # +10% (at least +1)
+        for _ in range(350):                          # 30 -> 33 -> 36 -> 39 -> 40, then it stays
+            c.get("/x")
+        self.assertEqual(c.max_per_min, 40, "never above the cap the run started with")
+        self.assertTrue(any("cap back to" in m for m in logs))
+
+    def test_the_in_run_cut_never_raises_a_cap_below_the_floor_and_stops_at_it(self):
+        c, _ = _client([429, 200], max_per_min=3)
+        c.get("/x")
+        self.assertEqual(c.max_per_min, 3)
+        c, _ = _client([429] * 6 + [200], max_per_min=8)
+        c.get("/x")
+        self.assertEqual(c.max_per_min, 6)
 
     def test_a_429_retry_counts_against_the_window_too(self):
         c, _ = _client([429, 200, 200, 200, 200], max_per_min=3)

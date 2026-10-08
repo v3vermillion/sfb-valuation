@@ -28,6 +28,8 @@ API = HOST + "/api-proxy/service/affil/product/v2"
 RECOVER_AFTER = 50      # consecutive successful requests before the pace eases
 RECOVER_STEP = 0.10     # fraction of min_interval removed at each easing
 WINDOW_S = 60.0         # length of the sliding window max_per_min applies to
+CAP_CUT_PCT = 85        # a 429 under a cap lowers it to this percentage for the rest of the run ...
+CAP_FLOOR = 6           # ... never below this (throttle.MIN_PER_MIN); recovery raises it back towards the start cap
 
 
 class Throttled(Exception):
@@ -52,6 +54,7 @@ class Walmart:
         self.base_interval = min_interval         # the floor pacing recovers back to
         self.max_throttle_wait = max_throttle_wait  # total 429 wait allowed per run before pausing
         self.max_per_min = int(max_per_min) if max_per_min else None  # sliding-window cap; None = interval only
+        self.base_per_min = self.max_per_min       # the cap the run started with; in-run recovery stops there
         self._ok_streak = 0                       # consecutive 200s since the last non-success
         self.throttle_waited = 0.0                # seconds slept in 429 back-off this run
         self.cap_waited = 0.0                     # seconds waited for the sliding window to make room
@@ -126,8 +129,14 @@ class Walmart:
                 continue
             self._record(r.status_code)
             if r.status_code == 200:
-                self._recover_pace()
-                return r.json()
+                try:
+                    data = r.json()
+                except ValueError:
+                    # a truncated or HTML body behind a 200: retried like a server error, never a crash
+                    data, r.status_code = None, 502
+                if data is not None or r.status_code == 200:
+                    self._recover_pace()
+                    return data
             self._ok_streak = 0
             if r.status_code == 429:
                 self.n429 += 1
@@ -140,6 +149,10 @@ class Walmart:
                 self.throttle_waited += sleep
                 backoff = min(backoff * 2, 300)
                 self.min_interval = min(self.min_interval * 1.15, 5.0)  # slow down for the rest of the run
+                if self.max_per_min:
+                    # the interval alone cannot go below 12/min, so a cap one step above a tight limit would keep
+                    # tripping it for the whole run: the cap itself comes down too (and recovers below)
+                    self.max_per_min = max(min(CAP_FLOOR, self.max_per_min), self.max_per_min * CAP_CUT_PCT // 100)
                 continue
             if r.status_code >= 500:
                 server_errors += 1
@@ -156,10 +169,14 @@ class Walmart:
         After every RECOVER_AFTER consecutive successful requests the interval drops by RECOVER_STEP,
         never below the interval the client started with."""
         self._ok_streak += 1
-        if self.min_interval <= self.base_interval or self._ok_streak % RECOVER_AFTER:
+        if self._ok_streak % RECOVER_AFTER:
             return
-        self.min_interval = max(self.base_interval, self.min_interval * (1 - RECOVER_STEP))
-        self.log(f"pace: {self._ok_streak} ok in a row; interval back to {self.min_interval:.2f}s")
+        if self.min_interval > self.base_interval:
+            self.min_interval = max(self.base_interval, self.min_interval * (1 - RECOVER_STEP))
+            self.log(f"pace: {self._ok_streak} ok in a row; interval back to {self.min_interval:.2f}s")
+        if self.max_per_min and self.base_per_min and self.max_per_min < self.base_per_min:
+            self.max_per_min = min(self.base_per_min, max(self.max_per_min + 1, self.max_per_min * 110 // 100))
+            self.log(f"pace: {self._ok_streak} ok in a row; cap back to {self.max_per_min}/min")
 
     ITEMS_CHUNK = 20   # the /items endpoint accepts up to 20 ids per request
 

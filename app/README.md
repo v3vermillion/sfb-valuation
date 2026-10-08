@@ -141,10 +141,13 @@ The latest run is summarised in `docs/perf/README.md` next to the raw JSON.
   button that checks, downloads and applies the newest snapshot (`js/staleness.js`; thresholds pinned by
   `tests/staleness.test.mjs`). It is re-evaluated on every database state change, when the app returns to the
   foreground, when the network comes back and hourly; the dock never moves. No Web Push.
-- Deploy hygiene (`deploy-app.yml`): a pipeline run only redeploys when the published snapshot's version differs from
-  what `APP_URL/db/current.json` already serves (checked before any setup, so a no-op run costs seconds); after a
-  deploy the live `current.json` is polled until it serves the built version, and a `pipeline-alert` issue
-  (`[deploy-failed]` / `[deploy-mismatch]`) is opened or resolved accordingly.
+- Deploy hygiene (`deploy-app.yml`): every build writes `build.json` with a build key (app code, repo build inputs,
+  published snapshot, equivalents). A pipeline run only redeploys when that key differs from the live
+  `APP_URL/build.json` (checked before any setup, so a no-op run costs seconds); after a deploy `build.json` and
+  `db/current.json` are polled until they serve the new build, and a `pipeline-alert` issue
+  (`[deploy-failed]` / `[deploy-mismatch]`) is opened or resolved accordingly. Deploys queue, never cancel each other.
+- Pack versions are `<snapshot>-<hash of equivalents + builder + tokenizer + format>`, so new pack bytes always
+  arrive under a new version (pack URLs are cached as immutable).
 - Live check: when online, a scanned/typed barcode is also sent to the pipeline Worker's public
   `/v1/price/<gtin>` route (rate limited, cached, no token); a differing live price is shown with the delta and
   can be used for the tally with one tap. Unknown barcodes that Walmart does sell become a "Live Walmart price".

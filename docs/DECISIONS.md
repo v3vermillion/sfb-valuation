@@ -118,3 +118,16 @@
   pipeline chain step no longer fail silently or drop alerts (exit status checked; chaining runs last and cannot fail the run).
   (d) The sample review starts with room for the model's thinking (12,000 tokens, one retry at 20,000) and finds the verdict even
   when the model quotes an example row object before it.
+- 2026-10-08 — Review of the app update path and of pacing, all findings fixed before merging. App: the launch check for a newer
+  snapshot never ran (it saw its own start-up as "busy"), so phones only updated on reconnect or a tap; it now runs on every
+  launch (proven in a browser: the second launch installs the newer pack and drops the old one). Persistent storage is requested
+  only under the once-a-day policy. Deploys: a pipeline-triggered deploy could cancel an app-code deploy and then close its
+  alert, and verification only compared the data version. Every build now carries a build key (`build.json`: app code, repo
+  build inputs, published snapshot and equivalents tree hashes); the skip and the verification both use it; deploys queue
+  instead of cancelling; no fixture build runs after a pipeline run while nothing is published; an unreadable data-store API
+  means "build", never "skip". The pack version is `<snapshot>-<hash>` so an equivalents refresh or a builder change ships as
+  a new version instead of new bytes under an immutable URL. Pacing: a cap is no longer lowered on 429s it did not cause
+  (they came after fewer requests than a clean minute and cost under 10%, e.g. an outage), on a single 429 or on a run under
+  2 minutes; within a run a 429 lowers the cap 15% (floor 6) and 50 successes raise it 10% back towards the starting cap,
+  because the 5 s interval ceiling alone cannot pace below 12/min; a 200 whose body is not JSON is retried like a 5xx
+  instead of failing the run.
