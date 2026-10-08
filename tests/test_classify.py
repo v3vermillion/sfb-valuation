@@ -149,7 +149,9 @@ class Placeholders(unittest.TestCase):
                             ("Iron Round 5 Tier Nail Polish Display Rack Wall Mounted Organizer", 44.31),
                             ("Digital Thermometer with Large Display", 35.0), ("(GIFT WITH PURCHASE) RoC Retinol Eye Cream", 17.99),
                             ("AAA Road Trip First Aid Kit, 121pc", 29.99), ("Hershey Assortment Bag Mini Mix 230 Pc", 12.04),
-                            ("100pc Eye Shadow Set", 13.41), ("108pcs/sheet Nail Sticker Flower Nail Decal", 7.82)):
+                            ("100pc Eye Shadow Set", 13.41), ("108pcs/sheet Nail Sticker Flower Nail Decal", 7.82),
+                            ("WINGS MEN SET EDT SPRAY 3.4 OZ.+ AFTER SHAVE 3.4 OZ. IN DISPLAY BOX", 41.28),
+                            ("24pcs Lipstick Organizer Acrylic Makeup Case Cosmetic Display Stand Rack Holder", 7.17)):
             self.assertFalse(C.placeholder(name, "", price), name)
 
     def test_discontinued_marker_is_removed_from_a_real_name(self):

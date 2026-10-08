@@ -175,7 +175,7 @@ DISPLAY_RX = re.compile(r"\bpdq\d*\b|\bshippers?\b|\bpallets?\b|\bplt\b|\bpltr\b
 SHIP_RX = re.compile(r"^.{0,20}(?<!pirate\s)(?<!space\s)(?<!rocket\s)(?<!toy\s)(?<!war\s)\bship\s*$", re.I)
 # (module, half module, pallet, endcap "EC", outer case: Walmart's short names for pre-packed displays)
 # a store fixture is never a donation, whatever its price ("Nova 2.0 Retail Display" at $0.01)
-FIXTURE_RX = re.compile(r"\b(?:retail|store|counter|floor)\s+display\b|\bdisplay\s+(?:only|box|stand|unit|tray)\b|\bendcap\b|"
+FIXTURE_RX = re.compile(r"\b(?:retail|store|counter|floor)\s+display\b|\bdisplay\s+(?:only|unit|model)\b|\bendcap\b|"
                         r"\bfixture\b|\bmerchandising\s+tray\b|\bsidekick\s+display\b|\bpowerwing\b|^disp\b(?!\.)|"
                         r"(?:^|[-\u2013,]\s*|\b(?:system|seat|model|center|stroller|chair)\s+)display\s*$|"
                         r"\bsection\s+header\b|\bshelf\s+(?:rise|talker|strip|kit)\b|\bcustomer\s+value\s+program\b|"
