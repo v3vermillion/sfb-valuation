@@ -1,5 +1,5 @@
 {
-  "calls": 5179,
+  "calls": 5196,
   "calls_base": 5052,
   "departments": [
     {
@@ -54,13 +54,13 @@
     },
     {
       "id": "7924299",
-      "items": 0,
+      "items": 2400,
       "name": "Premium Beauty",
-      "next": null,
-      "pages": 0,
-      "parts": 0,
-      "status": "pending",
-      "total_pages": null
+      "next": "/api-proxy/service/affil/product/v2/paginated/items?category=7924299&soldByWmt=true&count=200&lastDoc=27662040&remainingHits=52397",
+      "pages": 12,
+      "parts": 1,
+      "status": "crawling",
+      "total_pages": 274
     },
     {
       "id": "5427",
@@ -238,6 +238,6 @@
   "started": "2026-10-07T18:24:39+00:00",
   "status": "crawling",
   "throttle_base": 13523,
-  "throttle_wait_s": 13903,
-  "updated": "2026-10-08T13:54:12+00:00"
+  "throttle_wait_s": 13957,
+  "updated": "2026-10-08T13:56:07+00:00"
 }
