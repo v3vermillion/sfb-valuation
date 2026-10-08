@@ -151,3 +151,9 @@
   feed's text: of the 21,351 Food rows still unsized, 2,605 are placeholder listings ("Merchandise", "coming soon",
   discontinued), about 3,100 are names cut at 40 characters, and about 11,300 state no quantity anywhere (including
   misfiled non-food such as pet beds and shoes). Gate raised to the measured floor: size_parse_min 0.85 → 0.92.
+- 2026-10-08 — Anthropic API key (David set `ANTHROPIC_API_KEY`; sample_review.required stays true). A manual
+  workflow, anthropic-key-check, calls GET /v1/models with the secret and reports only the HTTP status and pass/fail (the key
+  and the response body are never printed; listing models is free, so it cannot see the credit balance). Review failures now
+  name the fix: HTTP 401 (invalid or revoked key) and 403 (no permission) open `[review-key-invalid]`; 402 `billing_error`, or
+  the 400 "credit balance is too low" some accounts get, opens `[review-credits]`. Both stay transient holds re-checked every
+  6 hours, so the next re-check after the fix runs the review and publishes; publishing closes them.

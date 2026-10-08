@@ -567,7 +567,7 @@ class Continue(PlanBase):
              mock.patch.object(self.qa, "publish", publish):
             o, _ = self.run_plan("--plan", "continue")
         self.assertEqual(o["alert"], "none"); self.assertEqual(o["next"], "continue")
-        self.assertEqual(set(o["resolve"].split(",")), {"gates-hold", "review-key-missing", "stale-prices"})
+        self.assertEqual(set(o["resolve"].split(",")), set(ci.PUBLISH_RESOLVES))
 
     def test_publish_declined_is_a_hold(self):
         self.write("state/run.json", state("crawled"))
@@ -823,6 +823,18 @@ class OtherPlans(PlanBase):
         with mock.patch.object(self.qa, "finalize", lambda: "hold", create=True):
             o, _ = self.run_plan("--plan", "finish")
         self.assertEqual(o["alert"], "gates-hold"); self.assertIn("FAIL sample_review", self.body(o))
+
+    def test_finish_hold_names_the_review_fix(self):
+        for kind, key, words in (("auth", "review-key-invalid", "Replace the key"),
+                                 ("permission", "review-key-invalid", "Check the key's access"),
+                                 ("credits", "review-credits", "Add credits")):
+            self.write("state/run.json", state("built"))
+            self.candidate("# report\n\n- FAIL sample_review\n")
+            self.write("build/candidate/review-verdict.json", {"status": "error", "error_kind": kind, "reason": "HTTP 4xx: ..."})
+            with mock.patch.object(self.qa, "finalize", lambda: "hold", create=True):
+                o, _ = self.run_plan("--plan", "finish")
+            self.assertEqual(o["alert"], key, kind); self.assertIn(words, self.body(o))
+        self.assertIn("review-credits", ci.PUBLISH_RESOLVES); self.assertIn("review-key-invalid", ci.PUBLISH_RESOLVES)
 
     def test_finish_without_finalize_is_a_clear_error(self):
         self.write("state/run.json", state("built"))

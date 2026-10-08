@@ -356,6 +356,13 @@ def gate_review_pending(sr):
     return _gate(None, None, sr.get("max_junk_rate"), "pending: `python -m crawler.review run`, then `qa finalize`")
 
 
+REVIEW_FIXES = {
+    "auth": "the Anthropic API rejected ANTHROPIC_API_KEY as invalid or revoked (HTTP 401) -> replace the repository secret",
+    "permission": "the Anthropic API refused ANTHROPIC_API_KEY permission (HTTP 403) -> check the key's workspace and model access",
+    "credits": "the Anthropic account is out of credits -> add credits in the Anthropic Console (auto-reload is off)",
+}
+
+
 def evaluate_review(verdict, run_id, sr):
     """The sample_review gate from build/candidate/review-verdict.json. Returns (gate, transient)."""
     required = bool(sr.get("required", True)) if sr else False
@@ -385,8 +392,12 @@ def evaluate_review(verdict, run_id, sr):
         if notes:
             detail += f"; notes: {notes[:400]}"
         return _gate(ok, rate, max_junk, detail), False
-    # "error" or anything unknown: no usable verdict
+    # "error" or anything unknown: no usable verdict. Retried every TRANSIENT_RETRY_HOURS, so once the key or the
+    # credits are fixed the next retry clears the hold by itself.
     if required:
+        fix = REVIEW_FIXES.get(verdict.get("error_kind"))
+        if fix:
+            return _gate(False, None, max_junk, f"review failed: {fix} ({reason})"), True
         return _gate(False, None, max_junk, f"review {status or 'unknown'}: {reason} (transient; re-run review and finalize)"), True
     return _gate(True, None, max_junk, f"not required; review {status or 'unknown'}: {reason}"), False
 

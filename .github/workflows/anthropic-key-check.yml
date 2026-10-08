@@ -1,0 +1,45 @@
+name: anthropic-key-check
+
+# Manual check that the ANTHROPIC_API_KEY repository secret works: one GET https://api.anthropic.com/v1/models.
+# The job summary shows only the HTTP status and pass/fail with what it means. The key and the response body are never
+# printed (GitHub also masks the secret in logs). Listing models costs nothing, so this cannot tell whether the account
+# has credits; an out-of-credits account shows up on the sample review as the [review-credits] alert.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: GET /v1/models with ANTHROPIC_API_KEY
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          set -u
+          report() {  # $1 status, $2 PASS|FAIL, $3 meaning
+            echo "HTTP $1: $2 - $3"
+            { echo "### Anthropic API key check"; echo; echo "| HTTP status | Result | Meaning |"; echo "|---|---|---|"
+              echo "| $1 | **$2** | $3 |"; } >> "$GITHUB_STEP_SUMMARY"
+            [ "$2" = PASS ]
+          }
+          if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
+            report "-" FAIL "the ANTHROPIC_API_KEY repository secret is not set"; exit 1
+          fi
+          code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 \
+            -H "x-api-key: ${ANTHROPIC_API_KEY}" -H "anthropic-version: 2023-06-01" \
+            https://api.anthropic.com/v1/models 2>/dev/null)" || code="${code:-000}"
+          case "$code" in
+            200) report 200 PASS "the key is valid and can call the API" ;;
+            401) report 401 FAIL "invalid or revoked key: create a new key and replace the secret" ;;
+            403) report 403 FAIL "the key is not permitted: check its workspace and access" ;;
+            402) report 402 FAIL "billing problem on the account: add credits" ;;
+            429) report 429 FAIL "rate limited: try again in a minute (the key itself was accepted)" ;;
+            000) report 000 FAIL "no response from api.anthropic.com (network): re-run" ;;
+            5*)  report "$code" FAIL "Anthropic API error: re-run later" ;;
+            *)   report "$code" FAIL "unexpected response" ;;
+          esac

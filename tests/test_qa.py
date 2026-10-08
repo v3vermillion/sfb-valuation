@@ -177,6 +177,13 @@ class Gates(StoreCase, unittest.TestCase):
         self.write_gates(size_parse_min=None)
         self.assertEqual(self.qa.check(wm=FakeWM(rows)), "review")
 
+    def test_review_errors_name_the_fix_and_stay_transient(self):
+        for kind, words in (("auth", "replace the repository secret"), ("credits", "add credits"), ("permission", "workspace")):
+            gate, transient = self.qa.evaluate_review({"status": "error", "error_kind": kind, "reason": "HTTP 4xx", "run_id": RUN_ID},
+                                                      RUN_ID, {"required": True, "max_junk_rate": 0.05})
+            self.assertFalse(gate["pass"]); self.assertTrue(transient, "retried every few hours, so a fix clears it by itself")
+            self.assertIn(words, gate["detail"])
+
     def test_size_parse_counts_rows_sized_by_their_basis(self):
         # sold by the pound or sold each: the basis is the size, so these are not parse failures
         rows = [dict(r, size=None, unit=None, base_qty=None, base_unit=None, unit_price=None,

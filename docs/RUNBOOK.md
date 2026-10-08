@@ -40,7 +40,7 @@ Required repository secrets (Settings → Secrets and variables → Actions):
 - WM_PRIVATE_KEY — full PEM from the password manager
 - WM_CONSUMER_ID — Prod Consumer ID
 - ANTHROPIC_API_KEY — used only by the 300-row sample review before a publish (console.anthropic.com → API keys).
-  Without it a finished snapshot holds and the `[review-key-missing]` issue says so; `sample_review.required=false` in
+  Without it a finished snapshot holds and the `[review-key-invalid]` (the review API call was rejected: 401 invalid or revoked key, or 403 no permission -> replace the secret), `[review-credits]` (out of Anthropic credits -> add credits; auto-reload is off), `[review-key-missing]` issue says so; `sample_review.required=false` in
   `data/gates.json` waives the review.
 Optional variables: WM_KEY_VERSION (default 1), SFB_REVIEW_MODEL (default claude-sonnet-5-5).
 

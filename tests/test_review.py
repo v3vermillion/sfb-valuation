@@ -181,6 +181,23 @@ class Review(StoreCase, unittest.TestCase):
         v, post = self.run_review(api_response('{"type":"error"}', status=401))
         self.assertEqual(post.call_count, 1); self.assertIn("HTTP 401", v["reason"])
 
+    def test_auth_and_credit_errors_are_named(self):
+        err = lambda t, m: json.dumps({"type": "error", "error": {"type": t, "message": m}})
+        cases = [(401, err("authentication_error", "invalid x-api-key"), "auth"),
+                 (403, err("permission_error", "not allowed for this model"), "permission"),
+                 (402, err("billing_error", "add credits"), "credits"),
+                 (400, err("invalid_request_error", "Your credit balance is too low to access the Anthropic API."), "credits"),
+                 (400, err("invalid_request_error", "bad model"), "api"),
+                 (404, err("not_found_error", "model"), "api")]
+        for status, body, kind in cases:
+            v, post = self.run_review(api_response(body, status=status))
+            self.assertEqual((v["status"], v["error_kind"]), ("error", kind), body)
+            self.assertEqual(post.call_count, 1, "never retried")
+            self.assertEqual(self.verdict_file()["error_kind"], kind)
+            self.assertNotIn(KEY, json.dumps(self.verdict_file()), "the key never reaches the verdict")
+        self.assertEqual(self.review.error_kind(401, "not json"), "auth")
+        self.assertEqual(self.review.error_kind(402, ""), "credits")
+
     def test_non_json_200_is_an_error(self):
         r = mock.Mock(); r.status_code = 200; r.text = "<html>"; r.json.side_effect = ValueError("x")
         v, _ = self.run_review(r)

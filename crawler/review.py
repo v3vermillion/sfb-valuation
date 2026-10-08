@@ -176,7 +176,30 @@ def response_text(data: dict) -> str:
 # ----------------------------------------------------------------------------- API
 
 class ReviewError(Exception):
-    """The API did not give a usable answer; str(e) is a safe reason (never includes the key)."""
+    """The API did not give a usable answer; str(e) is a safe reason (never includes the key).
+    kind: "auth" (401, invalid or revoked key), "permission" (403, key not allowed), "credits" (402 billing_error, or
+    the 400 "credit balance is too low" older accounts get), or "api" (anything else)."""
+
+    def __init__(self, message, kind="api"):
+        super().__init__(message)
+        self.kind = kind
+
+
+def error_kind(status: int, body: str) -> str:
+    """Classify a non-retryable API error so the alert can name the fix (new key vs add credits)."""
+    try:
+        err = (json.loads(body or "{}") or {}).get("error") or {}
+    except ValueError:
+        err = {}
+    etype = str(err.get("type") or "") if isinstance(err, dict) else ""
+    text = f"{etype} {err.get('message') if isinstance(err, dict) else ''} {body or ''}".lower()
+    if status == 401 or etype == "authentication_error":
+        return "auth"
+    if status == 402 or etype == "billing_error" or "credit balance" in text:
+        return "credits"
+    if status == 403 or etype == "permission_error":
+        return "permission"
+    return "api"
 
 
 def call_api(payload: dict, api_key: str, sleep=time.sleep) -> dict:
@@ -202,7 +225,7 @@ def call_api(payload: dict, api_key: str, sleep=time.sleep) -> dict:
         if r.status_code == 429 or r.status_code >= 500:
             last = f"HTTP {r.status_code}: {body}"
             continue
-        raise ReviewError(f"HTTP {r.status_code}: {body}")
+        raise ReviewError(f"HTTP {r.status_code}: {body}", kind=error_kind(r.status_code, r.text or ""))
     raise ReviewError(f"gave up after {RETRIES} attempts; last: {last}")
 
 
@@ -265,7 +288,7 @@ def run(api_key=None, model=None, sample=None, out_path=None, sleep=time.sleep) 
                 print(f"review answer cut off at max_tokens={payload['max_tokens']}; retrying with {MAX_TOKENS_RETRY}")
                 payload = dict(payload, max_tokens=MAX_TOKENS_RETRY)
     except ReviewError as e:
-        verdict.update(status="error", reason=str(e)[:500])
+        verdict.update(status="error", reason=str(e)[:500], error_kind=e.kind)
         store.write_json(out_path, verdict)
         print(f"review error: {verdict['reason']}")
         return verdict
