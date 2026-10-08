@@ -1,5 +1,5 @@
 {
-  "calls": 4188,
+  "calls": 4331,
   "calls_base": 4037,
   "departments": [
     {
@@ -44,11 +44,11 @@
     },
     {
       "id": "1085666",
-      "items": 56000,
+      "items": 77800,
       "name": "Beauty",
-      "next": "/api-proxy/service/affil/product/v2/paginated/items?category=1085666&soldByWmt=true&count=200&lastDoc=133491432&remainingHits=148670",
-      "pages": 280,
-      "parts": 4,
+      "next": "/api-proxy/service/affil/product/v2/paginated/items?category=1085666&soldByWmt=true&count=200&lastDoc=239766246&remainingHits=126870",
+      "pages": 389,
+      "parts": 5,
       "status": "crawling",
       "total_pages": 1024
     },
@@ -238,6 +238,6 @@
   "started": "2026-10-07T18:24:39+00:00",
   "status": "crawling",
   "throttle_base": 10814,
-  "throttle_wait_s": 11260,
-  "updated": "2026-10-08T06:43:20+00:00"
+  "throttle_wait_s": 11615,
+  "updated": "2026-10-08T06:58:24+00:00"
 }
