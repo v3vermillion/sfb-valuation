@@ -55,7 +55,7 @@ identify_every_days 30, sizing_every_days 30, stale_days 14, budget_min 300).
 
 ### Acceptance gates (`data/gates.json`; a null threshold = measure only)
 departments_complete (every department done, kept > 0, pages within 30% of `sizing.json`), sentinels (117/117 found and priced),
-live_match (500 random items re-checked live in 25 calls, ≥ 97% exact), size_parse (≥ 95% of Food rows carry a parsed size),
+live_match (500 random items re-checked live in 25 calls, ≥ 97% exact), size_parse (≥ 92% of Food rows sized: a parsed size, sold by the pound, or sold each; 92.7% measured 2026-10-08),
 unit_outliers (< 0.5% of unit-priced rows outside 10× of their category median), the existing drift and count gates, and
 sample_review (300 random rows judged against `data/review-criteria.md`; systematic junk or > 5% junk holds). All pass → publish;
 otherwise hold + `[gates-hold]` issue with the report. `plan=approve` publishes a held candidate after David has read the report.

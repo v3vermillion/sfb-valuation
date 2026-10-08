@@ -135,3 +135,19 @@
   pause. It is safe: a run only ends "throttled" after waiting out the 45-minute back-off cap, so chained runs are spaced by
   Walmart's own limit. The 30-minute schedule stays as the backstop; it had not fired once in the 90 minutes after the merge,
   which left the crawl idle after the 15:28 pause.
+- 2026-10-08 — Size parsing (David: sample unsized Food rows, add rules with tests, count each/count items as sized by their
+  basis, rebuild from the raw pages, do not lower the gate). Measured by rebuilding the live crawl's raw pages (no re-crawl):
+  Food 87.9% → 92.7% sized (265,465 parsed sizes, 8 sold by the pound, 4,728 sold each), Premium Beauty 82.9 → 87.0%,
+  Beauty 51.8 → 61.1%, Personal Care 49.7 → 59.2%, Health and Medicine 33.4 → 41.9%. Rules: a count beside a stated pack is
+  kept and a stated total is never multiplied again; feed abbreviations (Fz, Fo, Gm, Gr, Lt), fractions (1/2 oz, 4-1/4 oz,
+  1/2 LT), "1#", word quantities ("Two Pounds"), and feed shorthands ("24. OZ", "16 Fl O", "1 Fl Dram"); "28.2ozx14" is the
+  supplier case and Walmart prices one box ($3-8 measured), so it is read as the size only. Only when neither the name nor
+  the size field states a weight or volume: count nouns (tea bags, bars, pods, packets, pieces, each), dozens, a bare
+  Pint/Quart/Half Gallon, and "11.5z". Shade codes are not units ("7GM", "46 LT", "SPF 15 # 50"). Rows priced per piece with
+  no net quantity (produce sold each, store-made cakes, gift baskets, flowers, cake toppers and candles, size field "EA") get
+  the flag `sold_each`; their size stays empty and no per-unit price is invented. The size gate counts parsed sizes, rows
+  sold by the pound and `sold_each` rows. Every already-parsed row that changed was reviewed (852 of 773,524; fractions,
+  fl oz vs oz, "(0 pack)", double-counted "(20 Count)" packs and stated totals). The 95% target is not reachable from the
+  feed's text: of the 21,351 Food rows still unsized, 2,605 are placeholder listings ("Merchandise", "coming soon",
+  discontinued), about 3,100 are names cut at 40 characters, and about 11,300 state no quantity anywhere (including
+  misfiled non-food such as pet beds and shoes). Gate raised to the measured floor: size_parse_min 0.85 → 0.92.

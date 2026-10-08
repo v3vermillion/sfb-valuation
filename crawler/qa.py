@@ -38,7 +38,7 @@ DEFAULTS = {
     "sentinel_misses_max": 0,
     "live_sample": 500,                 # rows re-checked live against /items?ids=
     "live_match_min": 0.97,
-    "size_parse_min": 0.85,             # share of Food rows with a parsed size (first real Food crawl measured 0.879)
+    "size_parse_min": 0.92,             # share of Food rows sized (parsed, by the pound or sold each); 0.927 measured 2026-10-08
     "unit_outliers_max": None,          # share of unit-priced rows outside [median/10, median*10]: measure-only until
                                         # size parsing improves (first real Food crawl measured 0.075); the rows are flagged
     "unit_outlier_group_min": 50,
@@ -254,9 +254,19 @@ def gate_size_parse(rows, min_rate):
     food = [r for r in rows if r.get("dept") == "Food"]
     if not food:
         return _gate(True, None, min_rate, "no Food rows to measure")
-    parsed = sum(1 for r in food if isinstance(r.get("base_qty"), (int, float)) and r["base_qty"] > 0)
-    rate = round(parsed / len(food), 4)
-    return _measured(rate >= (min_rate or 0), rate, min_rate, f"{parsed}/{len(food)} Food rows with a parsed size ({rate:.1%})")
+    parsed = by_weight = each = 0
+    for r in food:
+        if isinstance(r.get("base_qty"), (int, float)) and r["base_qty"] > 0:
+            parsed += 1
+        elif r.get("basis") == "lb":
+            by_weight += 1                      # priced per pound: the basis is the size
+        elif "sold_each" in (r.get("flags") or []):
+            each += 1                           # priced per piece (produce each, store cakes, gifts): the basis is the size
+    sized = parsed + by_weight + each
+    rate = round(sized / len(food), 4)
+    return _measured(rate >= (min_rate or 0), rate, min_rate,
+                     f"{sized}/{len(food)} Food rows sized ({rate:.1%}): {parsed} with a parsed size, {by_weight} sold by "
+                     f"the pound, {each} sold each")
 
 
 def unit_outlier_stats(rows, group_min=50):

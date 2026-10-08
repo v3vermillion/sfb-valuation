@@ -4,7 +4,7 @@
   "sentinel_misses_max": 0,
   "live_sample": 500,
   "live_match_min": 0.97,
-  "size_parse_min": 0.85,
+  "size_parse_min": 0.92,
   "unit_outliers_max": null,
   "unit_outlier_group_min": 50,
   "price_drift_max": 0.02,
