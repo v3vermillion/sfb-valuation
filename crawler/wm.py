@@ -98,6 +98,10 @@ class Walmart:
             if wait > 0:
                 time.sleep(wait)
                 self.cap_waited += wait
+            else:
+                # floating-point rounding can leave the oldest entry neither inside the window nor expired by the
+                # test above: it has left the window, so drop it rather than spin
+                self._window.popleft()
 
     def _record(self, status):
         self.events.append((round(self._last, 3), status))
