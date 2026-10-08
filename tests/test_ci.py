@@ -433,10 +433,11 @@ class Continue(PlanBase):
         with mock.patch.object(self.crawl, "run", lambda budget, wm=None: "throttled"):
             for n in (1, 2):
                 o, _ = self.run_plan("--plan", "continue")
-                self.assertEqual(o["work"], "crawl"); self.assertEqual(o["alert"], "none"); self.assertEqual(o["next"], "")
+                self.assertEqual(o["work"], "crawl"); self.assertEqual(o["alert"], "none")
+                self.assertEqual(o["next"], "continue", "a throttled run chains the next one like a budget pause")
                 self.assertEqual(self.read("state/run.json")["throttled_runs"], n)
             o, _ = self.run_plan("--plan", "continue")
-            self.assertEqual(o["alert"], "throttled")
+            self.assertEqual(o["alert"], "throttled"); self.assertEqual(o["next"], "continue")
             self.assertIn("3 consecutive runs", o["alert_title"])
             self.assertIn("2700 s", self.body(o))
             self.assertEqual(self.read("state/run.json")["throttled_runs"], 3)
@@ -510,7 +511,7 @@ class Continue(PlanBase):
         self.wm.get = boom
         with mock.patch.object(self.crawl, "run", side_effect=AssertionError("crawl must not run")):
             o, _ = self.run_plan("--plan", "continue")
-        self.assertEqual(o["work"], "size"); self.assertEqual(o["alert"], "throttled")
+        self.assertEqual(o["work"], "size"); self.assertEqual(o["alert"], "throttled"); self.assertEqual(o["next"], "continue")
         self.assertEqual(self.read("state/run.json")["throttled_runs"], 3)
 
     def test_build_with_review_pending(self):

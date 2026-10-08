@@ -131,3 +131,7 @@
   2 minutes; within a run a 429 lowers the cap 15% (floor 6) and 50 successes raise it 10% back towards the starting cap,
   because the 5 s interval ceiling alone cannot pace below 12/min; a 200 whose body is not JSON is retried like a 5xx
   instead of failing the run.
+- 2026-10-08 — Crawl continuity (David): a run that ends rate limited now chains the next `continue` run exactly like a budget
+  pause. It is safe: a run only ends "throttled" after waiting out the 45-minute back-off cap, so chained runs are spaced by
+  Walmart's own limit. The 30-minute schedule stays as the backstop; it had not fired once in the 90 minutes after the merge,
+  which left the crawl idle after the 15:28 pause.

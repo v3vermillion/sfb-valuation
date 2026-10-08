@@ -49,8 +49,8 @@ Optional variables: WM_KEY_VERSION (default 1), SFB_REVIEW_MODEL (default claude
 manifest, `sizing.json`, `audit/latest.json` and the candidate `gates.json` through the GitHub API and ends the run when nothing
 is due (no data-branch checkout). Otherwise `crawler/ci.py` runs ONE Walmart job per run, in this order: sizing pass (one call per
 department, every 30 days) > crawl resume (300-minute budget, then chains `continue`) > build + gates + publish > weekly live
-audit > identify refresh. Only one run executes at a time (concurrency group `pipeline`); a crawl paused by Walmart 429s simply
-resumes at the next half hour. Cadence: `data/schedule.json` (full_every_days 30, core_every_days 7, audit_every_days 7,
+audit > identify refresh. Only one run executes at a time (concurrency group `pipeline`); a crawl paused by Walmart 429s (after the
+45-minute back-off cap) chains the next run too, so the crawl never waits on the schedule, which stays as the backstop. Cadence: `data/schedule.json` (full_every_days 30, core_every_days 7, audit_every_days 7,
 identify_every_days 30, sizing_every_days 30, stale_days 14, budget_min 300).
 
 ### Acceptance gates (`data/gates.json`; a null threshold = measure only)
