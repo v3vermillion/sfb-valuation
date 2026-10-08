@@ -183,6 +183,10 @@ def withhold(rows, cfg, group_min=50):
         if r.get("_kind") and not r.get("price_withheld") and "placeholder" not in r.get("flags", []):
             kind_units[(r["cat"], r["_kind"], r["base_unit"])].append(r["unit_price"])
     kumed = {k: statistics.median(v) for k, v in kind_units.items() if len(v) >= KIND_MIN}
+    peers = defaultdict(list)                          # same brand, same kind of item: corroborating listings
+    for r in rows.values():
+        if r.get("brand") and r.get("_kind") and isinstance(r.get("price"), (int, float)):
+            peers[(r["brand"].strip().lower(), r["_kind"])].append(r)
     for r in priced:
         if r.get("price_withheld") or "placeholder" in r.get("flags", []):
             continue
@@ -190,9 +194,24 @@ def withhold(rows, cfg, group_min=50):
         kum = kumed.get((r["cat"], r.get("_kind"), r.get("base_unit")))
         # all three: the item price against its kind, its per-unit price against its aisle and against its kind (a
         # 1 L tonic water is cheap per ounce next to the aisle's 7.5 oz cans, but not next to other tonic water)
-        if km and um and kum and r["price"] < km / LOW_FACTOR and r["unit_price"] < um / LOW_FACTOR and r["unit_price"] < kum / LOW_FACTOR:
+        if km and um and kum and r["price"] < km / LOW_FACTOR and r["unit_price"] < um / LOW_FACTOR and r["unit_price"] < kum / LOW_FACTOR \
+                and not _corroborated(r, peers):
             _withhold(r)
     return b, dropped
+
+
+def _corroborated(r, peers):
+    """Another listing of the same brand, kind and size (within 10%) at a similar price (within 2x): the low price is
+    the brand's real price, not a feed error (Great Value Tonic Water and Diet Tonic Water, 33.8 fl oz, both $0.67)."""
+    if not r.get("brand") or not r.get("base_qty"):
+        return False
+    for o in peers.get((r["brand"].strip().lower(), r.get("_kind")), ()):
+        if o is r or not o.get("base_qty") or o.get("base_unit") != r.get("base_unit"):
+            continue
+        same_size = abs(o["base_qty"] * (o.get("pack") or 1) - r["base_qty"] * (r.get("pack") or 1)) <= 0.1 * r["base_qty"] * (r.get("pack") or 1)
+        if same_size and r["price"] / 2 <= o["price"] <= r["price"] * 2:
+            return True
+    return False
 
 
 def _withhold(r):

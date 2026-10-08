@@ -89,6 +89,16 @@ class Apply(unittest.TestCase):
         self.assertEqual(withheld[0]["why"], "far below comparable items")
         self.assertFalse(rows[1008].get("price_withheld"), "a small size is cheap per item but not per ounce")
 
+    def test_a_low_price_two_same_size_listings_agree_on_is_kept(self):
+        rows = snapshot([])
+        for r in rows.values():
+            r["_kind"] = "corn"
+        a = row(1009, "Great Value Whole Kernel Corn 9", 0.04, qty=15.25, unit="oz"); a["_kind"] = "corn"
+        b = row(1010, "Great Value No Salt Whole Kernel Corn 9", 0.04, qty=15.25, unit="oz"); b["_kind"] = "corn"
+        rows[1009], rows[1010] = a, b
+        V.apply(rows, {"price_sanity": {"floor": 0.01, "over_p99": 5, "caps": {"default": 5000}}})
+        self.assertFalse(rows[1009].get("price_withheld")); self.assertFalse(rows[1010].get("price_withheld"))
+
     def test_an_equivalent_value_must_be_believable_for_its_kind(self):
         chairs = {i: row(i, f"Brand{i} Shiatsu Massage Chair Model {i}", 900.0 + i, cat="14", dept="Health and Medicine",
                          path="Home Page/Health and Medicine/Massage") for i in range(2000, 2040)}
