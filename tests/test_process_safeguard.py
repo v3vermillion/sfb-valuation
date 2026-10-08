@@ -52,6 +52,14 @@ class Safeguard(unittest.TestCase):
         direct, _ = self.qa.gate_unit_outliers(list(rows.values()), self.qa.gates_config(), None)
         self.assertEqual(direct["value"], 0.0, "without the record the cleaned rows measure 0")
 
+    def test_group_min_comes_from_gates_json(self):
+        from unittest import mock
+        with mock.patch.object(self.qa, "gates_config", lambda: {**self.qa.DEFAULTS, "unit_outlier_group_min": 1000}):
+            stats = self.process.build()
+        rows = {r["id"]: r for r in self.store.iter_jsonl_gz(Path(self.tmp) / "build" / "candidate" / "items.jsonl.gz")}
+        self.assertIsNotNone(rows[100900]["unit_price"], "a 61-row group is below a 1000-row minimum: nothing is nulled")
+        self.assertEqual(stats["unit_outliers_raw"]["count"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()

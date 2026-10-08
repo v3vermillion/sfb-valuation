@@ -93,8 +93,9 @@ def build():
     # per-unit prices that are more than 10x off their category+unit median are almost always a parsing
     # artefact (a packet size taken for the carton, a count read as a weight): keep the item price, drop the
     # per-unit price and flag the row so the app shows nothing misleading and identify.py never uses it as a basis
-    from .qa import unit_outlier_stats
-    raw_share, unit_priced, outliers = unit_outlier_stats(rows.values(), int(cfg.get("unit_outlier_group_min", 50)))
+    from .qa import unit_outlier_stats, gates_config
+    group_min = int(gates_config().get("unit_outlier_group_min") or 50)
+    raw_share, unit_priced, outliers = unit_outlier_stats(rows.values(), group_min)
     for o in outliers:
         r = rows[o["id"]]
         r["unit_price"] = None

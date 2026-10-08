@@ -495,7 +495,12 @@ def _build(recheck=False):
     state = _read_state()
     if not state:
         raise SystemExit("no run to build")
-    if not recheck or not _candidate_complete():
+    raw_dir = store.ROOT / "raw" / str(state.get("run_id") or "")
+    if not recheck or not _candidate_complete() or raw_dir.is_dir():
+        # a recheck follows an edit of data/gates.json, sentinels.json or categories.json; scope and
+        # rule edits only take effect through process.build(), so rebuild from the raw pages whenever
+        # they still exist (deterministic, no Walmart calls); only a candidate whose raw pages are gone
+        # is re-evaluated as it stands
         process.build()
     wm = _wm() if _has_wm_credentials() else None
     status = _qa_check(wm)
@@ -578,6 +583,9 @@ def _approve():
     state = _read_state() or {}
     if not state:
         print("no run state; publishing whatever candidate exists")
+    elif state.get("status") in ("crawling", "crawled"):
+        summary(f"Note: run {state.get('run_id')} is {state.get('status')}; it continues untouched, "
+                "the candidate on disk is what gets published.")
     if qa.publish(approve=True):
         store.checkpoint("approved snapshot published")
         compact_store()

@@ -475,3 +475,43 @@ class UnitOutlierExtremes(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PublishDuringCrawl(unittest.TestCase):
+    """plan=approve while a newer crawl runs must publish the candidate without touching that crawl's state."""
+    def setUp(self):
+        import importlib, os, tempfile
+        from pathlib import Path
+        self.tmp = tempfile.mkdtemp()
+        os.environ["SFB_STORE"] = self.tmp; os.environ["SFB_NO_COMMIT"] = "1"
+        import crawler.store, crawler.qa, crawler.history
+        for m in (crawler.store, crawler.history, crawler.qa):
+            importlib.reload(m)
+        self.store, self.qa = crawler.store, crawler.qa
+        root = Path(self.tmp)
+        self.store.write_jsonl_gz(root / "build" / "candidate" / "items.jsonl.gz",
+                                  [{"id": 1, "upc": "00078742054261", "name": "corn", "price": 0.87, "flags": [], "cat": "6", "dept": "Food"}])
+        self.store.write_json(root / "build" / "candidate" / "stats.json", {"run_id": "run-A", "items": 1, "upcs": 1, "built": "x", "plan": "full"})
+        self.store.write_json(root / "build" / "candidate" / "gates.json", {"run_id": "run-A", "status": "hold", "passed_deterministic": False,
+                                                                          "gates": {}, "config_hash": "h", "checked": "x"})
+        self.store.write_json(root / "state" / "run.json", {"run_id": "run-B", "plan": "full", "status": "crawling",
+                                                            "departments": [{"id": "976759", "name": "Food", "status": "crawling", "pages": 649,
+                                                                             "items": 129800, "parts": 6, "next": "/x", "total_pages": 1579}]})
+
+    def tearDown(self):
+        import shutil; shutil.rmtree(self.tmp)
+
+    def test_approve_publishes_candidate_and_leaves_the_running_crawl_alone(self):
+        from pathlib import Path
+        self.assertTrue(self.qa.publish(approve=True))
+        manifest = self.store.read_json(Path(self.tmp) / "build" / "published" / "manifest.json")
+        self.assertEqual(manifest["version"], "run-A")
+        state = self.store.read_json(Path(self.tmp) / "state" / "run.json")
+        self.assertEqual(state["run_id"], "run-B"); self.assertEqual(state["status"], "crawling")
+        self.assertEqual(state["departments"][0]["pages"], 649)
+
+    def test_publish_marks_its_own_run(self):
+        from pathlib import Path
+        self.store.write_json(Path(self.tmp) / "state" / "run.json", {"run_id": "run-A", "plan": "full", "status": "needs_review", "departments": []})
+        self.assertTrue(self.qa.publish(approve=True))
+        self.assertEqual(self.store.read_json(Path(self.tmp) / "state" / "run.json")["status"], "published")

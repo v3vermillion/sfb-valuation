@@ -571,6 +571,25 @@ class Continue(PlanBase):
             o, _ = self.run_plan("--plan", "continue")
         self.assertEqual(o["work"], "recheck"); self.assertEqual(built, [1]); self.assertEqual(o["alert"], "gates-hold")
 
+    def test_recheck_rebuilds_when_raw_pages_exist(self):
+        # a scope or rule edit only takes effect through process.build(): with raw pages on disk, recheck rebuilds
+        self.write("state/run.json", state("needs_review"))
+        self.write("build/candidate/gates.json", gates("hold", "stale-hash"))
+        self.candidate()
+        (self.root / "raw" / state("needs_review")["run_id"] / "976759").mkdir(parents=True, exist_ok=True)
+        built = []
+        with mock.patch.object(self.process, "build", lambda: built.append(1)), mock.patch.object(self.qa, "check", lambda wm=None: "hold"):
+            o, _ = self.run_plan("--plan", "continue")
+        self.assertEqual(o["work"], "recheck"); self.assertEqual(built, [1])
+
+    def test_approve_during_a_crawl_leaves_it_running(self):
+        self.write("state/run.json", state("crawling"))
+        calls = []
+        with mock.patch.object(self.qa, "publish", lambda approve=False: calls.append(approve) or True):
+            o, _ = self.run_plan("--plan", "approve")
+        self.assertEqual(calls, [True])
+        self.assertEqual(self.store.read_json(self.root / "state" / "run.json")["status"], "crawling")
+
     def test_hold_with_unchanged_config_does_nothing(self):
         self.write("state/run.json", state("needs_review"))
         self.write("build/candidate/gates.json", gates("hold", ci.config_hash()))

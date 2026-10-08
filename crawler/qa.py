@@ -497,8 +497,13 @@ def publish(approve=False):
                 "history": hist}
     store.write_json(PUB / "manifest.json", manifest)
     state = store.read_json(STATE) or {}
-    state["status"] = "published"
-    store.write_json(STATE, state)
+    if state.get("run_id") in (None, run_id):
+        state["status"] = "published"
+        store.write_json(STATE, state)
+    else:
+        # the state belongs to a newer run (a crawl in progress or finished and not yet built): leave it
+        # untouched so that run keeps resuming; the published snapshot is this candidate's
+        print(f"state belongs to run {state.get('run_id')} ({state.get('status')}); left untouched")
     print(f"published {manifest['version']}: {manifest['items']} items; history {hist['kind']} {hist['file']} ({hist['rows']} rows)")
     return True
 
