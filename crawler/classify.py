@@ -167,10 +167,19 @@ PLACEHOLDER_RX = re.compile(
     re.I)
 # store display units (PDQ trays, shippers, pallets, planogram modules): a whole display priced as one listing. Only a
 # display with a piece count or a display-sized price counts ("Tones T Grnd Sage Pdq" at $1.20 is one jar of sage)
-DISPLAY_RX = re.compile(r"\bpdq\d*\b|\bshippers?\b|\bpallets?\b|\bplt\b|\bprd\b|\bw\d+\s*p\d+\b|\b\d{3,}\s*pcs?(?:\b|[a-z])", re.I)
+DISPLAY_RX = re.compile(r"\bpdq\d*\b|\bshippers?\b|\bpallets?\b|\bplt\b|\bpltr\b|\b(?:half|1/2|mega)\s+pal\b|^pal\b|"
+                        r"(?<!my\s)\bpal\s*$|\bprd\b|\bw\d+\s*p\d+\b|"
+                        r"\b\d{3,}\s*pcs?(?:\b|[a-z])|\bh(?:a)?lf\s+mod(?:ule)?\b|\bmod\b(?=[\s-]*\d+\s*(?:ct|count|case)\b)|"
+                        r"\b\d+\s*pk\s+mod\b|\bec\s*$|\bouter\s*$", re.I)
+# "Voortman Spring Ship", "BHG Cotton Ball Ship": a short name ending in "Ship" is a shipper display (a "Pirate Ship" is not)
+SHIP_RX = re.compile(r"^.{0,20}(?<!pirate\s)(?<!space\s)(?<!rocket\s)(?<!toy\s)(?<!war\s)\bship\s*$", re.I)
+# (module, half module, pallet, endcap "EC", outer case: Walmart's short names for pre-packed displays)
 # a store fixture is never a donation, whatever its price ("Nova 2.0 Retail Display" at $0.01)
 FIXTURE_RX = re.compile(r"\b(?:retail|store|counter|floor)\s+display\b|\bdisplay\s+(?:only|box|stand|unit|tray)\b|\bendcap\b|"
-                        r"\bfixture\b|\bmerchandising\s+tray\b|\bsidekick\s+display\b|\bpowerwing\b", re.I)
+                        r"\bfixture\b|\bmerchandising\s+tray\b|\bsidekick\s+display\b|\bpowerwing\b|^disp\b(?!\.)|"
+                        r"(?:^|[-\u2013,]\s*|\b(?:system|seat|model|center|stroller|chair)\s+)display\s*$|"
+                        r"\bsection\s+header\b|\bshelf\s+(?:rise|talker|strip|kit)\b|\bcustomer\s+value\s+program\b|"
+                        r"\bnon[\s-]*tech\b|\bfitting\s+sku\b|\b\d+\s*skus?\s*$", re.I)
 PIECE_COUNT_RX = re.compile(r"\b\d{2,}\s*pcs?(?:\b|[a-z])", re.I)
 DISPLAY_PRICE_MIN = 30.0
 CODE_NAME_RX = re.compile(r"^[A-Z0-9]{8,},[A-Z0-9-]+,[A-Z0-9-]+")          # "BAYCAUCA20WALDGN,P009376-LC001,..."
@@ -931,7 +940,7 @@ def placeholder(name, brand, price=None):
         return True                                   # "HUGGIES", "MOTIONS": the brand alone names no product
     if FIXTURE_RX.search(core):
         return True
-    if DISPLAY_RX.search(core) and (price is None or price >= DISPLAY_PRICE_MIN or PIECE_COUNT_RX.search(core)):
+    if (DISPLAY_RX.search(core) or SHIP_RX.search(core)) and (price is None or price >= DISPLAY_PRICE_MIN or PIECE_COUNT_RX.search(core)):
         return True                                   # "312PC RLETTE PALLET", "Crest 32pc Cr Snstv Pdq3", "C&B SS Shipper"
     return False
 

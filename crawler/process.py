@@ -91,6 +91,14 @@ def build():
         if d:
             r["cat"] = str(classify.decide(tuple(nn) if nn else None, r.get("path"), d, cfg, stats_paths, r["name"]))
 
+    # price sanity before anything that depends on a listing being kept (crawler/valuation.py): an implausible price is
+    # withheld, and a placeholder with one is dropped, before primaries are chosen and per-unit prices are judged (a
+    # $3e21 listing is not a parsing problem); the equivalent value is attached once per-unit prices are final
+    from .qa import unit_outlier_stats, gates_config
+    bounds, dropped_placeholders = valuation.withhold(rows, gates_config())
+    for _, dept_name in dropped_placeholders:
+        rejects[dept_name]["placeholder_price"] += 1           # a barcode-only listing with an implausible price
+
     # one primary row per UPC (barcode lookups): prefer current, in stock, normal price, newest listing
     by_upc = defaultdict(list)
     for r in rows.values():
@@ -109,7 +117,6 @@ def build():
     # per-unit prices that are more than 10x off their category+unit median are almost always a parsing
     # artefact (a packet size taken for the carton, a count read as a weight): keep the item price, drop the
     # per-unit price and flag the row so the app shows nothing misleading and identify.py never uses it as a basis
-    from .qa import unit_outlier_stats, gates_config
     group_min = int(gates_config().get("unit_outlier_group_min") or 50)
     before_share, _, before = unit_outlier_stats(rows.values(), group_min)
     resolved = resolve_packs(rows.values(), group_min)
@@ -122,10 +129,8 @@ def build():
                          "examples": outliers[:25], "before_pack_resolution": {"share": before_share, "count": len(before)},
                          "pack_resolved": resolved, "scope": "consumable departments (no per-unit price elsewhere)"}
 
-    # price sanity: implausible prices are withheld and valued at an equivalent (crawler/valuation.py)
-    withheld, price_bounds, dropped_placeholders = valuation.apply(rows, gates_config(), group_min)
-    for _, dept_name in dropped_placeholders:
-        rejects[dept_name]["placeholder_price"] += 1           # a barcode-only listing with an implausible price
+    withheld = valuation.attach_values(rows, bounds, group_min)
+    price_bounds = {d: {"low": lo, "high": hi, "p99": p99} for d, (lo, hi, p99) in bounds.items()}
 
     stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
     out = BUILD / "candidate"

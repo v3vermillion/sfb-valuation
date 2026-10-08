@@ -191,6 +191,19 @@ class Decisions20261008(unittest.TestCase):
         self.assertEqual(row["cat"], "16")
         self.assertEqual(row["noun"][0], 16, "the evidence travels to process.build(), which removes it")
 
+    def test_weight_ranges_and_load_ratings_are_not_sizes(self):
+        self.assertEqual(N.parse_quantity("Gerber Starter Pack All-in-One Diaper with Insert Neutral L 22-37 lbs"), (None, None, None))
+        self.assertEqual(N.parse_quantity("Invacare Sling Straps for Patient Lift Slings, 450 lb. Weight Capacity")[0], None)
+        self.assertEqual(N.parse_quantity("Toddler Seat, Holds up to 30 lbs, 2 lb")[:2], (2.0, "lb"))
+        self.assertEqual(N.parse_quantity("Coca-Cola 24-12 oz Cans"), (12.0, "oz", 24), "a pack written with a hyphen stays")
+
+    def test_inner_counts_are_offered_to_pack_resolution(self):
+        for name, n in (("KIND Bars Variety Pack, 1.4 oz, 12 Snack Bars", 12), ("Diedrich K-Cup, 0.31 Oz, Carton Of 24", 24),
+                        ("Takis Mini, 25 Individual Snack Packs, 1.23 oz", 25), ("Umpqua Oats, 2.47 oz each, 8 Cups", 8),
+                        ("Good Day 1.5 oz. Bar Soap (500-Piece/Carton)", 500), ("BF MAYO GARLIC 72P 1.2Z", 72),
+                        ("Pamela's Oat Cranberry Almond Bars 7.05 oz (6x5 Ct)", 30), ("Mama Vermicelli, 55 g (Innerpack of 30)", 30)):
+            self.assertIn(n, N.pack_options(name), name)
+
     def test_apparel_found_under_food_is_not_carried(self):
         _, why = N.normalize(self.item("White Stag® Long Sleeve Ribbed Turtleneck", path="Home Page/Food/Fresh Food"), FOOD, CFG)
         self.assertEqual(why, "apparel")

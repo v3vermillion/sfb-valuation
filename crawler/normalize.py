@@ -60,6 +60,12 @@ REWRITES = [
     (re.compile(r"(?<![\w.])(\d+(?:\.\d+)?)\s*(oz|fl\s?oz)x\d+\b", re.I), lambda m: f"{m.group(1)} {m.group(2)}"),
     (re.compile(r"(?<![\w.])(\d+(?:\.\d+)?)\s*(?:fl\.?\s*)?drams?\b", re.I), lambda m: f"{float(m.group(1)) / 8:g} fl oz"),
     (re.compile(r"(?<![\w.])(\d+)\s*Co(?:u|un)?\s*$", re.I), lambda m: f"{m.group(1)} Count"),   # "36 Co" cut at 40 chars
+    # a body-weight range or a load rating is never the net quantity: "Diaper L 22-37 lbs" is not 22 x 37 lb, "Sling
+    # Straps, 450 lb. Weight Capacity" does not weigh 450 lb
+    (re.compile(r"(?<![\w.])\d+(?:\.\d+)?\s*(?:-|\u2013|to)\s*\d+(?:\.\d+)?\s*(?:lbs?|pounds?)\b\.?", re.I), lambda m: " "),
+    (re.compile(r"\b(?:up\s+to|holds?|supports?|capacity(?:\s+of)?|max(?:imum)?(?:\s+weight)?(?:\s+of)?)\s+\d+(?:\.\d+)?\s*"
+                r"(?:lbs?|pounds?)\b\.?|(?<![\w.])\d+(?:\.\d+)?\s*(?:lbs?|pounds?)\.?\s*(?:weight\s+)?(?:capacity|max(?:imum)?|"
+                r"limit|rated|rating)\b", re.I), lambda m: " "),
 ]
 # "11.5z" for oz is read only in the extended pass (a stated size anywhere wins) and never above 200: "Nissan 350z"
 Z_OUNCES = re.compile(r"(?<![\w.])(\d{1,3}(?:\.\d+)?)z\b", re.I)
@@ -238,7 +244,16 @@ PACK_HINTS = [
     re.compile(r"(?<![\w.])(\d+)\s*(?:case|cs|ctn|carton)\b", re.I),
     re.compile(r"(?<![\w./])(\d+)\s*/\s*$"),
     re.compile(r"\bpack\s+of,?\s*(\d+)\b", re.I),
+    # inner counts with a word or two between the number and the container: "12 Snack Bars", "25 Individual Snack
+    # Packs", "18 Powder Packet", "10 Popcorn Bags", "6 Count Packets", and containers PACK_NOUNS leaves out
+    re.compile(r"(?<![\w.])(\d+)\s+(?:[a-z-]+\s+){0,2}(?:bars|cups|packs|packets?|packages|pouches|bags|sticks|stick\s?packs|"
+               r"pods|bottles|cans|boxes|tubs|jars|cartons|envelopes|sleeves|servings|pieces|rolls|tins|bites|wraps)\b", re.I),
+    re.compile(r"\b(?:carton|box|case|bag|tray|bundle|inner\s*pack|innerpack|set)\s+of\s+(\d+)\b", re.I),
+    re.compile(r"(?<![\w.])(\d+)\s*-?\s*(?:pieces?|pcs?|count|ct)\s*/\s*(?:carton|case|box|bag|pack)\b", re.I),
+    re.compile(r"(?<![\w.])(\d+)P\b"),                      # POS abbreviation: "BF MAYO GARLIC 72P 1.2Z"
 ]
+# "(6x5 Ct)": six boxes of five, offered as both 5 and 30
+MULTI_COUNT = re.compile(r"(?<![\w.])(\d+)\s*x\s*(\d+)\s*(?:ct|count|pk|pack|pcs?)\b", re.I)
 PACK_MAX = 5000            # "2016/Pallet" is real
 
 
@@ -258,6 +273,9 @@ def pack_options(text: str):
             n = int(m.group(1))
             if 1 < n <= PACK_MAX:
                 found.add(n)
+    for m in MULTI_COUNT.finditer(t):
+        a, b = int(m.group(1)), int(m.group(2))
+        found |= {n for n in (a, b, a * b) if 1 < n <= PACK_MAX}
     if DOZEN.search(t):
         found.add(12)
     opts = {1} | found

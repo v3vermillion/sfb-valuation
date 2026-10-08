@@ -131,6 +131,25 @@ class Placeholders(unittest.TestCase):
                             ("Extra White Gold Merchandise Gluten Free Bread Ground Flour Blend", "")):
             self.assertFalse(C.placeholder(name, brand), name)
 
+    def test_store_displays_and_modules(self):
+        """Walmart's pre-packed displays: module, half module, pallet, endcap (EC), shipper, a "- Display" floor model."""
+        for name, price in (("FF Half Mod", 537.84), ("Ast 12pk Mod 1512ct", 3583.44), ("Baked Mod- 98case", 2916.48),
+                            ("PLTR 400C WM Fall", 2972.0), ("HBO Pebbles Mega Pal", 1128.33), ("GIRL SCOUTS HALF PAL", 899.57),
+                            ("Axe Kenobi Split EC", 1416.87), ("Lottie London Outer", 996.0), ("Voortman Spring Ship", 171.52),
+                            ("DISP SLIDE2ME 2024", 0.01), ("Ingenuity Massage Seat - Display", 0.01),
+                            ("Hair Color 4' Section Header Kit Walmart", 0.01), ("Hairitage - Shelf Rise - MINI 6 SKU", 0.01),
+                            ("Non Tech/ Fitting SKU: Ray-Ban Meta Gen 2 Optics", 0.03)):
+            self.assertTrue(C.placeholder(name, "", price), name)
+
+    def test_products_that_only_look_like_displays(self):
+        for name, price in (("Baby Mod Lily 2-in-1 Convertible Crib Honey Oak", 113.64), ("Maxim Wooden Pirate Ship", 59.97),
+                            ("7\" LEMUR POUNCE PAL PLUSH, Case of 6", 73.5), ("LeapFrog - My Pal Violet - purple", 34.99),
+                            ("Disp. Glove Free Form PF Nitrile Lge", 21.28), ("S/B Disp Rzr Twin + 12ct (Gn)", 6.25),
+                            ("Delta Children Bassinet with Nightlight and Music Module", 49.99),
+                            ("Iron Round 5 Tier Nail Polish Display Rack Wall Mounted Organizer", 44.31),
+                            ("Digital Thermometer with Large Display", 35.0), ("(GIFT WITH PURCHASE) RoC Retinol Eye Cream", 17.99)):
+            self.assertFalse(C.placeholder(name, "", price), name)
+
     def test_discontinued_marker_is_removed_from_a_real_name(self):
         self.assertEqual(C.clean_name("***DISCONTINUED***Generations Night Time Moisturizer"),
                          ("Generations Night Time Moisturizer", True))

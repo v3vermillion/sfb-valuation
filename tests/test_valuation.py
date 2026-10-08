@@ -53,12 +53,12 @@ class Apply(unittest.TestCase):
         self.assertGreater(rows[1001]["equiv"]["price"], 0.10)
 
     def test_without_a_comparable_the_per_unit_median_then_the_category_median(self):
-        odd = row(1002, "Zqxv Unusual Thing", 99999.0, qty=30.5, unit="oz", brand="Zqxv")
+        odd = row(1002, "Zqxv Unusual Imported Thing", 99999.0, qty=30.5, unit="oz", brand="Zqxv")
         rows = snapshot([odd])
         V.apply(rows, CFG, group_min=50)
         self.assertEqual(rows[1002]["equiv"]["method"], "median per-unit price of comparable items")
         self.assertAlmostEqual(rows[1002]["equiv"]["price"], round(1.3 / 15.25 * 30.5, 2), delta=0.5)
-        nosize = row(1003, "Zqxv Unusual Thing", 99999.0, brand="Zqxv")
+        nosize = row(1003, "Zqxv Unusual Imported Thing", 99999.0, brand="Zqxv")
         rows = snapshot([nosize])
         V.apply(rows, CFG)
         self.assertEqual(rows[1003]["equiv"]["method"], "median price of its category")
@@ -70,6 +70,12 @@ class Apply(unittest.TestCase):
         withheld, _, dropped = V.apply(rows, CFG)
         self.assertNotIn(1004, rows)
         self.assertEqual(dropped, [(1004, "Food")]); self.assertEqual(withheld, [])
+
+    def test_a_register_name_priced_like_a_pallet_is_dropped(self):
+        rows = snapshot([row(1005, "Old El Paso Bold/Pri", 1042.0), row(1006, "ReadyWise 2160 Serving Emergency Food Bucket", 4599.99)])
+        withheld, _, dropped = V.apply(rows, CFG)
+        self.assertEqual(dropped, [(1005, "Food")])
+        self.assertEqual([w["id"] for w in withheld], [1006], "a full product name is withheld and valued, not dropped")
 
     def test_plausible_prices_are_untouched(self):
         rows = snapshot([])

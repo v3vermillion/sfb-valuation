@@ -119,14 +119,28 @@ class Valuer:
 def apply(rows, cfg, group_min=50):
     """Withhold implausible prices and attach equivalent values. rows is a dict id -> row and is changed in place.
     Returns (withheld list for the report, bounds, dropped placeholder ids)."""
+    b, dropped = withhold(rows, cfg)
+    return attach_values(rows, b, group_min), {d: {"low": lo, "high": hi, "p99": p99} for d, (lo, hi, p99) in b.items()}, dropped
+
+
+POS_NAME_MAX = 20          # Walmart's register names are cut at 20 characters
+
+
+def withhold(rows, cfg):
+    """Flag every price outside its department's plausible range (price_withheld, no per-unit price) and drop
+    placeholder listings with such a price. Runs before the per-unit outlier check so an absurd price is not counted
+    as a parsing problem. Returns (bounds, dropped placeholder (id, department) pairs)."""
     b = bounds(rows.values(), cfg)
-    withheld, dropped = [], []
+    dropped = []
     for iid, r in list(rows.items()):
         lo, hi, _ = b.get(r["dept"], (0.10, 5000, None))
         p = r.get("price")
         if isinstance(p, (int, float)) and lo <= p <= hi:
             continue
-        if "placeholder" in r.get("flags", []):
+        if "placeholder" in r.get("flags", []) or (isinstance(p, (int, float)) and p > hi and len(r.get("name") or "") <= POS_NAME_MAX):
+            # a placeholder with an implausible price fails rule 2 and is not kept even for barcode lookup; so is a
+            # register-length name priced far above anything in its department ("Old El Paso Bold/Pri" at $1,042,
+            # "Premier Protein 6pk" at $1,783): a pre-packed display or pallet listed under its truncated POS name
             dropped.append((iid, r["dept"]))
             del rows[iid]
             continue
@@ -134,6 +148,13 @@ def apply(rows, cfg, group_min=50):
         r["unit_price"] = None
         if "price_withheld" not in r["flags"]:
             r["flags"].append("price_withheld")
+    return b, dropped
+
+
+def attach_values(rows, b, group_min=50):
+    """Value every withheld row at an equivalent (Valuer), once per-unit prices are final. Returns the withheld list
+    for the report, sorted by department and raw price."""
+    withheld = []
     valuer = Valuer(rows.values(), group_min)
     for r in rows.values():
         if not r.get("price_withheld"):
@@ -144,4 +165,4 @@ def apply(rows, cfg, group_min=50):
                          "range": [lo, hi], "value": r["equiv"]["price"], "method": r["equiv"]["method"],
                          "basis": r["equiv"]["basis_name"]})
     withheld.sort(key=lambda w: (w["dept"], -(w["raw_price"] or 0)))
-    return withheld, {d: {"low": lo, "high": hi, "p99": p99} for d, (lo, hi, p99) in b.items()}, dropped
+    return withheld

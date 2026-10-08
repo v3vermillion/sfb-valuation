@@ -37,4 +37,5 @@ product: barcode lookup only, never in typed search, not in the size-parse rate)
 
 Not carried at all (rejected with a reason in `stats.json` `rejects_by_department`): `apparel`, `footwear`, `pet_bed`,
 `alcohol`, `tobacco`, `media`, `marketplace`, `third_party_seller`, `no_price`, `no_name`, `duplicate`,
-`food_without_upc_or_size`, `placeholder_no_barcode`, `placeholder_price`.
+`food_without_upc_or_size`, `placeholder_no_barcode`, `placeholder_price` (a placeholder, or a register-length name, with a
+price outside its department's plausible range).

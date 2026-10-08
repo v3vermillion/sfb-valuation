@@ -224,16 +224,23 @@
 - 2026-10-08 — Placeholder listings (David): kept for barcode lookup only, out of typed search and out of the size-parse
   rate, and only with a valid check digit and a price that passes the price rule. A placeholder is a listing whose name
   identifies no product: "Merchandise", "coming soon", test / do-not-use / "Signing Test" entries, register codes ("300PC CH
-  GHST PPR HP", "CVP NON-TAX ... Item"), display pallets ("PDQ"), and a name that is only the brand ("HUGGIES"). A real
-  product carrying a "***Discontinued***" marker is not a placeholder: the marker is removed and the item is flagged
-  `discontinued` (the app says so). Placeholders whose own price is implausible are dropped.
+  GHST PPR HP", "CVP NON-TAX ... Item"), a name that is only the brand ("HUGGIES"), and store displays: pallets and PDQs,
+  modules and half modules ("FF Half Mod"), endcaps ("Axe Kenobi Split EC"), shippers and outer cases, floor models ("Ingenuity
+  Massage Seat - Display", "DISP SLIDE2ME 2024"), shelf kits ("Section Header Kit", "Shelf Rise") and optical fitting SKUs.
+  Words that only look like these stay products ("Baby Mod" cribs, "Pounce Pal" plush, a "Wooden Pirate Ship",
+  "Disp." gloves). A real product carrying a "***Discontinued***" marker is not a placeholder: the marker is removed and
+  the item is flagged `discontinued` (the app says so). Placeholders whose own price is implausible are dropped, and so is
+  a listing whose name is register length (20 characters or fewer) priced above its department's range ("Old El Paso
+  Bold/Pri" at $1,042): that is a display listed under its POS name, not a product.
 - 2026-10-08 — Price sanity (David): an item price outside [floor $0.10, min(department cap, 5 x the department's 99th
   percentile)] is withheld (`data/gates.json` price_sanity; Food is capped at $500). The row keeps Walmart's price for
   history and audits, but the app shows an equivalent value instead, never a blank: the closest comparable item scaled to
   size, else the median per-unit price of comparable items times the size, else the category's median price (labelled a
   rough estimate). Every withheld item is listed in the snapshot report with its Walmart price and the value used. What
   this catches on the live crawl: display pallets and shippers priced in the thousands, test listings, case packs,
-  one-cent store fixtures, and feed errors such as a drink mix at $3.26e21 and a chocolate bar at $161,688.
+  one-cent store fixtures, and feed errors such as a drink mix at $3.26e21 and a chocolate bar at $161,688. The check runs
+  before per-unit prices are judged, so a withheld price is never counted as a parsing problem, and equivalent values are
+  attached after, from per-unit prices that passed the outlier check.
 - 2026-10-08 — Per-unit prices only for consumable departments (David): Food, Health and Medicine, Pharmacy, Personal
   Care, Beauty, Premium Beauty, Baby, Pets, Household Essentials (`consumable` in data/categories.json). Durable goods
   keep their size for display but never get a price per ounce or per count; the unit-outlier share is reported for
