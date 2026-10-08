@@ -38,6 +38,7 @@ Alert keys (one GitHub issue per key, label pipeline-alert, see .github/actions/
   review-key-missing  the sample review was skipped because ANTHROPIC_API_KEY is not set, so the
                       snapshot is held
   audit-regression    the weekly live audit found the published prices drifting (audit.run alert flag)
+  data-store-size     the files on the data-store branch passed 1 GB (store.STORE_ALERT_BYTES)
   audit-failed        the live audit could not reach Walmart (an HTTP 4xx at once, else AUDIT_ERRORS_ALERT attempts)
   stale-prices        the published snapshot is older than schedule.stale_days and no crawl is running
   throttled           three or more consecutive crawl runs ended rate limited (state.throttled_runs)
@@ -503,7 +504,7 @@ def _qa_check(wm):
 
 def _candidate_complete():
     cand = store.ROOT / "build" / "candidate"
-    return (cand / "items.jsonl.gz").exists() and (cand / "stats.json").exists()
+    return store.jsonl_exists(cand / "items.jsonl.gz") and (cand / "stats.json").exists()
 
 
 def _build(recheck=False):
@@ -685,7 +686,7 @@ def _identify():
     identify.fetch()
     pub = store.ROOT / "build" / "published" / "items.jsonl.gz"
     cand = store.ROOT / "build" / "candidate" / "items.jsonl.gz"
-    if pub.exists() or cand.exists():
+    if store.jsonl_exists(pub) or store.jsonl_exists(cand):
         identify.match()
     else:
         print("no snapshot yet: identification data fetched, equivalents skipped")
@@ -780,8 +781,38 @@ def main(argv=None):
             _size()
         elif a.plan == "finish":
             _finish()
+        if a.plan not in ("peek", "status"):
+            _size_watch()
     finally:
         flush_outputs()
+
+
+def _size_watch():
+    """[data-store-size] when the files on the data-store branch pass store.STORE_ALERT_BYTES (1 GB): every pipeline and
+    deploy run checks the branch out, and GitHub recommends keeping a repository well under 5 GB. Files over GitHub's
+    100 MB limit cannot occur: store.write_jsonl_gz shards large files and store.checkpoint refuses to push one."""
+    if not store.ROOT.exists():
+        return
+    total = store.tree_bytes()
+    by_dir = {}
+    for p in store.ROOT.iterdir():
+        if p.name == ".git":
+            continue
+        by_dir[p.name] = (sum(f.stat().st_size for f in p.rglob("*") if f.is_file()) if p.is_dir() else p.stat().st_size)
+    top = ", ".join(f"{k} {v / 1048576:.0f} MB" for k, v in sorted(by_dir.items(), key=lambda x: -x[1])[:6])
+    summary(f"- data-store branch: {total / 1048576:.0f} MB of files ({top})")
+    if total <= store.STORE_ALERT_BYTES:
+        resolve("data-store-size")
+        return
+    alert("data-store-size", f"data-store branch holds {total / 1024 ** 3:.2f} GB of files",
+          f"The data-store branch passed {store.STORE_ALERT_BYTES / 1024 ** 3:.0f} GB ({top}). Every pipeline and deploy run "
+          "downloads it, and GitHub recommends keeping repositories well under 5 GB.\n\n"
+          "Proposed fix (needs your decision; it touches the Cloudflare account): move the raw crawl pages "
+          "(`raw/<run>/`) to a Cloudflare R2 bucket (10 GB free, no egress fees). The crawler writes each part there "
+          "instead of the branch and process.build reads them back; the branch keeps the state, snapshots, history "
+          "and reports. It needs one R2 bucket and an API token limited to it, stored as repository secrets. Without new "
+          "accounts, the fallback is to upload each finished run's raw pages as a GitHub Release asset (2 GB per file) "
+          "and drop them from the branch once its snapshot is published.")
 
 
 if __name__ == "__main__":

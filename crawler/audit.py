@@ -54,7 +54,7 @@ def due(store_root, cfg, now=None) -> bool:
 def run(wm=None, n=None) -> dict:
     manifest = store.read_json(PUB / "manifest.json")
     items = PUB / "items.jsonl.gz"
-    if not manifest or not items.exists():
+    if not manifest or not store.jsonl_exists(items):
         res = {"status": "skipped", "reason": "no published snapshot", "alert": False}
         print(res["reason"])
         return res

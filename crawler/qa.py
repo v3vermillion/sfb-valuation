@@ -430,7 +430,7 @@ def check(wm=None):
     if not state:
         raise SystemExit("no run state (state/run.json)")
     stats = store.read_json(CAND / "stats.json")
-    if not stats or not (CAND / "items.jsonl.gz").exists():
+    if not stats or not store.jsonl_exists(CAND / "items.jsonl.gz"):
         raise SystemExit("no candidate: run `python -m crawler.process` first")
     for f in CHECK_ARTIFACTS:
         p = CAND / f
@@ -441,7 +441,7 @@ def check(wm=None):
     config = store.config()
     cfg_depts = {d["id"]: d for d in config["departments"]}
     rows = list(store.iter_jsonl_gz(CAND / "items.jsonl.gz"))
-    prev = {r["id"]: r for r in store.iter_jsonl_gz(PUB / "items.jsonl.gz")} if (PUB / "items.jsonl.gz").exists() else {}
+    prev = {r["id"]: r for r in store.iter_jsonl_gz(PUB / "items.jsonl.gz")} if store.jsonl_exists(PUB / "items.jsonl.gz") else {}
     prev_stats = store.read_json(PUB / "stats.json") or {}
     sizing = store.read_json(SIZING)
 
@@ -516,7 +516,7 @@ def publish(approve=False):
         print(what)
         return False
     stats = store.read_json(CAND / "stats.json")
-    if not stats or not (CAND / "items.jsonl.gz").exists():
+    if not stats or not store.jsonl_exists(CAND / "items.jsonl.gz"):
         raise SystemExit("no candidate snapshot to publish")
     run_id = stats["run_id"]
     if g.get("run_id") not in (None, run_id):
@@ -524,7 +524,7 @@ def publish(approve=False):
     prev_manifest = store.read_json(PUB / "manifest.json") or {}
     prev_path = PUB / "items.jsonl.gz"
     today = _now()[:10]
-    hist = history.record(store.iter_jsonl_gz(prev_path) if prev_path.exists() else None,
+    hist = history.record(store.iter_jsonl_gz(prev_path) if store.jsonl_exists(prev_path) else None,
                           store.iter_jsonl_gz(CAND / "items.jsonl.gz"), run_id, today,
                           prev_run_id=prev_manifest.get("version"))
     if PUB.exists():

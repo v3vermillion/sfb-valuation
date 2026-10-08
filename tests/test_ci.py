@@ -546,7 +546,7 @@ class Continue(PlanBase):
         self.assertEqual(o["alert"], "gates-hold")
         self.assertIn("20261007-full", o["alert_title"])
         self.assertIn("- FAIL sentinels", self.body(o)); self.assertIn("plan=approve", self.body(o))
-        self.assertEqual(o["review"], "none"); self.assertEqual(o["resolve"], "")
+        self.assertEqual(o["review"], "none"); self.assertEqual(o["resolve"], "data-store-size", "only the size watch's all-clear")
 
     def test_hold_after_a_skipped_review_names_the_missing_secret(self):
         self.write("state/run.json", state("crawled"))
@@ -567,7 +567,7 @@ class Continue(PlanBase):
              mock.patch.object(self.qa, "publish", publish):
             o, _ = self.run_plan("--plan", "continue")
         self.assertEqual(o["alert"], "none"); self.assertEqual(o["next"], "continue")
-        self.assertEqual(set(o["resolve"].split(",")), set(ci.PUBLISH_RESOLVES))
+        self.assertEqual(set(o["resolve"].split(",")), set(ci.PUBLISH_RESOLVES) | {"data-store-size"})
 
     def test_publish_declined_is_a_hold(self):
         self.write("state/run.json", state("crawled"))
@@ -645,11 +645,11 @@ class Continue(PlanBase):
             self.assertIn("0.91", o["alert_title"]); self.assertIn("- match_rate: 0.91", self.body(o))
             fake.run = lambda wm: {"match_rate": 0.99, "alert": False}
             o, _ = self.run_plan("--plan", "audit")
-            self.assertEqual(o["alert"], "none"); self.assertEqual(o["resolve"], "audit-failed,audit-regression")
+            self.assertEqual(o["alert"], "none"); self.assertEqual(o["resolve"], "audit-failed,audit-regression,data-store-size")
             # a skipped audit writes nothing itself; ci remembers the attempt so decide() waits a full period
             fake.run = lambda wm: {"status": "skipped", "alert": False, "reason": "no eligible rows"}
             o, _ = self.run_plan("--plan", "audit")
-            self.assertEqual(o["alert"], "none"); self.assertEqual(o["resolve"], "")
+            self.assertEqual(o["alert"], "none"); self.assertEqual(o["resolve"], "data-store-size")
             self.assertEqual(self.store.read_json(self.root / "audit" / "latest.json")["status"], "skipped")
             # an audit error is remembered (retried in TRANSIENT_RETRY_HOURS) and alerts after AUDIT_ERRORS_ALERT tries
             (self.root / "audit" / "latest.json").unlink()
@@ -657,7 +657,7 @@ class Continue(PlanBase):
             latest = lambda: self.store.read_json(self.root / "audit" / "latest.json")
             for n in range(1, ci.AUDIT_ERRORS_ALERT):
                 o, _ = self.run_plan("--plan", "audit")
-                self.assertEqual(o["alert"], "none"); self.assertEqual(o["resolve"], "")
+                self.assertEqual(o["alert"], "none"); self.assertEqual(o["resolve"], "data-store-size")
                 self.assertEqual((latest()["status"], latest()["errors"]), ("error", n))
             o, _ = self.run_plan("--plan", "audit")
             self.assertEqual(o["alert"], "audit-failed"); self.assertEqual(latest()["errors"], ci.AUDIT_ERRORS_ALERT)
@@ -852,10 +852,10 @@ class OtherPlans(PlanBase):
         with mock.patch.object(self.qa, "publish", publish):
             o, _ = self.run_plan("--plan", "approve")
         self.assertTrue(seen["approve"]); self.assertEqual(o["next"], "continue")
-        self.assertEqual(set(o["resolve"].split(",")), set(ci.PUBLISH_RESOLVES))
+        self.assertEqual(set(o["resolve"].split(",")), set(ci.PUBLISH_RESOLVES) | {"data-store-size"})
         with mock.patch.object(self.qa, "publish", lambda approve=False: False):
             o, _ = self.run_plan("--plan", "approve")
-        self.assertEqual(o["next"], ""); self.assertEqual(o["resolve"], "")
+        self.assertEqual(o["next"], ""); self.assertEqual(o["resolve"], "data-store-size")
 
     def test_size_plan(self):
         o, text = self.run_plan("--plan", "size")

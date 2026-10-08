@@ -177,3 +177,12 @@
   760k fixture and writes a comparison to the run summary that flags any metric where WebKit is more than 25% slower (and by at
   least 2 ms / 1 MB) or that failed. Chromium runs unthrottled there by default (`chromium_cpu = 1`), so the two browsers are
   compared at the same speed; ×4 remains the setting for the docs/perf budget numbers.
+- 2026-10-08 — Data-store size safeguards (approved). The first real candidate snapshot is 57 MB compressed for 773k items,
+  so at 2-4M items single files would pass GitHub's 100 MB push limit. Any .jsonl.gz over 45 MB is now written as gzip shards
+  (`<name>.s000`, ...; each a complete gzip member, so the shards concatenate into one valid stream) and every reader accepts
+  both forms; the shard suffix never matches the `*.jsonl.gz` globs, so nothing is read twice. `store.checkpoint` refuses to
+  push a file over 95 MB, naming it. Every run reports the branch size by folder and `[data-store-size]` opens past 1 GB.
+  Proposal for when it does (needs David: it touches the Cloudflare account): move the raw crawl pages (`raw/<run>/`, today
+  the largest folder) to a Cloudflare R2 bucket (10 GB free, no egress fees) with a token limited to that bucket, kept as
+  repository secrets; the branch keeps state, snapshots, history and reports. Fallback without new accounts: upload each
+  finished run's raw pages as a GitHub Release asset (2 GB per file) and drop them from the branch once published.

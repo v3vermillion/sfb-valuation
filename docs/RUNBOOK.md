@@ -63,7 +63,7 @@ Editing `data/gates.json`, `data/sentinels.json` or `data/categories.json` makes
 
 ### Alerts (GitHub issues, label `pipeline-alert`)
 One open issue per kind, updated in place, closed automatically when the condition clears: `[pipeline-failed]`, `[gates-hold]`,
-`[review-key-missing]`, `[audit-regression]`, `[audit-failed]` (the audit could not reach Walmart: a 401/403 means the WM_* secrets no longer match), `[stale-prices]` (no publish for stale_days while idle), `[throttled]`
+`[review-key-missing]`, `[audit-regression]`, `[audit-failed]` (the audit could not reach Walmart: a 401/403 means the WM_* secrets no longer match), `[data-store-size]` (the files on the data-store branch passed 1 GB; the issue carries the breakdown and the proposal to move raw pages to Cloudflare R2), `[stale-prices]` (no publish for stale_days while idle), `[throttled]`
 (three consecutive runs ended on Walmart throttling), `[deploy-failed]`, `[deploy-mismatch]`, `[tests-failed]`.
 Watch the repository (or just the issues) on the GitHub app for phone notifications.
 
@@ -137,3 +137,12 @@ for a fake camera, made by `node tools/make-barcode-clip.mjs`). Screenshots: `np
 the whole key). On the first deploy after this change Cloudflare creates them automatically; nothing to configure
 in the dashboard. `namespace_id` only has to be unique within the account. `/health` reports whether both are bound;
 without them the public route answers 503 instead of spending the Walmart key without a cap.
+
+### Data-store size (GitHub limits)
+GitHub rejects any pushed file over 100 MB and warns over 50 MB. `store.write_jsonl_gz` writes any `.jsonl.gz` whose
+compressed size passes 45 MB as shards `<name>.s000`, `<name>.s001`, ... (each a complete gzip stream; concatenated they
+are one valid stream), and every reader (`store.iter_jsonl_gz`, `app/tools/build-db.mjs`) accepts either form. The first
+real snapshot (773k items) is already 57 MB, so it is sharded from the first publish. `store.checkpoint` refuses to commit
+or push when any file passes 95 MB and names it. Every pipeline run prints the branch size by top-level folder in its
+summary and opens `[data-store-size]` past 1 GB.
+

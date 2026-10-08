@@ -35,7 +35,7 @@ def build():
 
     prev_rows = {}
     prev_path = BUILD / "published" / "items.jsonl.gz"
-    if prev_path.exists():
+    if store.jsonl_exists(prev_path):
         for r in store.iter_jsonl_gz(prev_path):
             prev_rows[r["id"]] = r
 
