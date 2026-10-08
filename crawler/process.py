@@ -164,6 +164,8 @@ def build():
 
 
 NAME_NOT_PROVIDED = "(name not provided)"
+PSEUDO_BRANDS = {"", "unbranded", "online", "merchandise", "generic", "n/a", "na", "none", "no brand", "unknown", "various",
+                 "assorted", "non branded", "nonbranded", "not applicable"}
 
 
 def fill_placeholder_names(rows):
@@ -179,8 +181,11 @@ def fill_placeholder_names(rows):
     need = {r["upc"] for r in todo if r.get("upc")}
     walmart = {}
     for r in rows.values():
-        if r.get("upc") in need and "placeholder" not in r.get("flags", []) and r["upc"] not in walmart:
-            walmart[r["upc"]] = (r["name"], r.get("brand"), None)
+        if r.get("upc") in need and "placeholder" not in r.get("flags", []):
+            prev = walmart.get(r["upc"])
+            # the plain listing's name beats a "(6 pack) ..." wrapper of the same barcode
+            if prev is None or (prev[0].startswith("(") and not r["name"].startswith("(")):
+                walmart[r["upc"]] = (r["name"], r.get("brand"), None)
     facts = {}
     src = store.ROOT / "identify" / "products_us.jsonl.gz"
     if store.jsonl_exists(src):
@@ -194,6 +199,11 @@ def fill_placeholder_names(rows):
         r["listed_name"] = r["name"]
         if not hit:
             r["name"], r["name_src"] = NAME_NOT_PROVIDED, "none"
+            brand = (r.get("brand") or "").strip().lower()
+            # a brand field that only repeats a placeholder name ("Merchandise") is no brand; "PROGRESSO" by Progresso is
+            if brand in PSEUDO_BRANDS or (brand == r["listed_name"].strip().lower()
+                                          and classify.placeholder_kind(r["listed_name"], None) == "generic"):
+                r["brand"] = None                      # "Merchandise", "ONLINE": showing it would bring the placeholder back
             counts["none"] += 1
             continue
         name, brand, qty = hit

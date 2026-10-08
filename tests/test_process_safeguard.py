@@ -175,6 +175,17 @@ class PlaceholderNames(unittest.TestCase):
             self.assertIn("placeholder", r["flags"], "still barcode-only"); self.assertIsNone(r["unit_price"])
         self.assertEqual(stats["placeholders"]["names_filled"], {"walmart_listing": 1, "open_facts": 1, "none": 1})
 
+    def test_a_brand_that_only_repeats_the_placeholder_is_dropped(self):
+        from crawler import process
+        rows = {1: {"id": 1, "upc": "1", "name": "Merchandise", "brand": "ONLINE", "flags": ["placeholder"]},
+                2: {"id": 2, "upc": "2", "name": "Merchandise", "brand": "Merchandise", "flags": ["placeholder"]},
+                3: {"id": 3, "upc": "3", "name": "Merchandise", "brand": "Hello Bello", "flags": ["placeholder"]},
+                4: {"id": 4, "upc": "3", "name": "(4 pack) Hello Bello Diapers", "brand": "Hello Bello", "flags": []},
+                5: {"id": 5, "upc": "3", "name": "Hello Bello Diapers Size 3, 32 ct", "brand": "Hello Bello", "flags": []}}
+        process.fill_placeholder_names(rows)
+        self.assertEqual([rows[i]["brand"] for i in (1, 2)], [None, None])
+        self.assertEqual(rows[3]["name"], "Hello Bello Diapers Size 3, 32 ct", "the plain listing beats the multipack")
+
     def build_in(self, tmp, raw):
         os.environ["SFB_STORE"] = tmp; os.environ["SFB_NO_COMMIT"] = "1"
         import crawler.store, crawler.process, crawler.qa

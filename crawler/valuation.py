@@ -14,7 +14,7 @@ a massage chair is never valued like a bottle of aspirin.
 
 A price is withheld when it is outside [floor, min(cap, over_p99 x the department's 99th percentile price)] for its
 department (data/gates.json "price_sanity"), or when both the price and the price per unit are more than 20x below
-comparable items (same kind of item; same aisle and unit): Pampers 162 ct at $0.98, melatonin 90 ct at $0.16. A low
+comparable items (the price against the same kind of item; the per-unit price against the aisle and against the same kind): Pampers 162 ct at $0.98, melatonin 90 ct at $0.16. A low
 price alone is not enough: a single ramen cup is meant to cost less than the 12-packs around it. Placeholder listings
 (barcode only) whose own price fails the range are dropped instead: there is nothing to show for them.
 """
@@ -178,11 +178,19 @@ def withhold(rows, cfg, group_min=50):
     kmed = kind_medians(rows.values())
     priced = [r for r in rows.values() if isinstance(r.get("unit_price"), (int, float)) and r["unit_price"] > 0]
     umed = unit_price_medians(priced, group_min)
+    kind_units = defaultdict(list)                     # per-unit price of the same kind of item, same unit
+    for r in priced:
+        if r.get("_kind") and not r.get("price_withheld") and "placeholder" not in r.get("flags", []):
+            kind_units[(r["cat"], r["_kind"], r["base_unit"])].append(r["unit_price"])
+    kumed = {k: statistics.median(v) for k, v in kind_units.items() if len(v) >= KIND_MIN}
     for r in priced:
         if r.get("price_withheld") or "placeholder" in r.get("flags", []):
             continue
         km, um = kmed.get((r["cat"], r.get("_kind"))), umed(r)[0]
-        if km and um and r["price"] < km / LOW_FACTOR and r["unit_price"] < um / LOW_FACTOR:
+        kum = kumed.get((r["cat"], r.get("_kind"), r.get("base_unit")))
+        # all three: the item price against its kind, its per-unit price against its aisle and against its kind (a
+        # 1 L tonic water is cheap per ounce next to the aisle's 7.5 oz cans, but not next to other tonic water)
+        if km and um and kum and r["price"] < km / LOW_FACTOR and r["unit_price"] < um / LOW_FACTOR and r["unit_price"] < kum / LOW_FACTOR:
             _withhold(r)
     return b, dropped
 
