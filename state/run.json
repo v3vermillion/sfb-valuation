@@ -1,5 +1,5 @@
 {
-  "calls": 8410,
+  "calls": 8429,
   "calls_base": 7066,
   "departments": [
     {
@@ -94,13 +94,13 @@
     },
     {
       "id": "4044",
-      "items": 0,
+      "items": 3800,
       "name": "Home",
-      "next": null,
-      "pages": 0,
-      "parts": 0,
-      "status": "pending",
-      "total_pages": null
+      "next": "/api-proxy/service/affil/product/v2/paginated/items?category=4044&soldByWmt=true&count=200&lastDoc=5662795&remainingHits=6351314",
+      "pages": 19,
+      "parts": 1,
+      "status": "crawling",
+      "total_pages": 31776
     },
     {
       "id": "1072864",
@@ -260,5 +260,5 @@
   "throttle_base": 18936,
   "throttle_wait_s": 18936,
   "throttled_runs": 1,
-  "updated": "2026-10-08T21:31:33+00:00"
+  "updated": "2026-10-08T21:35:01+00:00"
 }
