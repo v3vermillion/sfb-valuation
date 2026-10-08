@@ -87,6 +87,13 @@ remembered in `audit/latest.json` and waits a full period; an audit that errored
 Rows whose per-unit price is more than 10× off their category+unit median keep their item price but lose the per-unit price
 and carry the flag `unit_price_suspect`; the `unit_outliers` gate reports the raw share (measure-only until parsing improves).
 
+### Schedule ownership
+GitHub runs a scheduled workflow as the account that last changed its `cron:` line. On 2026-10-08 the 30-minute schedule
+never fired: the commit that introduced it was authored by `sfb-pipeline`, a git identity with no GitHub account, so the
+schedule had no owner. Any change to a `cron:` line must reach main in a commit authored by a real GitHub account (a
+squash merge of a pull request is authored by the PR's author). Check after a change: a `schedule` run appears in the
+Actions tab within the hour.
+
 ### Other automation
 - `keepalive.yml` (weekly): re-enables the scheduled workflows through the API and touches `.github/keepalive` when main has
   had no commit for 45 days, so GitHub never disables the schedules after 60 quiet days.

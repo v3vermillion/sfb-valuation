@@ -22,7 +22,9 @@ on:
         default: previous
         type: string
   schedule:
-    - cron: "17,47 * * * *"   # resume check every 30 min, off-peak minutes
+    # 17 and 47 past the hour (off-peak). GitHub runs a schedule as the account that last changed this line: that commit
+    # must be authored by a real GitHub account (one authored by an unlinked identity silently never fires).
+    - cron: "17-47/30 * * * *"
 
 permissions:
   contents: write

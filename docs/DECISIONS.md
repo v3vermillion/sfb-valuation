@@ -195,3 +195,9 @@
   update like a newer one (now covered by a test). New crawl starts pause for one core period after a rollback so the
   restored prices are not replaced by the next scheduled crawl before the cause is fixed. A failed upload alerts
   `[snapshot-archive]` but never undoes the publish.
+- 2026-10-08 — The 30-minute schedule had not fired once since it merged (14:19 UTC): the commit that introduced the
+  `cron:` line (739fa45) was authored by `sfb-pipeline`, the data-store's git identity, which is not a GitHub account, and
+  GitHub runs a schedule as the account that last changed its cron line. The old 12-hour cron (changed by David's account)
+  had fired. Fixed by re-stating the same schedule as `17-47/30` in a squash-merged pull request (authored by David's account);
+  the chained runs had kept the crawl moving in the meantime. RUNBOOK "Schedule ownership" records the rule.
+
