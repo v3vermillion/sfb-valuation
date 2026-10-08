@@ -169,7 +169,7 @@ PLACEHOLDER_RX = re.compile(
 # display with a piece count or a display-sized price counts ("Tones T Grnd Sage Pdq" at $1.20 is one jar of sage)
 DISPLAY_RX = re.compile(r"\bpdq\d*\b|\bshippers?\b|\bpallets?\b|\bplt\b|\bpltr\b|\b(?:half|1/2|mega)\s+pal\b|^pal\b|"
                         r"(?<!my\s)\bpal\s*$|\bprd\b|\bw\d+\s*p\d+\b|"
-                        r"\b\d{3,}\s*pcs?(?:\b|[a-z])|\bh(?:a)?lf\s+mod(?:ule)?\b|\bmod\b(?=[\s-]*\d+\s*(?:ct|count|case)\b)|"
+                        r"\bh(?:a)?lf\s+mod(?:ule)?\b|\bmod\b(?=[\s-]*\d+\s*(?:ct|count|case)\b)|"
                         r"\b\d+\s*pk\s+mod\b|\bec\s*$|\bouter\s*$", re.I)
 # "Voortman Spring Ship", "BHG Cotton Ball Ship": a short name ending in "Ship" is a shipper display (a "Pirate Ship" is not)
 SHIP_RX = re.compile(r"^.{0,20}(?<!pirate\s)(?<!space\s)(?<!rocket\s)(?<!toy\s)(?<!war\s)\bship\s*$", re.I)
@@ -181,6 +181,10 @@ FIXTURE_RX = re.compile(r"\b(?:retail|store|counter|floor)\s+display\b|\bdisplay
                         r"\bsection\s+header\b|\bshelf\s+(?:rise|talker|strip|kit)\b|\bcustomer\s+value\s+program\b|"
                         r"\bnon[\s-]*tech\b|\bfitting\s+sku\b|\b\d+\s*skus?\s*$", re.I)
 PIECE_COUNT_RX = re.compile(r"\b\d{2,}\s*pcs?(?:\b|[a-z])", re.I)
+# a register name that starts with a piece count ("300PC CH GHST PPR HP", "312PC RLETTE PALLET") is a display assortment;
+# a full product name with a count ("First Aid Kit, 107 pc", "100pc Eye Shadow Set" at $13) is not
+COUNT_CODE_RX = re.compile(r"^\d{2,}\s*pcs?(?:\b|[a-z])", re.I)
+COUNT_CODE_MAX = 20
 DISPLAY_PRICE_MIN = 30.0
 CODE_NAME_RX = re.compile(r"^[A-Z0-9]{8,},[A-Z0-9-]+,[A-Z0-9-]+")          # "BAYCAUCA20WALDGN,P009376-LC001,..."
 INGREDIENT_LIST_RX = re.compile(r"^(?:\(\d+\s*[Pp]ack\)\s*)*(?:[A-Z][A-Z ]+,\s*){4,}")   # an all-caps ingredient list
@@ -939,6 +943,8 @@ def placeholder(name, brand, price=None):
     if b and core.lower().strip(" .") == b and not re.search(r"\d", core) and product_noun(core) is None:
         return True                                   # "HUGGIES", "MOTIONS": the brand alone names no product
     if FIXTURE_RX.search(core):
+        return True
+    if COUNT_CODE_RX.search(core) and len(core) <= COUNT_CODE_MAX and (price is None or price >= DISPLAY_PRICE_MIN):
         return True
     if (DISPLAY_RX.search(core) or SHIP_RX.search(core)) and (price is None or price >= DISPLAY_PRICE_MIN or PIECE_COUNT_RX.search(core)):
         return True                                   # "312PC RLETTE PALLET", "Crest 32pc Cr Snstv Pdq3", "C&B SS Shipper"

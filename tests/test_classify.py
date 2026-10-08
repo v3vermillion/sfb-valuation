@@ -147,7 +147,9 @@ class Placeholders(unittest.TestCase):
                             ("Disp. Glove Free Form PF Nitrile Lge", 21.28), ("S/B Disp Rzr Twin + 12ct (Gn)", 6.25),
                             ("Delta Children Bassinet with Nightlight and Music Module", 49.99),
                             ("Iron Round 5 Tier Nail Polish Display Rack Wall Mounted Organizer", 44.31),
-                            ("Digital Thermometer with Large Display", 35.0), ("(GIFT WITH PURCHASE) RoC Retinol Eye Cream", 17.99)):
+                            ("Digital Thermometer with Large Display", 35.0), ("(GIFT WITH PURCHASE) RoC Retinol Eye Cream", 17.99),
+                            ("AAA Road Trip First Aid Kit, 121pc", 29.99), ("Hershey Assortment Bag Mini Mix 230 Pc", 12.04),
+                            ("100pc Eye Shadow Set", 13.41), ("108pcs/sheet Nail Sticker Flower Nail Decal", 7.82)):
             self.assertFalse(C.placeholder(name, "", price), name)
 
     def test_discontinued_marker_is_removed_from_a_real_name(self):
