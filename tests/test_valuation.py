@@ -69,13 +69,39 @@ class Apply(unittest.TestCase):
         rows = snapshot([row(1004, "Merchandise", 7009.32, flags=["placeholder"])])
         withheld, _, dropped = V.apply(rows, CFG)
         self.assertNotIn(1004, rows)
-        self.assertEqual(dropped, [(1004, "Food")]); self.assertEqual(withheld, [])
+        self.assertEqual(dropped, [(1004, "Food", "placeholder_price")]); self.assertEqual(withheld, [])
 
     def test_a_register_name_priced_like_a_pallet_is_dropped(self):
         rows = snapshot([row(1005, "Old El Paso Bold/Pri", 1042.0), row(1006, "ReadyWise 2160 Serving Emergency Food Bucket", 4599.99)])
         withheld, _, dropped = V.apply(rows, CFG)
-        self.assertEqual(dropped, [(1005, "Food")])
+        self.assertEqual(dropped, [(1005, "Food", "store_display")])
         self.assertEqual([w["id"] for w in withheld], [1006], "a full product name is withheld and valued, not dropped")
+
+    def test_a_price_far_below_comparable_items_in_price_and_per_unit_is_withheld(self):
+        rows = snapshot([])
+        for r in rows.values():
+            r["_kind"] = "corn"
+        cheap = row(1007, "Great Value Whole Kernel Corn 9", 0.04, qty=15.25, unit="oz"); cheap["_kind"] = "corn"
+        single = row(1008, "Great Value Whole Kernel Corn Snack Cup", 0.30, qty=1.0, unit="oz"); single["_kind"] = "corn"
+        rows[1007], rows[1008] = cheap, single
+        withheld, _, _ = V.apply(rows, {"price_sanity": {"floor": 0.01, "over_p99": 5, "caps": {"default": 5000}}})
+        self.assertTrue(rows[1007].get("price_withheld"), "$0.04 for 15.25 oz when corn sells at $1.30")
+        self.assertEqual(withheld[0]["why"], "far below comparable items")
+        self.assertFalse(rows[1008].get("price_withheld"), "a small size is cheap per item but not per ounce")
+
+    def test_an_equivalent_value_must_be_believable_for_its_kind(self):
+        chairs = {i: row(i, f"Brand{i} Shiatsu Massage Chair Model {i}", 900.0 + i, cat="14", dept="Health and Medicine",
+                         path="Home Page/Health and Medicine/Massage") for i in range(2000, 2040)}
+        pills = {i: row(i, f"Equate Pain Reliever {i}", 5.0, cat="14", dept="Health and Medicine",
+                        path="Home Page/Health and Medicine/Pain Relief") for i in range(3000, 3400)}
+        rows = {**chairs, **pills}
+        for r in chairs.values():
+            r["_kind"] = "massage chair"
+        odd = row(2100, "Zqxv Deluxe Zero Gravity Massage Chair", 99999.0, cat="14", dept="Health and Medicine",
+                  path="Home Page/Health and Medicine/Massage")
+        odd["_kind"] = "massage chair"; rows[2100] = odd
+        V.apply(rows, CFG)
+        self.assertGreater(rows[2100]["equiv"]["price"], 90, "never valued like a bottle of pain reliever")
 
     def test_plausible_prices_are_untouched(self):
         rows = snapshot([])

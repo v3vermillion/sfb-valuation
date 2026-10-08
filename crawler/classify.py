@@ -151,19 +151,58 @@ APPAREL_BRANDS = {"no boundaries", "faded glory", "george", "time and tru", "ath
 SUBTITLE_RX = re.compile(r"^[^,(]{3,}:\s+[A-Z][^,]{8,}")
 PERSON_BRAND_RX = re.compile(r"^(?:[A-Z][a-z]+\.?\s+){1,2}[A-Z][a-z'\-]+(?:\s+(?:Jr|Sr|II|III)\.?)?$|;")
 
+# ---------------------------------------------------------------------------------------------- large equipment
+# not something a food bank receives (2026-10-08): massage chairs, mobility scooters, power wheelchairs, patient lifts,
+# hospital beds, treadmills, ellipticals, exercise bikes and home gyms (multi-gyms, racks, cages, towers, trainers). The
+# phrase must name the product itself (the title's head, before "for"/"with"/a comma, and not followed by a part or
+# accessory word) and the price must be an equipment price: a "Mobility Scooter Lap Blanket", a "Patient Lift Sling",
+# a resistance band "for Home Gym" and a $30 massage seat cushion stay. Walkers, canes, shower chairs, manual
+# wheelchairs, dumbbells and bands are not matched at all.
+EQUIPMENT_RX = re.compile(
+    r"\bmassage\s+(?:chair|recliner)s?\b|\bmobility\s+scooters?\b|\bscooters?\b[^,]{0,40}\b(?:seniors?|elderly|handicapped|disabled)\b|"
+    r"\b(?:power|electric|motorized)\s+wheel\s*chairs?\b|\bpower\s+chairs?\b|\bpatient\s+lifts?\b|\bhoyer\s+lifts?\b|"
+    r"\bsit[- ]to[- ]stand\s+lifts?\b|\bhospital\s+beds?\b|\btreadmills?\b|"
+    r"\belliptical(?:\s+(?:trainer|machine|cross\s*trainer))?s?\b(?!\s+(?:roll|waver))|"
+    r"(?<!pedal\s)\b(?:exercise|stationary|spin|spinning|recumbent|upright|indoor\s+cycling|magnetic)\s+(?:bike|bicycle|cycle)s?\b|"
+    r"\bhome\s+gyms?\b|\bsmith\s+machines?\b|\bfunctional\s+trainers?\b|\bpower\s+(?:racks?|cages?|towers?)\b|\bsquat\s+racks?\b|"
+    r"\ball[- ]in[- ]one\s+(?:home\s+)?gym\b", re.I)
+EQUIPMENT_HEAD_RX = re.compile(r"\s(?:for|with|w/|compatible|fits)\s|,|\||\u2013|\s-\s|\(", re.I)
+EQUIPMENT_PART_RX = re.compile(
+    r"\b(?:carriers?|ramps?|racks?|lifts?|slings?|sheets?|bedding|covers?|batter(?:y|ies)|chargers?|tires?|tyres?|armrests?|"
+    r"bags?|baskets?|totes?|cushions?|pads?|mattress(?:es)?|rails?|trapeze|tables?|parts?|replacement|kit|belts?|mats?|"
+    r"attachments?|hooks?|weights?|plates?|stools?|canopy|holders?|accessor\w*|cables?|pulleys?|cylinders?|actuators?|"
+    r"controllers?|joysticks?|lubricant|lube|oil|safety\s+keys?|remote)\b", re.I)
+EQUIPMENT_PRICE_MIN = 100.0
+
+
+def large_equipment(name, price=None):
+    """True for large mobility, medical and fitness equipment (EQUIPMENT_RX) priced as equipment."""
+    if price is None or price < EQUIPMENT_PRICE_MIN:
+        return False
+    head = EQUIPMENT_HEAD_RX.split(name or "", 1)[0]
+    m = EQUIPMENT_RX.search(head)
+    return bool(m) and not EQUIPMENT_PART_RX.search(head[m.end():])
+
+
 # ---------------------------------------------------------------------------------------------- placeholders
+# not a product at all, dropped (2026-10-08): test and internal listings, services, "coming soon"
+TEST_RX = re.compile(
+    r"\bsigning\s+test\b|\bstress\s+test\b|\btest\s+(?:item|product|brand|listing|sku)\b|^\W*test(?:ing)?\W*$|"
+    r"\bdummy\s+(?:item|test|product|sku)\b|\bdo\s+not\s+(?:use|sell|order|buy|purchase)\b|^\W*delete\b|"
+    r"\*+\s*to\s+be\s+deleted\s*\*+|^\W*(?:placeholder|tbd)\W*$|\bcvp\b.*\bitem\b|\bnon-tax\b.*\bitem\b|\bfy\d\d\s+wk\d+\b",
+    re.I)
+SERVICE_RX = re.compile(r"^\W*services?\b.*\bprogram\b|\bextended\s+(?:warranty|service)\b|\bprotection\s+plan\b", re.I)
+COMING_SOON_RX = re.compile(r"\bcoming\s+soon\b", re.I)
+# a name that identifies no product but may still be a real item's barcode: kept for barcode lookup only
 PLACEHOLDER_RX = re.compile(
-    r"^\W*(?:merchandise|item|items|product|products|test(?:ing)?(?:\s+(?:item|product))?|sample|n/?a|unknown|"
-    r"misc(?:ellaneous)?|general\s+merchandise|new\s+item|placeholder|tbd|do\s+not\s+use|not\s+for\s+sale|assorted|"
-    r"various|default|cosmetic|cosmetics|pet\s+food|food|grocery|show|-|\.|coming\s+soon|discontinued(?:\s+item)?"
+    r"^\W*(?:merchandise|item|items|product|products|sample|n/?a|unknown|"
+    r"misc(?:ellaneous)?|general\s+merchandise|new\s+item|not\s+for\s+sale|assorted|"
+    r"various|default|cosmetic|cosmetics|pet\s+food|food|grocery|show|-|\.|discontinued(?:\s+item)?"
     r"(?:\s+by\s+(?:supplier|manufacturer|vendor))?|discontinued\s+by\s+\w+)\W*$|"
-    r"\bcoming\s+soon\b|\bsigning\s+test\b|\bstress\s+test\b|\btest\s+(?:item|product|brand|listing|sku)\b|"
-    r"\bdo\s+not\s+(?:use|sell|order|buy|purchase)\b|\bnot\s+for\s+(?:sale|resale)\b(?!\s+in\b)|\bdisplay\s+unit\b|^\W*delete\b|"
-    r"\*+\s*to\s+be\s+deleted\s*\*+|\bcvp\b.*\bitem\b|\bnon-tax\b.*\bitem\b|^\W*\*+[^*]*\*+\s*\w+\s*$|"
-    r"\bfy\d\d\s+wk\d+\b|^\W*shop\s+[\w-]+(?:\s+[\w-]+){0,3}\s+(?:nutrition|products|brand)\s*$|"
-    r"\bmerchandise\s*$|^\d+\s*pc\s*\d+\s*pk\b|\b\d+\s*pc\b.*\b(?:tray|display|assortment)\b|"
-    r"\*+\s*(?:holiday|parent|pdq)\b|^\W*(?:\*+[^*]*\*+\s*)+\w*\s*$|\bdummy\s+(?:item|test|product|sku)\b|"
-    r"^\W*services?\b.*\bprogram\b|\bextended\s+(?:warranty|service)\b|\bprotection\s+plan\b",
+    r"\bnot\s+for\s+(?:sale|resale)\b(?!\s+in\b)|^\W*\*+[^*]*\*+\s*\w+\s*$|"
+    r"^\W*shop\s+[\w-]+(?:\s+[\w-]+){0,3}\s+(?:nutrition|products|brand)\s*$|"
+    r"\bmerchandise\s*$|^\d+\s*pc\s*\d+\s*pk\b|\b\d+\s*pc\b.*\b(?:tray|assortment)\b|"
+    r"\*+\s*(?:holiday|parent)\b|^\W*(?:\*+[^*]*\*+\s*)+\w*\s*$",
     re.I)
 # store display units (PDQ trays, shippers, pallets, planogram modules): a whole display priced as one listing. Only a
 # display with a piece count or a display-sized price counts ("Tones T Grnd Sage Pdq" at $1.20 is one jar of sage)
@@ -176,6 +215,7 @@ SHIP_RX = re.compile(r"^.{0,20}(?<!pirate\s)(?<!space\s)(?<!rocket\s)(?<!toy\s)(
 # (module, half module, pallet, endcap "EC", outer case: Walmart's short names for pre-packed displays)
 # a store fixture is never a donation, whatever its price ("Nova 2.0 Retail Display" at $0.01)
 FIXTURE_RX = re.compile(r"\b(?:retail|store|counter|floor)\s+display\b|\bdisplay\s+(?:only|unit|model)\b|\bendcap\b|"
+                        r"\*+\s*pdq\b|\b\d+\s*pc\b.*\bdisplay\b|"
                         r"\bfixture\b|\bmerchandising\s+tray\b|\bsidekick\s+display\b|\bpowerwing\b|^disp\b(?!\.)|"
                         r"(?:^|[-\u2013,]\s*|\b(?:system|seat|model|center|stroller|chair)\s+)display\s*$|"
                         r"\bsection\s+header\b|\bshelf\s+(?:rise|talker|strip|kit)\b|\bcustomer\s+value\s+program\b|"
@@ -852,9 +892,11 @@ def product_noun(name):
     return _pick(mh, "s") or _pick(mh, "w") or _pick(mn, "s") or _pick(mn, "w")
 
 
-def exclusion(name, brand, path, dept_name, upc=None):
+def exclusion(name, brand, path, dept_name, upc=None, price=None):
     """Why the item is not carried at all, or None."""
     n, p, b = name or "", (path or "").lower(), brand or ""
+    if large_equipment(n, price):
+        return "large_equipment"
     if not MEDIA_EXEMPT_RX.search(n):
         if MEDIA_RX.search(n) and dept_name != "Books":
             return "media"
@@ -933,22 +975,41 @@ DISCONTINUED_STRIP_RX = re.compile(r"\s*\*+\s*discontinu\w*[^*]*\*+\s*|\s*\(?\bd
                                    r"vendor)\)?\s*", re.I)
 
 
-def placeholder(name, brand, price=None):
-    """True when the listing's name does not identify a product, or the listing is a store display unit."""
+PLACEHOLDER_KINDS = ("test", "service", "coming_soon", "display", "generic")
+DROPPED_PLACEHOLDERS = {"test": "test_listing", "service": "service", "coming_soon": "coming_soon", "display": "store_display"}
+
+
+def placeholder_kind(name, brand, price=None):
+    """Why the listing's name identifies no product, or None for a product: "test" (test and internal listings),
+    "service" (warranties, programs), "coming_soon", "display" (store displays, pallets, fixtures) are not carried;
+    "generic" ("Merchandise", a brand alone, a supplier code) is kept for barcode lookup only."""
     n = (name or "").strip()
     core = re.sub(r"^\s*(?:\(\d+\s*pack\)\s*)+", "", n, flags=re.I).strip()
-    if not core or PLACEHOLDER_RX.search(core) or INGREDIENT_LIST_RX.search(core) or CODE_NAME_RX.search(core):
-        return True
+    if not core:
+        return "generic"
+    if TEST_RX.search(core):
+        return "test"
+    if SERVICE_RX.search(core):
+        return "service"
+    if COMING_SOON_RX.search(core):
+        return "coming_soon"
+    if FIXTURE_RX.search(core):
+        return "display"
+    if COUNT_CODE_RX.search(core) and len(core) <= COUNT_CODE_MAX and (price is None or price >= DISPLAY_PRICE_MIN):
+        return "display"                              # "300PC CH GHST PPR HP"
+    if (DISPLAY_RX.search(core) or SHIP_RX.search(core)) and (price is None or price >= DISPLAY_PRICE_MIN or PIECE_COUNT_RX.search(core)):
+        return "display"                              # "312PC RLETTE PALLET", "Crest 32pc Cr Snstv Pdq3", "C&B SS Shipper"
+    if PLACEHOLDER_RX.search(core) or INGREDIENT_LIST_RX.search(core) or CODE_NAME_RX.search(core):
+        return "generic"
     b = (brand or "").strip().lower().strip(" .")
     if b and core.lower().strip(" .") == b and not re.search(r"\d", core) and product_noun(core) is None:
-        return True                                   # "HUGGIES", "MOTIONS": the brand alone names no product
-    if FIXTURE_RX.search(core):
-        return True
-    if COUNT_CODE_RX.search(core) and len(core) <= COUNT_CODE_MAX and (price is None or price >= DISPLAY_PRICE_MIN):
-        return True
-    if (DISPLAY_RX.search(core) or SHIP_RX.search(core)) and (price is None or price >= DISPLAY_PRICE_MIN or PIECE_COUNT_RX.search(core)):
-        return True                                   # "312PC RLETTE PALLET", "Crest 32pc Cr Snstv Pdq3", "C&B SS Shipper"
-    return False
+        return "generic"                              # "HUGGIES", "MOTIONS": the brand alone names no product
+    return None
+
+
+def placeholder(name, brand, price=None):
+    """True when the listing's name does not identify a product (any placeholder_kind)."""
+    return placeholder_kind(name, brand, price) is not None
 
 
 def clean_name(name):

@@ -7,11 +7,16 @@ An item price outside a plausible range for its department is withheld: it stays
   1. the closest comparable item (same category, the most name tokens in common, same base unit), scaled to this item's
      size when both have a per-unit price;
   2. else the median per-unit price of comparable items (qa.unit_price_medians) times this item's size;
-  3. else the median price of the item's category in its department.
+  3. else the median price of the same kind of item (the product noun of its title, within its category);
+  4. else the median price of the item's category in its department.
+Whenever the item's kind has a median, a value more than 10x away from it is rejected and the next method is tried, so
+a massage chair is never valued like a bottle of aspirin.
 
-The range per department is [floor, min(cap, over_p99 x the department's 99th percentile price)], from
-data/gates.json "price_sanity". Placeholder listings (barcode only) whose own price fails the range are dropped instead:
-there is nothing to show for them.
+A price is withheld when it is outside [floor, min(cap, over_p99 x the department's 99th percentile price)] for its
+department (data/gates.json "price_sanity"), or when both the price and the price per unit are more than 20x below
+comparable items (same kind of item; same aisle and unit): Pampers 162 ct at $0.98, melatonin 90 ct at $0.16. A low
+price alone is not enough: a single ramen cup is meant to cost less than the 12-packs around it. Placeholder listings
+(barcode only) whose own price fails the range are dropped instead: there is nothing to show for them.
 """
 import math, statistics
 from collections import Counter, defaultdict
@@ -19,6 +24,19 @@ from collections import Counter, defaultdict
 from .identify import tokens as name_tokens, WALMART_STORE_BRANDS
 
 MATCH_MIN = 0.45
+KIND_MIN = 30          # rows of one kind of item before its median price is used
+KIND_BAND = 10         # an equivalent value within 10x of its kind's median
+LOW_FACTOR = 20        # a price and a per-unit price both this far below comparable items are withheld
+
+
+def kind_medians(rows):
+    """{(category, kind): median price} over trusted rows (rows carry `_kind` while process.build runs)."""
+    groups = defaultdict(list)
+    for r in rows:
+        k = r.get("_kind")
+        if k and not r.get("price_withheld") and "placeholder" not in r.get("flags", []) and isinstance(r.get("price"), (int, float)):
+            groups[(r["cat"], k)].append(r["price"])
+    return {k: statistics.median(v) for k, v in groups.items() if len(v) >= KIND_MIN}
 
 
 def _quantile(sorted_vals, q):
@@ -69,9 +87,13 @@ class Valuer:
             by_cat[(r["dept"], r["cat"])].append(r["price"])
         self.df = Counter({k: len(v) for k, v in self.index.items()})
         self.cat_median = {k: statistics.median(v) for k, v in by_cat.items() if v}
+        self.kind_median = kind_medians(self.trusted)
 
     def value(self, row, low, high):
         """{"price", "method", "confidence", "basis_id", "basis_name"} for a withheld row; never None."""
+        km = self.kind_median.get((row.get("cat"), row.get("_kind")))
+        if km:                                        # every method's value must be believable for this kind of item
+            low, high = max(low, km / KIND_BAND), min(high, km * KIND_BAND)
         qty, pack = row.get("base_qty"), row.get("pack") or 1
         pt = name_tokens(row["name"], row.get("brand"))
         cands = set()
@@ -108,6 +130,9 @@ class Valuer:
                 if low <= est <= high:
                     return {"price": round(est, 2), "method": "median per-unit price of comparable items",
                             "confidence": "low", "basis_id": None, "basis_name": None}
+        if km:
+            return {"price": round(km, 2), "method": "median price of the same kind of item", "confidence": "rough",
+                    "basis_id": None, "basis_name": None}
         med = self.cat_median.get((row["dept"], row["cat"]))
         if med is None:
             pool = [p for (d, _), p in self.cat_median.items() if d == row["dept"]]
@@ -119,17 +144,17 @@ class Valuer:
 def apply(rows, cfg, group_min=50):
     """Withhold implausible prices and attach equivalent values. rows is a dict id -> row and is changed in place.
     Returns (withheld list for the report, bounds, dropped placeholder ids)."""
-    b, dropped = withhold(rows, cfg)
+    b, dropped = withhold(rows, cfg, group_min)
     return attach_values(rows, b, group_min), {d: {"low": lo, "high": hi, "p99": p99} for d, (lo, hi, p99) in b.items()}, dropped
 
 
 POS_NAME_MAX = 20          # Walmart's register names are cut at 20 characters
 
 
-def withhold(rows, cfg):
+def withhold(rows, cfg, group_min=50):
     """Flag every price outside its department's plausible range (price_withheld, no per-unit price) and drop
     placeholder listings with such a price. Runs before the per-unit outlier check so an absurd price is not counted
-    as a parsing problem. Returns (bounds, dropped placeholder (id, department) pairs)."""
+    as a parsing problem. Returns (bounds, dropped (id, department, reason) triples)."""
     b = bounds(rows.values(), cfg)
     dropped = []
     for iid, r in list(rows.items()):
@@ -137,18 +162,36 @@ def withhold(rows, cfg):
         p = r.get("price")
         if isinstance(p, (int, float)) and lo <= p <= hi:
             continue
-        if "placeholder" in r.get("flags", []) or (isinstance(p, (int, float)) and p > hi and len(r.get("name") or "") <= POS_NAME_MAX):
-            # a placeholder with an implausible price fails rule 2 and is not kept even for barcode lookup; so is a
-            # register-length name priced far above anything in its department ("Old El Paso Bold/Pri" at $1,042,
-            # "Premier Protein 6pk" at $1,783): a pre-packed display or pallet listed under its truncated POS name
-            dropped.append((iid, r["dept"]))
+        if "placeholder" in r.get("flags", []):
+            dropped.append((iid, r["dept"], "placeholder_price"))  # barcode-only listings need a plausible price
             del rows[iid]
             continue
-        r["price_withheld"] = True
-        r["unit_price"] = None
-        if "price_withheld" not in r["flags"]:
-            r["flags"].append("price_withheld")
+        if isinstance(p, (int, float)) and p > hi and len(r.get("name") or "") <= POS_NAME_MAX:
+            # a register-length name priced far above anything in its department ("Old El Paso Bold/Pri" at $1,042,
+            # "Premier Protein 6pk" at $1,783): a pre-packed display or pallet listed under its truncated POS name
+            dropped.append((iid, r["dept"], "store_display"))
+            del rows[iid]
+            continue
+        _withhold(r)
+    # far below comparable items in both price and price per unit: a feed error, not a cheap product
+    from .qa import unit_price_medians
+    kmed = kind_medians(rows.values())
+    priced = [r for r in rows.values() if isinstance(r.get("unit_price"), (int, float)) and r["unit_price"] > 0]
+    umed = unit_price_medians(priced, group_min)
+    for r in priced:
+        if r.get("price_withheld") or "placeholder" in r.get("flags", []):
+            continue
+        km, um = kmed.get((r["cat"], r.get("_kind"))), umed(r)[0]
+        if km and um and r["price"] < km / LOW_FACTOR and r["unit_price"] < um / LOW_FACTOR:
+            _withhold(r)
     return b, dropped
+
+
+def _withhold(r):
+    r["price_withheld"] = True
+    r["unit_price"] = None
+    if "price_withheld" not in r["flags"]:
+        r["flags"].append("price_withheld")
 
 
 def attach_values(rows, b, group_min=50):
@@ -161,7 +204,8 @@ def attach_values(rows, b, group_min=50):
             continue
         lo, hi, _ = b.get(r["dept"], (0.10, 5000, None))
         r["equiv"] = valuer.value(r, lo, hi)
-        withheld.append({"id": r["id"], "upc": r.get("upc"), "name": r["name"], "dept": r["dept"], "raw_price": r["price"],
+        why = "above range" if r["price"] > hi else "below range" if r["price"] < lo else "far below comparable items"
+        withheld.append({"id": r["id"], "upc": r.get("upc"), "name": r["name"], "dept": r["dept"], "raw_price": r["price"], "why": why,
                          "range": [lo, hi], "value": r["equiv"]["price"], "method": r["equiv"]["method"],
                          "basis": r["equiv"]["basis_name"]})
     withheld.sort(key=lambda w: (w["dept"], -(w["raw_price"] or 0)))

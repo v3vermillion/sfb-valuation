@@ -325,7 +325,8 @@ def junk_reason(item: dict, dept_name: str, cfg: dict):
         if kw in path:
             return "excluded_category"
     # not carried at all: apparel, footwear, pet beds, alcohol, tobacco, media (docs/CATEGORIES.md)
-    why = classify.exclusion(name, item.get("brandName"), item.get("categoryPath"), dept_name, item.get("upc"))
+    why = classify.exclusion(name, item.get("brandName"), item.get("categoryPath"), dept_name, item.get("upc"),
+                             item.get("salePrice"))
     if why:
         return why
     if dept_name == "Food" and not item.get("upc") and parse_quantity(name)[0] is None and not item.get("size"):
@@ -346,7 +347,10 @@ def normalize(item: dict, dept: dict, cfg: dict):
         return None, reason
     raw_name = re.sub(r"\s+", " ", item["name"]).strip()
     name, discontinued = classify.clean_name(raw_name)
-    is_placeholder = classify.placeholder(raw_name, item.get("brandName"), item.get("salePrice"))
+    kind = classify.placeholder_kind(raw_name, item.get("brandName"), item.get("salePrice"))
+    if kind in classify.DROPPED_PLACEHOLDERS:
+        return None, classify.DROPPED_PLACEHOLDERS[kind]      # not a product: test listings, services, "coming soon", displays
+    is_placeholder = kind == "generic"
     key, retired, check_ok = gtin14(item.get("upc"))
     if is_placeholder and not (key and check_ok and not retired):
         return None, "placeholder_no_barcode"     # a placeholder is kept only for barcode lookup, so it needs a valid barcode

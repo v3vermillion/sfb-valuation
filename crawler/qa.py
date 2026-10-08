@@ -603,14 +603,15 @@ def _report(state, stats, g):
         withheld = stats.get("price_withheld")
         if withheld is not None:
             L += ["", f"## Withheld prices ({len(withheld)}): valued at an equivalent instead", "",
-                  "| department | item | Walmart price | valued at | how |", "|---|---|---|---|---|"]
-            L += [f"| {w['dept']} | {w['id']} {str(w['name'])[:70]} | ${w['raw_price']:,.2f} | ${w['value']:,.2f} | "
+                  "| department | item | Walmart price | why | valued at | how |", "|---|---|---|---|---|---|"]
+            L += [f"| {w['dept']} | {w['id']} {str(w['name'])[:70]} | ${w['raw_price']:,.2f} | {w.get('why', '')} | ${w['value']:,.2f} | "
                   f"{w['method']}{(': ' + str(w['basis'])[:50]) if w.get('basis') else ''} |" for w in withheld]
         ph = stats.get("placeholders")
         if ph:
             L += ["", f"## Placeholder listings ({ph['count']}): barcode lookup only, not in typed search",
-                  "Names that identify no product (Merchandise, coming soon, test or do-not-use entries, register codes, "
-                  "a brand alone); kept so a scan of the barcode still prices the item. First examples:"]
+                  "Names that identify no product (\"Merchandise\", a brand alone, a supplier code, a discontinued entry with no "
+                  "name); kept so a scan of the barcode still prices the item. Test listings, services, \"coming soon\" and store "
+                  "displays are not carried (rejects above). First examples:"]
             L += [f"- {e['id']} UPC {e['upc']} {e['dept']}: {e['name']} (${e['price']})" for e in ph["examples"][:15]]
         verdict = store.read_json(CAND / "review-verdict.json") or {}
         if verdict.get("miscategorized_rate") is not None:

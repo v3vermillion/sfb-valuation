@@ -88,6 +88,7 @@ def build():
             stats_paths.add(r.get("path"), r["noun"])
     for r in rows.values():
         nn, d = r.pop("noun", None), cfg_depts.get(r.get("dept"))
+        r["_kind"] = nn[2] if nn else None             # the product noun, used by price sanity; never written
         if d:
             r["cat"] = str(classify.decide(tuple(nn) if nn else None, r.get("path"), d, cfg, stats_paths, r["name"]))
 
@@ -95,9 +96,10 @@ def build():
     # withheld, and a placeholder with one is dropped, before primaries are chosen and per-unit prices are judged (a
     # $3e21 listing is not a parsing problem); the equivalent value is attached once per-unit prices are final
     from .qa import unit_outlier_stats, gates_config
-    bounds, dropped_placeholders = valuation.withhold(rows, gates_config())
-    for _, dept_name in dropped_placeholders:
-        rejects[dept_name]["placeholder_price"] += 1           # a barcode-only listing with an implausible price
+    group_min = int(gates_config().get("unit_outlier_group_min") or 50)
+    bounds, dropped_placeholders = valuation.withhold(rows, gates_config(), group_min)
+    for _, dept_name, why in dropped_placeholders:
+        rejects[dept_name][why] += 1
 
     # one primary row per UPC (barcode lookups): prefer current, in stock, normal price, newest listing
     by_upc = defaultdict(list)
@@ -117,7 +119,6 @@ def build():
     # per-unit prices that are more than 10x off their category+unit median are almost always a parsing
     # artefact (a packet size taken for the carton, a count read as a weight): keep the item price, drop the
     # per-unit price and flag the row so the app shows nothing misleading and identify.py never uses it as a basis
-    group_min = int(gates_config().get("unit_outlier_group_min") or 50)
     before_share, _, before = unit_outlier_stats(rows.values(), group_min)
     resolved = resolve_packs(rows.values(), group_min)
     raw_share, unit_priced, outliers = unit_outlier_stats(rows.values(), group_min)
@@ -130,6 +131,8 @@ def build():
                          "pack_resolved": resolved, "scope": "consumable departments (no per-unit price elsewhere)"}
 
     withheld = valuation.attach_values(rows, bounds, group_min)
+    for r in rows.values():
+        r.pop("_kind", None)
     price_bounds = {d: {"low": lo, "high": hi, "p99": p99} for d, (lo, hi, p99) in bounds.items()}
 
     stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
