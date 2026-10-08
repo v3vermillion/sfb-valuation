@@ -259,6 +259,6 @@
   "status": "crawling",
   "throttle_base": 18936,
   "throttle_wait_s": 18936,
-  "throttled_runs": 1,
+  "throttled_runs": 0,
   "updated": "2026-10-08T22:48:00+00:00"
 }
