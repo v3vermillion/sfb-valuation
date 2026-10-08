@@ -119,12 +119,22 @@ class PackResolution(unittest.TestCase):
         self.assertEqual(stats["unit_outliers_raw"]["count"], 0)
         self.assertFalse(any("unit_price_suspect" in r["flags"] for r in rows.values()))
 
-    def test_a_reading_nothing_supports_stays_flagged(self):
-        raw = [item(i, f"Baked Beans, {15 + i % 3} oz Can", 1.5 + (i % 4) * 0.1, "Home Page/Food/Pantry/Canned goods/Canned beans") for i in range(60)]
-        raw.append(item(903, "Choc Bar Dark W Hzlnuts, 3.5 Oz (pack Of", 44.29, "Home Page/Food/Pantry/Canned goods/Canned beans"))
+    def test_a_pack_count_cut_off_the_name_is_recovered_from_comparable_items(self):
+        beans = "Home Page/Food/Pantry/Canned goods/Canned beans"
+        raw = [item(i, f"Baked Beans, {15 + i % 3} oz Can", 1.5 + (i % 4) * 0.1, beans) for i in range(60)]
+        raw.append(item(903, "Bush's Baked Beans, 16 Oz (pack Of", 21.48, beans))     # a case of 12 at $1.79
         rows, _ = self.build(raw)
-        self.assertIn("unit_price_suspect", rows[200903]["flags"], "a pack count cut off the name cannot be recovered")
-        self.assertNotIn("pack_resolved", rows[200903]["flags"])
+        self.assertEqual(rows[200903]["pack"], 12)
+        self.assertIn("pack_truncated", rows[200903]["flags"]); self.assertIn("pack_resolved", rows[200903]["flags"])
+        self.assertNotIn("unit_price_suspect", rows[200903]["flags"])
+
+    def test_a_reading_nothing_supports_stays_flagged(self):
+        beans = "Home Page/Food/Pantry/Canned goods/Canned beans"
+        raw = [item(i, f"Baked Beans, {15 + i % 3} oz Can", 1.5 + (i % 4) * 0.1, beans) for i in range(60)]
+        raw.append(item(904, "Baked Beans Deluxe, 16 oz Can", 60.0, beans))            # no pack anywhere: still flagged
+        rows, _ = self.build(raw)
+        self.assertIn("unit_price_suspect", rows[200904]["flags"])
+        self.assertNotIn("pack_resolved", rows[200904]["flags"])
 
 
 if __name__ == "__main__":

@@ -89,7 +89,8 @@ def match():
     pub = store.ROOT / "build" / "published" / "items.jsonl.gz"
     cand = store.ROOT / "build" / "candidate" / "items.jsonl.gz"
     src = pub if store.jsonl_exists(pub) else cand
-    wm = [r for r in store.iter_jsonl_gz(src) if r.get("unit_price") and r.get("base_unit")]
+    wm = [r for r in store.iter_jsonl_gz(src) if r.get("unit_price") and r.get("base_unit")
+          and "placeholder" not in (r.get("flags") or []) and not r.get("price_withheld")]
     wm_upcs = {r["upc"] for r in store.iter_jsonl_gz(src) if r.get("upc")}
     index = defaultdict(list)
     tok_of = {}

@@ -156,6 +156,7 @@ export class DbClient extends EventTarget {
   }
   async #downloadNow(version, background) {
     if (!background) this.#setState("downloading", { version });
+    const t0 = performance.now();
     const manifest = await this.#fetchManifest(version);
     const cache = await caches.open(CACHE_PREFIX + version);
     const files = FILES(manifest);
@@ -172,15 +173,18 @@ export class DbClient extends EventTarget {
         if (!res.ok) throw new Error(`download failed: ${f.path} (${res.status})`);
         const ct = res.headers.get("content-type") || "";
         if (/text\/html/i.test(ct)) throw new Error(`download failed: ${f.path} (not a pack file)`);
-        const buf = await res.arrayBuffer();
-        await cache.put(url, new Response(buf, { headers: { "content-type": ct || "application/octet-stream" } }));
-        doneBytes += f.gzBytes || buf.byteLength;
+        // the response goes straight into Cache Storage: reading it into an ArrayBuffer first and wrapping that in a
+        // new Response copied every pack file through the page's JS heap twice (up to ~33 MB held at once on a phone)
+        await cache.put(url, res);
+        doneBytes += f.gzBytes || Number(res.headers.get("content-length")) || 0;
         this.#emit("progress", { phase: "download", background, version, doneBytes, totalBytes, file: f.path });
       }
     };
     await Promise.all([runOne(), runOne()]);
+    if (!background) this.#lastDownloadMs = Math.round(performance.now() - t0);
     return manifest;
   }
+  #lastDownloadMs = null;     // the foreground (first-install) download, reported once in the next load's stats
 
   async #load(version) {
     this.#setState("loading", { version });
@@ -188,7 +192,8 @@ export class DbClient extends EventTarget {
     const t0 = performance.now();
     const stats = await this.call({ type: "load", base: new URL(`${DB_ROOT}${version}/`, location.href).href, manifest, cacheName: CACHE_PREFIX + version });
     this.manifest = manifest;
-    this.stats = { ...stats, wallMs: Math.round(performance.now() - t0) };
+    this.stats = { ...stats, wallMs: Math.round(performance.now() - t0), downloadMs: this.#lastDownloadMs };
+    this.#lastDownloadMs = null;
     this.version = version;
     this.#setState("ready", { version, manifest, stats: this.stats });
     this.#emit("ready", { stats: this.stats, manifest });

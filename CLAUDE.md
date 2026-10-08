@@ -41,9 +41,10 @@ A snapshot publishes only when every gate passes; otherwise it holds and an issu
 
 ## Layout
 - crawler/ — wm.py (signed client, pacing), crawl.py (resumable), normalize.py (rules), process.py (snapshot),
-  qa.py (gates/publish), releases.py (kept snapshots, rollback), audit.py (weekly live audit), history.py (price history), review.py (sample review),
+  qa.py (gates/publish), releases.py (kept snapshots, rollback), classify.py (store categories, exclusions, placeholders),
+  valuation.py (price sanity, equivalent values), audit.py (weekly live audit), history.py (price history), review.py (sample review),
   sizing.py (department sizes), throttle.py (429 analysis, pace cap), identify.py (non-Walmart barcodes → equivalents), ci.py (orchestrator + decide())
-- data/categories.json — scope (departments), category rules, exclusions
+- data/categories.json — scope (departments, consumable or not), category ids and path hints; docs/CATEGORIES.md — how every item is labelled
 - data/sentinels.json — items that must always be found and priced
 - data/gates.json — acceptance thresholds (null = measure only); data/schedule.json — cadence; data/review-criteria.md — sample review rules
 - .github/workflows/ — pipeline.yml (30-min continue, manual plans), deploy-app.yml, tests.yml, keepalive.yml,

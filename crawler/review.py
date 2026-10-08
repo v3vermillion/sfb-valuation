@@ -49,7 +49,8 @@ def compact(row, categories=None) -> dict:
 
 def write_sample(rows, run_id, n=300, path=None) -> list:
     """Pick n rows at random (deterministic for a run_id) and write them as compact JSON lines."""
-    rows = list(rows)
+    # barcode-only placeholders and withheld prices are not shown as priced items, so they are not reviewed as such
+    rows = [r for r in rows if "placeholder" not in (r.get("flags") or []) and not r.get("price_withheld")]
     n = max(0, int(n))
     picked = rows if len(rows) <= n else random.Random(str(run_id)).sample(rows, n)
     picked.sort(key=lambda r: str(r.get("id")))
@@ -80,7 +81,9 @@ def build_messages(criteria: str, sample: list):
     user = (f"Here are {len(sample)} rows sampled at random from the candidate snapshot, one JSON object per line. "
             "Review every row against the criteria. Then return ONLY this JSON object, nothing else:\n"
             '{"systematic_junk": true|false, "junk_rate": <share of junk rows, 0 to 1>, '
-            '"junk_examples": [{"id": <item id>, "why": "<short reason>"}], "notes": "<one or two sentences>"}\n\n'
+            '"junk_examples": [{"id": <item id>, "why": "<short reason>"}], "notes": "<one or two sentences>", '
+            '"miscategorized_rate": <share of rows whose category does not fit, 0 to 1>, '
+            '"miscategorized_examples": [{"id": <item id>, "category": "<as given>", "should_be": "<category>"}]}\n\n'
             f"ROWS:\n{lines}")
     return system, [{"role": "user", "content": user}]
 
@@ -165,8 +168,18 @@ def parse_verdict(text: str) -> dict:
             examples.append({"id": e.get("id"), "why": str(e.get("why") or e.get("reason") or "")[:200]})
         else:
             examples.append({"id": None, "why": str(e)[:200]})
-    return {"systematic_junk": _to_bool(obj["systematic_junk"]), "junk_rate": _to_rate(obj["junk_rate"]),
-            "junk_examples": examples, "notes": str(obj.get("notes") or "")[:2000]}
+    out = {"systematic_junk": _to_bool(obj["systematic_junk"]), "junk_rate": _to_rate(obj["junk_rate"]),
+           "junk_examples": examples, "notes": str(obj.get("notes") or "")[:2000]}
+    if obj.get("miscategorized_rate") is not None:       # measured, never a gate (docs/CATEGORIES.md is the guide)
+        try:
+            out["miscategorized_rate"] = _to_rate(obj["miscategorized_rate"])
+            mex = obj.get("miscategorized_examples") or []
+            out["miscategorized_examples"] = [{"id": e.get("id"), "category": str(e.get("category") or "")[:60],
+                                               "should_be": str(e.get("should_be") or "")[:60]}
+                                              for e in mex[:25] if isinstance(e, dict)]
+        except ValueError:
+            pass
+    return out
 
 
 def response_text(data: dict) -> str:

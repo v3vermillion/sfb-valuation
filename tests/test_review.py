@@ -48,7 +48,7 @@ class Review(StoreCase, unittest.TestCase):
         self.assertEqual(len(lines), len(self.rows))
         first = json.loads(lines[0])
         self.assertEqual(set(first) <= set(self.review.SAMPLE_FIELDS) | {"category"}, True)
-        self.assertEqual(first["category"], "Canned & Jarred"); self.assertNotIn("variants", first); self.assertNotIn("flags", first, "empty lists are dropped")
+        self.assertEqual(first["category"], "Canned & Jarred Foods"); self.assertNotIn("variants", first); self.assertNotIn("flags", first, "empty lists are dropped")
         small = self.review.write_sample(self.rows, RUN_ID, n=20, path=self.root / "s.jsonl")
         again = self.review.write_sample(self.rows, RUN_ID, n=20, path=self.root / "s2.jsonl")
         other = self.review.write_sample(self.rows, "other-run", n=20, path=self.root / "s3.jsonl")

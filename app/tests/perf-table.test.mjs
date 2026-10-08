@@ -94,3 +94,29 @@ test("per-browser summary marks budgets and lists what is not measurable", () =>
   assert.match(browserSummary({ ...chromium, keystroke: { worker: s(4, 20), total: s(24, 30) } }), /per keystroke, p95 \| 20 ms \| < 16 ms \| \*\*over\*\*/);
   assert.match(browserSummary(null, undefined, "webkit"), /No measure results/);
 });
+
+test("browser notes are listed with their reason and never counted as page errors", () => {
+  const note = { message: 'Viewport argument key "interactive-widget" not recognized and ignored.', why: "WebKit does not implement it", pages: ["webkit-light-390x844", "webkit-dark-390x844"] };
+  const ca = { summary: { errors: [] } }, wa = { summary: { errors: [], notes: [note] } };
+  const md = compareTable(chromium, webkit, ca, wa);
+  assert.match(md, /\| Screens with page errors or a stopped run \| 0 \| 0 \|/);
+  assert.ok(!md.includes("Audit flag"), "a note is not a finding");
+  assert.match(md, /Browser notes .*not page errors/);
+  assert.match(md, /- WebKit, 2 screens: `Viewport argument key "interactive-widget" not recognized and ignored\.` — WebKit does not implement it/);
+  assert.ok(!compareTable(chromium, webkit, ca, { summary: { errors: [] } }).includes("Browser notes"));
+  assert.match(browserSummary(webkit, wa), /- WebKit, 2 screens: `Viewport argument key/);
+});
+
+test("the two-frame 'presented' mark and the first-install split are diagnosis rows, never flagged", () => {
+  const c = { ...chromium, lookup: { ...chromium.lookup, presented: s(40, 42), withoutBackdropFilter: { presented: s(38, 40) } }, firstInstall: { ms: 686, downloadMs: 300, dbLoadMs: 350, workerMs: 320 } };
+  const w = { ...webkit, lookup: { ...webkit.lookup, presented: s(146, 1169), withoutBackdropFilter: { presented: s(40, 45) } }, scanTyped: { ...webkit.scanTyped, presented: s(254, 2349) }, firstInstall: { ms: 1795, downloadMs: 1200 } };
+  const md = compareTable(c, w);
+  assert.match(md, /\| Typed barcode → sheet presented \(two frames\), p50 \/ p95 \| 40 \/ 42 ms \| 146 \/ 1169 ms \|/);
+  assert.match(md, /\| Typed barcode → sheet presented, every backdrop-filter switched off \| 38 \/ 40 ms \| 40 \/ 45 ms \|/);
+  assert.match(md, /\| Scanner screen, typed barcode → sheet presented \(two frames\), p50 \/ p95 \| — \| 254 \/ 2349 ms \|/);
+  assert.match(md, /\| First install: download the pack into Cache Storage \| 300 ms \| 1200 ms \|/);
+  assert.match(md, /\| First install: of which the worker \(read, inflate, index\) \| 320 ms \| — \|/);
+  // the flagged rows are still only the METRICS ones
+  assert.equal((md.match(/\*\*WebKit \d+% slower\*\*/g) || []).length, METRICS.filter((m) => compareMetric(c, w, m).flag.startsWith("WebKit")).length);
+  assert.ok(!compareTable(chromium, webkit).includes("Diagnosis"), "no diagnosis table when no run recorded one");
+});

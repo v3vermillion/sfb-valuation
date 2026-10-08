@@ -92,6 +92,38 @@ const AUDIT_ROWS = [
 ];
 const auditCount = (a, k) => (a?.summary ? (a.summary[k] || []).length : null);
 
+/** Known browser messages the audit listed as notes (audit-lib.mjs BROWSER_NOTES): shown with their reason, never counted. */
+function notesLines(cols) {
+  const lines = [];
+  for (const [name, a] of cols) {
+    for (const n of a?.summary?.notes || []) lines.push(`- ${name}, ${n.pages.length} screen${n.pages.length === 1 ? "" : "s"}: \`${esc(n.message)}\` — ${esc(n.why)}`);
+  }
+  return lines.length ? ["Browser notes (known browser messages, not page errors; not counted above):", ...lines, ""] : [];
+}
+
+/** Diagnosis rows, listed and never flagged. "Presented" = the sheet two frames after it opened: engine-dependent.
+ *  The first-install split says where a slow first install spends its time. */
+const DIAGNOSIS = [
+  ["lookup.presented", "Typed barcode → sheet presented (two frames), p50 / p95"],
+  ["lookup.withoutBackdropFilter.presented", "Typed barcode → sheet presented, every backdrop-filter switched off"],
+  ["scanTyped.presented", "Scanner screen, typed barcode → sheet presented (two frames), p50 / p95"],
+  ["firstInstall.downloadMs", "First install: download the pack into Cache Storage"],
+  ["firstInstall.dbLoadMs", "First install: open it (manifest + worker)"],
+  ["firstInstall.workerMs", "First install: of which the worker (read, inflate, index)"],
+];
+const diagCell = (v) => (v && typeof v === "object" ? (Number.isFinite(v.p50) ? `${v.p50} / ${v.p95} ms` : "—") : Number.isFinite(v) ? `${v} ms` : "—");
+function diagnosisLines(cols) {
+  const rows = DIAGNOSIS.filter(([id]) => cols.some(([, d]) => at(d, id) != null));
+  if (!rows.length) return [];
+  return [
+    "Diagnosis (listed, never flagged). \"Presented\" = the sheet two frames after it opened: WebKit's second frame waits for its compositor (software on a GPU-less CI runner; an iPhone composites on its GPU) and Chromium's does not wait for raster, so it measures different work in the two engines. \"Sheet painted\" above is the first frame showing the sheet, rendered by the main thread: the same in both.",
+    "",
+    `| diagnosis | ${cols.map(([n]) => n).join(" | ")} |`, `|---|${cols.map(() => "---").join("|")}|`,
+    ...rows.map(([id, label]) => `| ${label} | ${cols.map(([, d]) => diagCell(at(d, id))).join(" | ")} |`),
+    "",
+  ];
+}
+
 /** Markdown for one browser's results; pass `audit` (null when its file is missing) to add the audit counts. */
 export function browserSummary(d, audit, label = null) {
   const name = titleCase(d?.browser || label);
@@ -111,8 +143,9 @@ export function browserSummary(d, audit, label = null) {
     if (d.failures?.length) lines.push("Failed steps:", ...d.failures.map((f) => `- ${esc(f.step)}: ${esc(f.error)}`), "");
     if (d.pageErrors?.length) lines.push("Page errors:", ...d.pageErrors.map((e) => `- ${esc(e)}`), "");
     if (d.scanTyped?.runs?.[0]?.camera) lines.push(`Camera when the scanner opened: ${esc(d.scanTyped.runs[0].camera)}`, "");
+    lines.push(...diagnosisLines([[name, d]]));
   }
-  if (audit !== undefined) lines.push(...auditTable([[name, audit]]));
+  if (audit !== undefined) lines.push(...auditTable([[name, audit]]), ...notesLines([[name, audit]]));
   return lines.join("\n");
 }
 
@@ -140,10 +173,12 @@ export function compareTable(c, w, ca, wa) {
     if (d?.failures?.length) lines.push(`Failed steps (${n}):`, ...d.failures.map((f) => `- ${esc(f.step)}: ${esc(f.error)}`), "");
     if (d?.pageErrors?.length) lines.push(`Page errors (${n}):`, ...d.pageErrors.map((e) => `- ${esc(e)}`), "");
   }
+  lines.push(...diagnosisLines([["Chromium", c], ["WebKit", w]]));
   if (ca !== undefined || wa !== undefined) {
     lines.push(...auditTable([["Chromium", ca], ["WebKit", wa]]));
     const worse = AUDIT_ROWS.filter(([k]) => ca && wa && auditCount(wa, k) > auditCount(ca, k)).map(([, l]) => l);
     if (worse.length) lines.push(`**Audit flag:** WebKit has more findings than Chromium in: ${worse.join("; ")}.`, "");
+    lines.push(...notesLines([["Chromium", ca], ["WebKit", wa]]));
   }
   return lines.join("\n");
 }

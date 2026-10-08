@@ -95,3 +95,32 @@ test("titles never repeat the brand", () => {
   assert.equal(kindLabel(closest), "Closest match");
   assert.match(notesFor(closest)[0].text, /“40” was ignored/);
 });
+
+// ---- price sanity (2026-10-08): a withheld Walmart price is never shown; the item is valued at an equivalent
+const withheld = { ...corn, rank: 5, id: 50, upc: "00012345678905", priceCents: 129, priceWithheld: true, rawPriceCents: 1617000,
+  valueConfidence: "high", valueBasis: corn, primary: true };
+test("a withheld price resolves to an equivalent value with its basis, from a search tap or a scan", async () => {
+  const r = fromItem(withheld);
+  assert.equal(r.kind, "equivalent"); assert.equal(r.priceCents, 129); assert.equal(kindLabel(r), "Equivalent value");
+  assert.equal(r.equiv.basis.id, 1); assert.equal(r.equiv.rawCents, 1617000);
+  const note = notesFor(r).map((n) => n.text).join(" ");
+  assert.match(note, /\$16,170\.00/); assert.match(note, /closest comparable Walmart item/);
+  const db = { async lookupUpc(key) { return key === 12345678905 ? { items: [withheld], equivalent: null } : { items: [], equivalent: null }; } };
+  const s = await resolveCode(db, "012345678905");
+  assert.equal(s.kind, "equivalent"); assert.equal(s.priceCents, 129); assert.equal(s.gtin, "00012345678905");
+});
+
+test("a rough equivalent says how it was valued", () => {
+  const r = fromItem({ ...withheld, valueBasis: null, valueConfidence: "rough" });
+  assert.match(notesFor(r).map((n) => n.text).join(" "), /typical price of items in its category/);
+});
+
+test("a barcode with a plausible listing and a withheld one shows the plausible listing", async () => {
+  const db = { async lookupUpc() { return { items: [withheld, { ...corn, id: 51 }], equivalent: null }; } };
+  const r = await resolveCode(db, "078742054261");
+  assert.equal(r.kind, "exact"); assert.equal(r.item.id, 51); assert.equal(r.others[0].id, 50);
+});
+
+test("a discontinued listing says so", () => {
+  assert.match(notesFor(fromItem({ ...corn, discontinued: true })).map((n) => n.text).join(" "), /discontinued/);
+});

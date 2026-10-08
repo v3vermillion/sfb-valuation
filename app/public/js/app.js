@@ -181,7 +181,7 @@ db.addEventListener("progress", (e) => {
 db.addEventListener("ready", () => {
   performance.mark("sfb:db-ready");
   perf.boot.dbReadyMs = Math.round(performance.now());
-  perf.boot.loadMs = db.stats?.loadMs; perf.boot.wallMs = db.stats?.wallMs;
+  perf.boot.loadMs = db.stats?.loadMs; perf.boot.wallMs = db.stats?.wallMs; perf.boot.downloadMs = db.stats?.downloadMs ?? null;
   requestAnimationFrame(() => { performance.mark("sfb:interactive"); perf.boot.interactiveMs = Math.round(performance.now()); document.documentElement.dataset.ready = "1"; });
   if (db.manifest?.fixture) el.heroEyebrow.textContent = "Strongsville Food Bank · sample data";
   pruneRecent();
@@ -315,7 +315,8 @@ function rowHtml(it, toks) {
   const title = brand ? `${highlight(pre, toks)}<b>${highlight(brand, toks)}</b>${highlight(rest, toks)}` : highlight(rest, toks);
   const tags = [sizeText(it), it.pack > 1 ? `Pack of ${it.pack}` : "", it.storeBrand ? "Store brand" : "", it.retired ? "older barcode" : "", it.unavailable ? "out of stock at check" : ""].filter(Boolean);
   const sub = it.basis === "lb" ? "<small>per lb</small>" : it.pack > 1 ? `<small>${money(Math.round(it.priceCents / it.pack))} each</small>` : "";
-  return `<li><button class="row${it.retired ? " is-retired" : ""}" type="button" data-rank="${it.rank}"><span class="name">${title}</span><span class="price">${money(it.priceCents)}${sub}</span><span class="meta">${tags.map((t) => `<span class="tag">${esc(t)}</span>`).join("")}</span></button></li>`;
+  const value = it.priceWithheld ? `<small>equivalent value</small>` : sub;
+  return `<li><button class="row${it.retired ? " is-retired" : ""}" type="button" data-rank="${it.rank}"><span class="name">${title}</span><span class="price">${money(it.priceCents)}${value}</span><span class="meta">${tags.map((t) => `<span class="tag">${esc(t)}</span>`).join("")}</span></button></li>`;
 }
 function codeRowHtml(res) {
   const sub = res.unit === "lb" ? "<small>per lb</small>" : "";
@@ -386,7 +387,7 @@ function sheetHtml(res) {
     if (it.storeBrand) chips.push("Store brand");
   }
   if (res.kind === "plu") { chips.push(`PLU ${res.code}`); chips.push(res.unit === "lb" ? "Sold by weight" : "Sold each"); }
-  if (res.kind === "equivalent") { const e = res.equiv; if (e.quantity) chips.push(e.quantity); chips.push(e.confidence === "high" ? "Close match" : e.confidence === "medium" ? "Fair match" : "Rough match"); }
+  if (res.kind === "equivalent") { const e = res.equiv; if (e.quantity) chips.push(e.quantity); chips.push(e.confidence === "high" ? "Close match" : e.confidence === "medium" ? "Fair match" : e.confidence === "rough" ? "Rough estimate" : "Rough match"); }
   if (res.kind === "store-label") chips.push(res.label.verified ? "Price read from the label" : "Price not verified");
   if (res.gtin && res.kind !== "plu" && res.kind !== "unknown" && res.kind !== "not-ready") chips.push(`<span class="mono">${esc(formatGtin(res.gtin))}</span>`);
   const notes = notesFor(res, { priceDateLong: fmtDate(priceDate(), true) });

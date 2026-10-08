@@ -201,3 +201,40 @@
   had fired. Fixed by re-stating the same schedule as `17-47/30` in a squash-merged pull request (authored by David's account);
   the chained runs had kept the crawl moving in the meantime. RUNBOOK "Schedule ownership" records the rule.
 
+- 2026-10-08 — WebKit comparison (app-browsers): "sheet painted" now means the same in both engines: the sheet is open and the
+  main thread has rendered the first frame showing it (rAF, then a task queued from it). The old double-rAF mark stays in the
+  results as "presented", a diagnosis that is never flagged, because WebKit's second frame waits for its compositor (software
+  on a GPU-less CI runner) while Chromium's does not; a repeat with backdrop-filter off shows how much of it is blur. The
+  scanner asks for the camera before (not after) building the decoder and stops the zxing worker when the camera is refused,
+  so a denied camera falls back to typing at once without compiling 0.9 MB of wasm. Pack files stream straight into Cache
+  Storage (no ArrayBuffer copy on the main thread), and first install reports download vs. open time. The audit counts real
+  page errors only; WebKit's "interactive-widget not recognized" message is a listed note (the key stays for Android).
+- 2026-10-08 — Store-style categories (David: "label everything properly, accurately and appropriately, just as a store
+  would"; pet beds, shoes and clothing not carried anywhere). Every item is labelled by what it is, not by the Walmart
+  department or path it was found under (Walmart's feed files turtlenecks under Meat & Seafood and books under Baking).
+  `crawler/classify.py` decides: exclusions first (apparel, footwear, pet beds, alcohol, tobacco, media, by name, brand
+  and path), then the product noun of the title (a ~2,000-phrase lexicon; the head noun nearest the end of the title's
+  first segment, with flavour and form words giving way: "Instant Pudding Special Dark Chocolate" is pudding), checked
+  against how coherent the item's Walmart path is across the whole snapshot. The taxonomy (docs/CATEGORIES.md) gains
+  Baking, Spices & Oils; Breakfast & Cereal; Beauty (split from Personal Care); Hardware & Tools; Lawn, Garden & Floral;
+  International/Specialty is retired (international foods are labelled by what they are). Measured on 2,811 hand-labelled
+  items (tests/fixtures/category-gold.jsonl.gz; two independent labellers agree on 98.5%): 92.3% of categories correct
+  (Food 93.9%) against 72.9% (Food 56.9%) for Walmart's path; exclusions catch 136 of 140 with one false positive. The
+  sample review now also reports a miscategorized share (measured, not a gate).
+- 2026-10-08 — Placeholder listings (David): kept for barcode lookup only, out of typed search and out of the size-parse
+  rate, and only with a valid check digit and a price that passes the price rule. A placeholder is a listing whose name
+  identifies no product: "Merchandise", "coming soon", test / do-not-use / "Signing Test" entries, register codes ("300PC CH
+  GHST PPR HP", "CVP NON-TAX ... Item"), display pallets ("PDQ"), and a name that is only the brand ("HUGGIES"). A real
+  product carrying a "***Discontinued***" marker is not a placeholder: the marker is removed and the item is flagged
+  `discontinued` (the app says so). Placeholders whose own price is implausible are dropped.
+- 2026-10-08 — Price sanity (David): an item price outside [floor $0.10, min(department cap, 5 x the department's 99th
+  percentile)] is withheld (`data/gates.json` price_sanity; Food is capped at $500). The row keeps Walmart's price for
+  history and audits, but the app shows an equivalent value instead, never a blank: the closest comparable item scaled to
+  size, else the median per-unit price of comparable items times the size, else the category's median price (labelled a
+  rough estimate). Every withheld item is listed in the snapshot report with its Walmart price and the value used. What
+  this catches on the live crawl: display pallets and shippers priced in the thousands, test listings, case packs,
+  one-cent store fixtures, and feed errors such as a drink mix at $3.26e21 and a chocolate bar at $161,688.
+- 2026-10-08 — Per-unit prices only for consumable departments (David): Food, Health and Medicine, Pharmacy, Personal
+  Care, Beauty, Premium Beauty, Baby, Pets, Household Essentials (`consumable` in data/categories.json). Durable goods
+  keep their size for display but never get a price per ounce or per count; the unit-outlier share is reported for
+  consumables only.

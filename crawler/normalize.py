@@ -5,6 +5,8 @@ source for size and pack because Walmart's `size` field is often wrong ("Each", 
 """
 import re
 
+from . import classify
+
 UNIT_ALIASES = {
     "fl oz": "fl oz", "fl. oz": "fl oz", "fl.oz": "fl oz", "floz": "fl oz", "fluid ounce": "fl oz", "fluid ounces": "fl oz",
     "oz": "oz", "ounce": "oz", "ounces": "oz", "lb": "lb", "lbs": "lb", "pound": "lb", "pounds": "lb",
@@ -21,7 +23,7 @@ TO_BASE = {"oz": ("oz", 1), "lb": ("oz", 16), "g": ("oz", 0.035274), "kg": ("oz"
 
 _UNIT_RX = (r"(fl\.?\s?oz|fluid\s+ounces?|fz|fo|ounces?|oz|lbs?|pounds?|kilograms?|kg|grams?|gms?|grs?|g|milliliters?|ml|"
             r"liters?|litres?|ltrs?|lt|l|gallons?|gal|quarts?|qt|pints?|pt)")
-QTY = re.compile(r"(?<![\w.])(\d+(?:\.\d+)?|\.\d+)\s*-?\s*" + _UNIT_RX + r"(?![a-z])", re.I)
+QTY = re.compile(r"(?<![\w.])(?<![a-z]-)(\d+(?:\.\d+)?|\.\d+)\s*-?\s*" + _UNIT_RX + r"(?![a-z])", re.I)   # not "FC-600L"
 # a proper fraction of a unit: "1/2 oz", "1 1/2oz", "3/4 LT" (only halves, thirds, quarters and eighths: "6/16fo" is a pack)
 FRACTION = re.compile(r"(?<![\w./])(?:(\d+)[\s-]+)?([1-7])/([2348])(?=\s*-?\s*" + _UNIT_RX + r"(?![a-z]))", re.I)
 MULTI = re.compile(r"(?<![\w.])(\d+)\s*(?:x|-|×)\s*(\d+(?:\.\d+)?)\s*-?\s*" + _UNIT_RX + r"(?![a-z])", re.I)
@@ -63,6 +65,11 @@ REWRITES = [
 Z_OUNCES = re.compile(r"(?<![\w.])(\d{1,3}(?:\.\d+)?)z\b", re.I)
 Z_MAX = 200
 LITRE_MAX = 10      # "1.5 Lt" is litres; "46 LT" is a hair-colour shade ("light")
+LITRE_L_MAX = 25    # "20 L" water jugs exist; "600l" does not
+# a name cut off inside its pack count ("Gefen Pink Salmon, 14.75 Oz, (pack", "Hapi Crackers, 6 Oz. (pac"): the price is
+# for a case of unknown size, so the usual case counts are offered to process.resolve_packs()
+TRUNCATED_PACK_RX = re.compile(r"\(\s*(?:p(?:a(?:c(?:k(?:\s+(?:o(?:f)?)?)?)?)?)?|c(?:a(?:s(?:e(?:\s+(?:o(?:f)?)?)?)?)?)?)?\s*$", re.I)
+CASE_COUNTS = (2, 3, 4, 6, 8, 10, 12, 15, 16, 18, 20, 24, 30, 32, 36, 40, 48, 50, 60, 64, 72, 96, 100, 144)
 NUTRIENT_AFTER = re.compile(r"\s*(?:of\s+)?(?:plant[- ]based\s+|added\s+|total\s+|net\s+)?(?:protein|fib(?:er|re)|sugars?|carbs?|"
                             r"carbohydrates?|fat|caffeine|collagen|whole\s+grains?|omega|bcaas?|electrolytes?)\b", re.I)
 GRAM_ABBR_MIN = 10  # "165gr", "45 GM" are grams; "7GM" is a hair-colour shade (golden mahogany)
@@ -88,8 +95,6 @@ VARIANT_WORDS = [
 STORE_BRANDS = {"great value", "equate", "mainstays", "parent's choice", "marketside", "freshness guaranteed",
                 "sam's choice", "bettergoods", "ol' roy", "special kitty", "pure balance", "pen+gear", "hyper tough",
                 "onn.", "spring valley", "clear american", "prima della", "member's mark", "time and tru"}
-MEDIA_RX = re.compile(r"\((?:paperback|hardcover|other|audio cd|cd|vinyl|dvd|blu-ray|board book|mass market paperback)\)|\b97[89]\d{10}\b|\baudio\s?cd\b|\bvinyl\b|\bdvd\b|\bblu-ray\b", re.I)
-PUBLISHER_RX = re.compile(r"\b(publishing|publishers|press|books|cookbooks|records|music|entertainment|umgd|sony music|warner)\b", re.I)
 
 
 def gtin14(upc):
@@ -135,6 +140,8 @@ def _plausible(q) -> bool:
         return False
     if u.startswith("lt") and n > LITRE_MAX:
         return False
+    if u == "l" and n > LITRE_L_MAX:
+        return False                                    # "600l" is a model number, not 600 litres
     if u in ("gm", "gms", "gr", "grs") and n < GRAM_ABBR_MIN:
         return False
     if _unit(u) == "g" and NUTRIENT_AFTER.match(q.string, q.end()):
@@ -296,31 +303,22 @@ def junk_reason(item: dict, dept_name: str, cfg: dict):
         return "third_party_seller"
     if not isinstance(item.get("salePrice"), (int, float)) or item["salePrice"] <= 0:
         return "no_price"
-    for kw in cfg["exclude_path_keywords"]:
+    for kw in cfg.get("exclude_path_keywords", []):
         if kw in path:
             return "excluded_category"
-    if dept_name != "Books":
-        if MEDIA_RX.search(name):
-            return "media_misfiled"
-        brand = item.get("brandName") or ""
-        if ";" in brand or PUBLISHER_RX.search(brand):
-            return "media_misfiled"
+    # not carried at all: apparel, footwear, pet beds, alcohol, tobacco, media (docs/CATEGORIES.md)
+    why = classify.exclusion(name, item.get("brandName"), item.get("categoryPath"), dept_name, item.get("upc"))
+    if why:
+        return why
     if dept_name == "Food" and not item.get("upc") and parse_quantity(name)[0] is None and not item.get("size"):
         return "food_without_upc_or_size"
     return None
 
 
 def category(item: dict, dept: dict, cfg: dict) -> str:
-    path = (item.get("categoryPath") or "").lower()
-    for frag, cat in cfg["path_rules"]:
-        if frag in path:
-            return cat
-    if dept["name"] == "Food":
-        tail = path.split("/food/", 1)[-1]
-        for kw, cat in cfg["keyword_rules_for_food"]:
-            if kw in tail:
-                return cat
-    return dept["default_category"]
+    """Store category id (string) from the name and path alone; process.build() refines it with path statistics."""
+    name, _ = classify.clean_name(item.get("name") or "")
+    return str(classify.category(name, item.get("brandName"), item.get("categoryPath"), dept, cfg))
 
 
 def normalize(item: dict, dept: dict, cfg: dict):
@@ -328,8 +326,12 @@ def normalize(item: dict, dept: dict, cfg: dict):
     reason = junk_reason(item, dept["name"], cfg)
     if reason:
         return None, reason
-    name = re.sub(r"\s+", " ", item["name"]).strip()
+    raw_name = re.sub(r"\s+", " ", item["name"]).strip()
+    name, discontinued = classify.clean_name(raw_name)
+    is_placeholder = classify.placeholder(raw_name, item.get("brandName"), item.get("salePrice"))
     key, retired, check_ok = gtin14(item.get("upc"))
+    if is_placeholder and not (key and check_ok and not retired):
+        return None, "placeholder_no_barcode"     # a placeholder is kept only for barcode lookup, so it needs a valid barcode
     # a stated weight or volume (name first, then the size field) beats a piece count or a bare "Pint"
     size, unit, pack = parse_quantity(name, extended=False)
     flags = []
@@ -350,8 +352,18 @@ def normalize(item: dict, dept: dict, cfg: dict):
     price = round(float(item["salePrice"]), 2)
     basis = "lb" if PER_LB.search(name) or PER_LB.search(item.get("size") or "") else "each"
     base, dim = to_base(size, unit)
-    unit_price = round(price / (base * pack), 4) if base and pack else None
-    options = pack_options(name) if base else []
+    nn = classify.noun(name, item.get("categoryPath"), dept, cfg)
+    # per-unit prices only for consumables (David, 2026-10-08): not in durable-goods departments, not for a durable good
+    # inside a consumable department (a Fitbit weighs 0.28 oz), not for a single piece (its "unit price" is its price),
+    # and not for a placeholder listing
+    single_piece = dim == "ct" and base and base * (pack or 1) == 1
+    per_unit = bool(base and pack and dept.get("consumable", True) and not is_placeholder and not single_piece
+                    and not classify.durable(name, nn))
+    unit_price = round(price / (base * pack), 4) if per_unit else None
+    options = pack_options(name) if per_unit else []
+    if per_unit and TRUNCATED_PACK_RX.search(raw_name):
+        options = sorted(set(options) | {1} | set(CASE_COUNTS))
+        flags.append("pack_truncated")
     if pack not in options:
         options = sorted(set(options) | {pack})
     if size is None:
@@ -365,12 +377,16 @@ def normalize(item: dict, dept: dict, cfg: dict):
         flags.append("upc_check_digit")
     if any(item.get(k) for k in ("clearance", "flashDeal", "limitedTimeDeal")):
         flags.append("promo_price")
+    if is_placeholder:
+        flags.append("placeholder")               # barcode lookup only: kept out of typed search and the size-parse rate
+    if discontinued:
+        flags.append("discontinued")
     brand = item.get("brandName")
     row = {
         "id": item["itemId"], "upc": key, "name": name, "brand": brand,
         "size": size, "unit": unit, "pack": pack, "base_qty": base, "base_unit": dim,
         "price": price, "unit_price": unit_price, "basis": basis,
-        "cat": category(item, dept, cfg), "dept": dept["name"],
+        "cat": str(classify.decide(nn, item.get("categoryPath"), dept, cfg, None, name)), "dept": dept["name"],
         "path": item.get("categoryPath"), "variants": variants(name),
         "store_brand": bool(brand and brand.strip().lower() in STORE_BRANDS),
         "stock": item.get("stock"), "online": item.get("availableOnline"),
@@ -378,4 +394,6 @@ def normalize(item: dict, dept: dict, cfg: dict):
     }
     if len(options) > 1:
         row["pack_options"] = options          # resolved and removed by process.build()
+    if nn:
+        row["noun"] = list(nn)                 # the name's category evidence; process.build() decides with path stats
     return row, None

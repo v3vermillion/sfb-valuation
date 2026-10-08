@@ -127,15 +127,15 @@ class T(unittest.TestCase):
 
     def test_junk(self):
         book = {"name": "Vinegars of the World, (Paperback)", "brandName": "Laura Solieri", "salePrice": 127.93, "categoryPath": "Home Page/Food/Pantry"}
-        self.assertEqual(N.junk_reason(book, "Food", CFG), "media_misfiled")
+        self.assertEqual(N.junk_reason(book, "Food", CFG), "media")
         cd = {"name": "Soul Sauce", "brandName": "UMGD", "salePrice": 34.47, "upc": "731452166821", "categoryPath": "Home Page/Food/Pantry"}
-        self.assertEqual(N.junk_reason(cd, "Food", CFG), "media_misfiled")
+        self.assertEqual(N.junk_reason(cd, "Food", CFG), "media")
         authors = {"name": "Salad Dressings", "brandName": "Jessica Strand; Maren Caruso", "salePrice": 13.68, "categoryPath": "x"}
-        self.assertEqual(N.junk_reason(authors, "Food", CFG), "media_misfiled")
+        self.assertEqual(N.junk_reason(authors, "Food", CFG), "media")
         third = {"name": "Whole Kernel Corn 15 oz", "sellerInfo": "Hayam Store", "salePrice": 10.99}
         self.assertEqual(N.junk_reason(third, "Food", CFG), "third_party_seller")
         beer = {"name": "Bud Light 12 pk", "salePrice": 12.0, "categoryPath": "Home Page/Food/Alcohol/Beer"}
-        self.assertEqual(N.junk_reason(beer, "Food", CFG), "excluded_category")
+        self.assertEqual(N.junk_reason(beer, "Food", CFG), "alcohol")
         ok = {"name": "Great Value Whole Kernel Sweet Corn, 29 oz Can", "brandName": "Great Value", "salePrice": 1.22, "upc": "078742054261", "sellerInfo": "Walmart.com"}
         self.assertIsNone(N.junk_reason(ok, "Food", CFG))
 
@@ -153,6 +153,47 @@ class T(unittest.TestCase):
         row3, _ = N.normalize({"itemId": 3, "name": "Marketside Bistro Blend Salad, 10 oz", "size": "23 oz", "salePrice": 4.17,
                                "categoryPath": "Home Page/Food/Fresh Produce/Packaged Salads"}, FOOD, CFG)
         self.assertEqual(row3["size"], 10.0); self.assertIn("size_conflict", row3["flags"])
+
+
+class Decisions20261008(unittest.TestCase):
+    """David's decisions of 2026-10-08: per-unit prices only for consumables, placeholders barcode-only, store categories."""
+
+    def item(self, name, **kw):
+        it = {"itemId": 7, "name": name, "brandName": kw.pop("brand", "Great Value"), "salePrice": kw.pop("price", 2.0),
+              "upc": kw.pop("upc", "078742054261"), "categoryPath": kw.pop("path", "Home Page/Food/Pantry/Canned goods")}
+        it.update(kw)
+        return it
+
+    def test_durable_departments_get_no_unit_price(self):
+        home = next(d for d in CFG["departments"] if d["name"] == "Home")
+        row, _ = N.normalize(self.item("Mainstays 12 oz Ceramic Mug", path="Home Page/Home/Kitchen & Dining"), home, CFG)
+        self.assertEqual((row["size"], row["unit"]), (12.0, "oz"), "the size is still shown")
+        self.assertIsNone(row["unit_price"]); self.assertNotIn("pack_options", row)
+        food, _ = N.normalize(self.item("Great Value Whole Kernel Corn, 15.25 oz"), FOOD, CFG)
+        self.assertAlmostEqual(food["unit_price"], 2.0 / 15.25, places=4)
+
+    def test_placeholder_is_kept_only_with_a_valid_barcode(self):
+        row, why = N.normalize(self.item("Merchandise"), FOOD, CFG)
+        self.assertIsNone(why); self.assertIn("placeholder", row["flags"])
+        row, why = N.normalize(self.item("Merchandise", upc="078742054262"), FOOD, CFG)
+        self.assertEqual(why, "placeholder_no_barcode")
+        row, why = N.normalize(self.item("Merchandise", upc=None), FOOD, CFG)
+        self.assertIsNone(row); self.assertIn(why, ("placeholder_no_barcode", "food_without_upc_or_size"))
+
+    def test_discontinued_marker_is_cleaned_and_flagged(self):
+        row, _ = N.normalize(self.item("***DISCONTINUED***Arrowhead Mills Flour White Unbleached, 5 lb"), FOOD, CFG)
+        self.assertEqual(row["name"], "Arrowhead Mills Flour White Unbleached, 5 lb")
+        self.assertIn("discontinued", row["flags"]); self.assertNotIn("placeholder", row["flags"])
+
+    def test_store_category_and_its_evidence(self):
+        row, _ = N.normalize(self.item("Brew Rite 8-12 Cup Basket Style Coffee Filters, 200 Ct",
+                                       path="Home Page/Food/Coffee/Coffee Filters"), FOOD, CFG)
+        self.assertEqual(row["cat"], "16")
+        self.assertEqual(row["noun"][0], 16, "the evidence travels to process.build(), which removes it")
+
+    def test_apparel_found_under_food_is_not_carried(self):
+        _, why = N.normalize(self.item("White Stag® Long Sleeve Ribbed Turtleneck", path="Home Page/Food/Fresh Food"), FOOD, CFG)
+        self.assertEqual(why, "apparel")
 
 
 if __name__ == "__main__":

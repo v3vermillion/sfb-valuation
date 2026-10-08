@@ -122,8 +122,8 @@ def sentinel_check(rows):
         want = to_base(float(s["size"][0]), s["size"][1]) if s.get("size") else None
         hit = None
         for r in rows:
-            if not isinstance(r.get("price"), (int, float)) or r["price"] <= 0:
-                continue
+            if not isinstance(r.get("price"), (int, float)) or r["price"] <= 0 or r.get("price_withheld"):
+                continue                                   # a sentinel must be found with a price the app shows
             t = _text(r)
             if all(tok in t for tok in toks):
                 if want and want[0]:
@@ -178,7 +178,8 @@ def live_sample_rows(rows, n, seed, include_carried=False):
     says nothing about the crawl); the weekly audit passes include_carried=True because stale
     carried-over prices are exactly what it looks for. Deterministic for a given seed."""
     pool = [r for r in rows if r.get("primary") and r.get("upc") and r.get("stock") == "Available"
-            and "promo_price" not in (r.get("flags") or [])
+            and "promo_price" not in (r.get("flags") or []) and not r.get("price_withheld")
+            and "placeholder" not in (r.get("flags") or [])
             and (include_carried or "carried_over" not in (r.get("flags") or []))]
     pool.sort(key=lambda r: str(r["id"]))
     if len(pool) <= n:
@@ -251,7 +252,8 @@ def gate_live(rows, wm, cfg, seed):
 
 
 def gate_size_parse(rows, min_rate):
-    food = [r for r in rows if r.get("dept") == "Food"]
+    # placeholder listings (barcode only, no product name to parse) are not part of the rate (David, 2026-10-08)
+    food = [r for r in rows if r.get("dept") == "Food" and "placeholder" not in (r.get("flags") or [])]
     if not food:
         return _gate(True, None, min_rate, "no Food rows to measure")
     parsed = by_weight = each = 0
@@ -273,6 +275,10 @@ def _path_levels(r):
     """Comparison groups from most to least specific: the Walmart category path and each of its parents, then the
     snapshot category. "Herbs, spices & seasoning mixes/Spices" is compared with spices, not with 5 lb bags of flour."""
     parts = [p for p in str(r.get("path") or "").split("/") if p][2:]          # drop "Home Page/<Department>"
+    if r.get("base_unit") == "ct":
+        # a count is only comparable with the same kind of thing: cotton swabs at a cent each are not outliers against
+        # vitamins at ten cents a tablet, so counts compare within their aisle and its sub-aisles, never a whole category
+        return ["p:" + "/".join(parts[:i]) for i in range(len(parts), 1, -1)]
     levels = ["p:" + "/".join(parts[:i]) for i in range(len(parts), 0, -1)]
     return levels + ["c:" + str(r.get("cat"))]
 
@@ -589,6 +595,27 @@ def _report(state, stats, g):
             tot.update(d)
         L += [f"- {k}: {v}" for k, v in tot.most_common()]
         L += ["", "## Flags"] + [f"- {k}: {v}" for k, v in sorted((stats.get("flags") or {}).items(), key=lambda x: -x[1])]
+        bounds = stats.get("price_bounds") or {}
+        if bounds:
+            L += ["", "## Plausible price range by department (outside it the price is withheld)", "",
+                  "| department | low | high | 99th percentile |", "|---|---|---|---|"]
+            L += [f"| {d} | ${b['low']:.2f} | ${b['high']:,.2f} | ${b['p99']:,.2f} |" for d, b in sorted(bounds.items())]
+        withheld = stats.get("price_withheld")
+        if withheld is not None:
+            L += ["", f"## Withheld prices ({len(withheld)}): valued at an equivalent instead", "",
+                  "| department | item | Walmart price | valued at | how |", "|---|---|---|---|---|"]
+            L += [f"| {w['dept']} | {w['id']} {str(w['name'])[:70]} | ${w['raw_price']:,.2f} | ${w['value']:,.2f} | "
+                  f"{w['method']}{(': ' + str(w['basis'])[:50]) if w.get('basis') else ''} |" for w in withheld]
+        ph = stats.get("placeholders")
+        if ph:
+            L += ["", f"## Placeholder listings ({ph['count']}): barcode lookup only, not in typed search",
+                  "Names that identify no product (Merchandise, coming soon, test or do-not-use entries, register codes, "
+                  "a brand alone); kept so a scan of the barcode still prices the item. First examples:"]
+            L += [f"- {e['id']} UPC {e['upc']} {e['dept']}: {e['name']} (${e['price']})" for e in ph["examples"][:15]]
+        verdict = store.read_json(CAND / "review-verdict.json") or {}
+        if verdict.get("miscategorized_rate") is not None:
+            L += ["", f"## Category labels in the sample review: {verdict['miscategorized_rate']:.1%} judged wrong"]
+            L += [f"- {e['id']}: {e['category']} -> {e['should_be']}" for e in verdict.get("miscategorized_examples", [])]
     ex = g.get("extras") or {}
     if ex.get("sentinel_misses"):
         L += ["", "## Sentinels missing"] + [f"- MISSING: {m}" for m in ex["sentinel_misses"]]

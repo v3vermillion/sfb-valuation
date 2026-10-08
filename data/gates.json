@@ -12,6 +12,7 @@
   "category_count_tolerance": 0.2,
   "category_count_min_rows": 200,
   "sample_review": {"required": true, "max_junk_rate": 0.05, "sample_size": 300},
+  "price_sanity": {"note": "Item prices outside [floor, min(cap, over_p99 x the department's 99th percentile)] are withheld: the app values them at an equivalent instead (crawler/process.py). Caps per department name; default when unnamed.", "floor": 0.10, "over_p99": 5, "caps": {"Food": 500, "Health and Medicine": 3000, "Pharmacy": 1000, "Personal Care": 1000, "Beauty": 1000, "Premium Beauty": 1500, "Baby": 2500, "Pets": 2000, "Household Essentials": 500, "Home": 5000, "Home Improvement": 10000, "Patio & Garden": 10000, "Office Supplies": 3000, "Arts Crafts & Sewing": 2000, "Toys": 3000, "Books": 500, "Seasonal": 3000, "Party & Occasions": 1000, "Auto & Tires": 5000, "Electronics": 10000, "Cell Phones": 3000, "Jewelry": 20000, "Sports & Outdoors": 10000, "default": 5000}},
   "audit_sample": 500,
   "audit_match_min": 0.95
 }
