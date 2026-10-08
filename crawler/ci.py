@@ -20,8 +20,8 @@ Decision order, thresholds from data/schedule.json: see decide().
 
 Outputs written to $GITHUB_OUTPUT (every run writes all of them):
   work            the kind of work chosen (decide() result, or the plan name)
-  next            `continue` when another run should be chained right away (crawl paused on budget,
-                  crawl finished, snapshot published); `full`/`core` when that manual plan found a finished
+  next            `continue` when another run should be chained right away (crawl paused on budget or
+                  by Walmart rate limiting, crawl finished, snapshot published); `full`/`core` when that manual plan found a finished
                   crawl waiting to be built and built it first; else empty
   review          `pending` when a sample review + `--plan finish` must follow, else `none`
   alert           alert key to open/update, or `none`
@@ -457,13 +457,17 @@ def _crawl(budget_min, inp, start_plan=None, wm=None):
     if outcome == "throttled":
         state["throttled_runs"] = before + 1
         _write_state(state)
-        summary(f"Paused by Walmart rate limiting ({state['throttled_runs']} run(s) in a row); the 30-minute schedule resumes.")
+        # chain like a budget pause: the run already sat out up to Walmart's 45-minute back-off cap before giving up,
+        # so the next run starts well spaced; the 30-minute schedule stays the backstop if the chain is lost
+        set_out("next", "continue")
+        summary(f"Paused by Walmart rate limiting ({state['throttled_runs']} run(s) in a row) after the back-off cap; "
+                "chaining the next run.")
         if state["throttled_runs"] >= THROTTLED_ALERT_AFTER:
             alert("throttled", f"Walmart rate limiting for {state['throttled_runs']} consecutive runs",
                   f"The crawl `{state.get('run_id')}` ended rate limited (HTTP 429 beyond the per-run wait cap) in "
                   f"{state['throttled_runs']} consecutive runs.\n\n- calls so far: {state.get('calls')}\n"
                   f"- time spent waiting on 429s: {state.get('throttle_wait_s')} s\n\n"
-                  "The schedule keeps retrying every 30 minutes; nothing is lost. If this persists for a day, the key "
+                  "Each run waits out Walmart's back-off before the next one is chained; nothing is lost. If this persists for a day, the key "
                   "may be limited on Walmart's side (walmart.io dashboard) or the pacing in crawler/wm.py needs to slow down.")
     else:
         if before:
