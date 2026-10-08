@@ -157,3 +157,41 @@
   name the fix: HTTP 401 (invalid or revoked key) and 403 (no permission) open `[review-key-invalid]`; 402 `billing_error`, or
   the 400 "credit balance is too low" some accounts get, opens `[review-credits]`. Both stay transient holds re-checked every
   6 hours, so the next re-check after the fix runs the review and publishes; publishing closes them.
+- 2026-10-08 — Per-unit price outliers (David: fix the parse so the flag becomes rare, not suppress it). Rebuilt from the
+  live crawl's raw pages: Food rows flagged unit_price_suspect 7.45% → 3.10% (19,788 → 8,242); all departments 14.3% →
+  4.2%. Three root causes fixed: (a) nutrient grams read as the size ("10g Protein", "19g Protein Per Serving") are no
+  longer sizes; (b) the pack is ambiguous in the feed's own wording ("Pop-Tarts 58.6 oz, 32 Count" is one box, "KIND 1.4oz,
+  12 Count" is twelve bars; "(12 Cans) … 16 oz", "36/Carton", "15/12oz", "2016/Pallet", "(Pack of 12)" priced per unit):
+  normalize records every pack reading the name supports and process.build keeps the default unless it is more than 10x
+  off comparable items, then takes the reading that agrees with them and flags the row pack_resolved (11,435 rows; spot-
+  checked); (c) comparable items were the whole snapshot category (spices at ~$4/oz next to 5 lb flour at ~$0.04/oz); they
+  are now the most specific Walmart category path with at least 50 unit-priced rows in the same unit, falling back to its
+  parents and then the category. What stays flagged in Food is mostly not a parse: names cut before the pack count, case or
+  pallet prices, placeholder/test listings and Walmart price errors, and premium items in the catch-all "Pantry meal
+  essentials" leaf. The unit_outliers gate stays measure-only; its threshold is David's call now that the share is ~3%.
+- 2026-10-08 — The app is measured and screenshotted in WebKit as well as Chromium, because volunteers' iPhones run WebKit
+  whatever the browser. `measure.mjs` and `shots.mjs` take `--browser chromium|webkit` (Chromium unchanged by default; WebKit
+  uses the iPhone 14 profile and writes `webkit-` prefixed files). WebKit has no CPU throttling and no fake camera (both
+  Chromium-only), so its camera-scan numbers are recorded as "not measurable on WebKit in CI" and the scanner screen's
+  typed-barcode path is measured in both browsers instead. The manual `app-browsers` workflow runs both browsers on the full
+  760k fixture and writes a comparison to the run summary that flags any metric where WebKit is more than 25% slower (and by at
+  least 2 ms / 1 MB) or that failed. Chromium runs unthrottled there by default (`chromium_cpu = 1`), so the two browsers are
+  compared at the same speed; ×4 remains the setting for the docs/perf budget numbers.
+- 2026-10-08 — Data-store size safeguards (approved). The first real candidate snapshot is 57 MB compressed for 773k items,
+  so at 2-4M items single files would pass GitHub's 100 MB push limit. Any .jsonl.gz over 45 MB is now written as gzip shards
+  (`<name>.s000`, ...; each a complete gzip member, so the shards concatenate into one valid stream) and every reader accepts
+  both forms; the shard suffix never matches the `*.jsonl.gz` globs, so nothing is read twice. `store.checkpoint` refuses to
+  push a file over 95 MB, naming it. Every run reports the branch size by folder and `[data-store-size]` opens past 1 GB.
+  Proposal for when it does (needs David: it touches the Cloudflare account): move the raw crawl pages (`raw/<run>/`, today
+  the largest folder) to a Cloudflare R2 bucket (10 GB free, no egress fees) with a token limited to that bucket, kept as
+  repository secrets; the branch keeps state, snapshots, history and reports. Fallback without new accounts: upload each
+  finished run's raw pages as a GitHub Release asset (2 GB per file) and drop them from the branch once published.
+- 2026-10-08 — Rollback (approved). The newest three published snapshots are kept outside the data-store branch as GitHub
+  Release assets (`snapshot-<version>`, uploaded with the workflow token after each publish, older ones deleted), so the
+  branch squash after a publish never loses them and they cost the branch nothing. `plan=rollback` with `rollback_to`
+  (`previous` or a version) restores one as `build/published` after checking its manifest and item count, records
+  `rolled_back` in the manifest, and leaves the crawl state and candidate alone; deploy-app redeploys because the published
+  tree changed. The app already compares pack versions for equality, never order, so an older snapshot is offered as an
+  update like a newer one (now covered by a test). New crawl starts pause for one core period after a rollback so the
+  restored prices are not replaced by the next scheduled crawl before the cause is fixed. A failed upload alerts
+  `[snapshot-archive]` but never undoes the publish.

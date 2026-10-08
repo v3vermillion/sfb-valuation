@@ -88,7 +88,7 @@ def fetch():
 def match():
     pub = store.ROOT / "build" / "published" / "items.jsonl.gz"
     cand = store.ROOT / "build" / "candidate" / "items.jsonl.gz"
-    src = pub if pub.exists() else cand
+    src = pub if store.jsonl_exists(pub) else cand
     wm = [r for r in store.iter_jsonl_gz(src) if r.get("unit_price") and r.get("base_unit")]
     wm_upcs = {r["upc"] for r in store.iter_jsonl_gz(src) if r.get("upc")}
     index = defaultdict(list)

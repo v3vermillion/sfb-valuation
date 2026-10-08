@@ -9,7 +9,7 @@
 - Picks one primary row per UPC for barcode lookups.
 Output: store/build/candidate/{items.jsonl.gz, stats.json}
 """
-import json
+import json, math, statistics
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 
@@ -35,7 +35,7 @@ def build():
 
     prev_rows = {}
     prev_path = BUILD / "published" / "items.jsonl.gz"
-    if prev_path.exists():
+    if store.jsonl_exists(prev_path):
         for r in store.iter_jsonl_gz(prev_path):
             prev_rows[r["id"]] = r
 
@@ -95,13 +95,16 @@ def build():
     # per-unit price and flag the row so the app shows nothing misleading and identify.py never uses it as a basis
     from .qa import unit_outlier_stats, gates_config
     group_min = int(gates_config().get("unit_outlier_group_min") or 50)
+    before_share, _, before = unit_outlier_stats(rows.values(), group_min)
+    resolved = resolve_packs(rows.values(), group_min)
     raw_share, unit_priced, outliers = unit_outlier_stats(rows.values(), group_min)
     for o in outliers:
         r = rows[o["id"]]
         r["unit_price"] = None
         r["flags"].append("unit_price_suspect")
     unit_outliers_raw = {"share": raw_share, "unit_priced_rows": unit_priced, "count": len(outliers),
-                         "examples": outliers[:25]}
+                         "examples": outliers[:25], "before_pack_resolution": {"share": before_share, "count": len(before)},
+                         "pack_resolved": resolved}
 
     stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
     out = BUILD / "candidate"
@@ -122,6 +125,41 @@ def build():
     store.write_json(store.ROOT / "state" / "run.json", state)
     print(f"candidate: {n} items, {len(by_upc)} UPCs, {carried} carried over")
     return stats
+
+
+def resolve_packs(rows, group_min=50, passes=2):
+    """Rows whose name supports several pack counts (normalize.pack_options) keep the default reading unless its
+    per-unit price is more than 10x off the median of comparable rows: qa.unit_price_medians, the same groups and
+    basis the unit-outlier check uses (the most specific category path with at least group_min unit-priced rows in
+    the same base unit). Then the reading closest to that median wins, if it lands inside the 10x band, and the row is
+    flagged pack_resolved. A second pass re-reads the medians once the first pass has corrected the worst readings.
+    pack_options never reaches the snapshot. Returns how many rows changed."""
+    from .qa import unit_price_medians
+    rows = list(rows)
+    changed = 0
+    for _ in range(passes):
+        lookup = unit_price_medians(rows, group_min)
+        moved = 0
+        for r in rows:
+            opts, up, base = r.get("pack_options"), r.get("unit_price"), r.get("base_qty")
+            if not opts or not base or not isinstance(up, (int, float)) or up <= 0:
+                continue
+            m = lookup(r)[0]
+            if not m or m / 10 <= up <= m * 10:
+                continue
+            best = min(opts, key=lambda p: abs(math.log(r["price"] / (base * p) / m)))
+            best_up = round(r["price"] / (base * best), 4)
+            if best != r["pack"] and m / 10 <= best_up <= m * 10:
+                r["pack"], r["unit_price"] = best, best_up
+                if "pack_resolved" not in r["flags"]:
+                    r["flags"].append("pack_resolved")
+                    changed += 1
+                moved += 1
+        if not moved:
+            break
+    for r in rows:
+        r.pop("pack_options", None)
+    return changed
 
 
 if __name__ == "__main__":

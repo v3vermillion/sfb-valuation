@@ -27,9 +27,12 @@ app/
     build-db.mjs     snapshot (items.jsonl.gz + equivalents) → sfb-pack v1 under dist/db/<version>/
     build-site.mjs   public/ → dist/, stamps sw.js + config meta, writes _headers
     serve.mjs        local static server that mirrors production headers
-    measure.mjs      the performance numbers below (Playwright, 4× CPU throttle, fake camera)
-    shots.mjs        phone-size screenshots (light/dark) + accessibility audit
-  tests/             node --test: barcode maths, tokenizer, resolution engine, staleness thresholds, storage persistence policy
+    measure.mjs      the performance numbers below (Playwright, 4× CPU throttle, fake camera); --browser webkit for iPhone's engine
+    shots.mjs        phone-size screenshots (light/dark) + accessibility audit; --browser webkit too
+    make-barcode-clip.mjs  a UPC-A .y4m clip for Chromium's fake camera (measure.mjs --video)
+    perf-table.mjs   markdown tables of measure/shots results: one browser, or Chromium vs WebKit (app-browsers.yml)
+  tests/             node --test: barcode maths, tokenizer, resolution engine, staleness thresholds, storage persistence policy,
+                     perf comparison flags
   wrangler.toml      assets-only Worker config
 ```
 
@@ -126,6 +129,16 @@ clip for the scan path. Every number below comes from that script (`build/measur
 | scan: camera ready → sheet (incl. two agreeing reads) | < 300 ms | `scan.cameraReadyToSheet` |
 
 The latest run is summarised in `docs/perf/README.md` next to the raw JSON.
+
+**WebKit (iPhone).** Every iPhone browser is WebKit, so the same script runs there too: `node tools/measure.mjs --browser webkit`
+(iPhone 14 profile) and `node tools/shots.mjs --browser webkit` (files prefixed `webkit-`, default `build/shots-webkit`).
+Two things exist only in Chromium: CPU throttling, so WebKit numbers are host speed, and the fake camera, so the camera
+scan rows are recorded as "not measurable on WebKit in CI" (`notMeasurable` in the JSON). `scanTyped` (open the scanner, type
+the digits, sheet painted) is measured in both browsers instead, and also records whether the camera started or was refused.
+Memory (`memory`: page and search-worker JS heap, the open pack's buffers) and long tasks are Chromium-only as well.
+Actions → **app-browsers** → Run workflow builds the 760k fixture, runs both browsers (Chromium unthrottled by default, so the
+two are compared at the same speed) and writes a Chromium-vs-WebKit table to the run summary. The table flags any metric where
+WebKit is more than 25% slower, or that failed. Screenshots and JSON are uploaded as artifacts.
 
 ## Offline and updates
 

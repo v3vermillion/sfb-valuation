@@ -41,21 +41,98 @@ def write_json(path: Path, obj):
     tmp.replace(path)
 
 
+# GitHub rejects a pushed file over 100 MB and warns over 50 MB. A .jsonl.gz larger than SHARD_BYTES is written as
+# shards <name>.s000, <name>.s001, ... (each a complete gzip stream; concatenated they are one valid gzip stream, so
+# any reader can also just chain them). Readers go through jsonl_files()/iter_jsonl_gz(), which accept either form.
+SHARD_BYTES = int(os.environ.get("SFB_SHARD_BYTES") or 45 * 1024 * 1024)
+FILE_LIMIT_BYTES = 95 * 1024 * 1024          # checkpoint refuses to push a file above this (GitHub's limit is 100 MB)
+STORE_ALERT_BYTES = 1024 ** 3                 # ci raises [data-store-size] above 1 GB of files on the branch
+
+
+def shards(path: Path):
+    path = Path(path)
+    if not path.parent.exists():
+        return []
+    return sorted(p for p in path.parent.glob(path.name + ".s[0-9][0-9][0-9]"))
+
+
+def jsonl_files(path: Path):
+    """The file itself, or its shards in order, or [] when neither exists."""
+    path = Path(path)
+    return [path] if path.exists() else shards(path)
+
+
+def jsonl_exists(path: Path) -> bool:
+    return bool(jsonl_files(path))
+
+
 def iter_jsonl_gz(path: Path):
-    with gzip.open(path, "rt", encoding="utf-8") as f:
-        for line in f:
-            if line.strip():
-                yield json.loads(line)
+    files = jsonl_files(path)
+    if not files:
+        raise FileNotFoundError(path)
+    for p in files:
+        with gzip.open(p, "rt", encoding="utf-8") as f:
+            for line in f:
+                if line.strip():
+                    yield json.loads(line)
 
 
-def write_jsonl_gz(path: Path, rows):
+def write_jsonl_gz(path: Path, rows, shard_bytes=None):
+    """Write rows as one .jsonl.gz, or as shards when the compressed size passes shard_bytes (default SHARD_BYTES).
+    Written to temporary names first; stale shards or a stale single file from an earlier write are removed."""
+    path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    n = 0
-    with gzip.open(path, "wt", encoding="utf-8") as f:
-        for r in rows:
-            f.write(json.dumps(r, separators=(",", ":")) + "\n")
-            n += 1
+    limit = shard_bytes or SHARD_BYTES
+    tmp_names, n = [], 0
+    raw = gz = None
+
+    def open_next():
+        nonlocal raw, gz
+        t = path.parent / f".{path.name}.tmp{len(tmp_names):03d}"
+        tmp_names.append(t)
+        raw = open(t, "wb")
+        gz = gzip.GzipFile(filename="", mode="wb", fileobj=raw, mtime=0)
+
+    def close():
+        gz.close(); raw.close()
+
+    open_next()
+    for r in rows:
+        gz.write((json.dumps(r, separators=(",", ":")) + "\n").encode("utf-8"))
+        n += 1
+        if n % 2000 == 0 and raw.tell() >= limit:
+            close(); open_next()
+    close()
+    for old in shards(path):
+        old.unlink()
+    if len(tmp_names) == 1:
+        tmp_names[0].replace(path)
+    else:
+        if path.exists():
+            path.unlink()
+        for i, t in enumerate(tmp_names):
+            t.replace(path.parent / f"{path.name}.s{i:03d}")
     return n
+
+
+def oversized_files(limit=None):
+    """Files in the store (outside .git) larger than limit (default FILE_LIMIT_BYTES), as [(relative path, bytes)],
+    largest first."""
+    limit = FILE_LIMIT_BYTES if limit is None else limit
+    out = []
+    for p in ROOT.rglob("*"):
+        if ".git" in p.relative_to(ROOT).parts or not p.is_file():
+            continue
+        size = p.stat().st_size
+        if size > limit:
+            out.append((str(p.relative_to(ROOT)), size))
+    return sorted(out, key=lambda x: -x[1])
+
+
+def tree_bytes():
+    """Total size of the files on the data-store branch (outside .git): what every checkout downloads."""
+    return sum(p.stat().st_size for p in ROOT.rglob("*")
+               if p.is_file() and ".git" not in p.relative_to(ROOT).parts)
 
 
 def checkpoint(message: str):
@@ -64,6 +141,12 @@ def checkpoint(message: str):
         return
     def git(*a):
         return subprocess.run(["git", "-C", str(ROOT), *a], capture_output=True, text=True)
+    too_big = oversized_files()
+    if too_big:
+        # GitHub would reject the push; say exactly which file and stop before committing anything
+        listing = ", ".join(f"{p} ({s / 1048576:.0f} MB)" for p, s in too_big[:5])
+        raise RuntimeError(f"refusing to push: {listing} exceed {FILE_LIMIT_BYTES / 1048576:g} MB (GitHub rejects files over "
+                           "100 MB); write it with store.write_jsonl_gz so it is sharded")
     git("add", "-A")
     if git("diff", "--cached", "--quiet").returncode == 0:
         return

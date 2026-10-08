@@ -44,9 +44,21 @@ const MAX_ITEMS = Number(arg("max-items", "0")) || Infinity;
 const t0 = Date.now();
 const log = (m) => console.log(`[${((Date.now() - t0) / 1000).toFixed(1)}s] ${m}`);
 
+// A data-store .jsonl.gz over 45 MB is stored as shards <name>.s000, <name>.s001, ... (crawler/store.py): read either form.
+function jsonlFiles(file) {
+  if (fs.existsSync(file)) return [file];
+  const dir = path.dirname(file), base = path.basename(file);
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir).filter((n) => n.startsWith(base + ".s") && /\.s\d{3}$/.test(n)).sort().map((n) => path.join(dir, n));
+}
+
 async function* jsonlGz(file) {
-  const rl = readline.createInterface({ input: fs.createReadStream(file).pipe(zlib.createGunzip()), crlfDelay: Infinity });
-  for await (const line of rl) if (line) yield JSON.parse(line);
+  const files = jsonlFiles(file);
+  if (!files.length) throw new Error(`missing ${file}`);
+  for (const f of files) {
+    const rl = readline.createInterface({ input: fs.createReadStream(f).pipe(zlib.createGunzip()), crlfDelay: Infinity });
+    for await (const line of rl) if (line) yield JSON.parse(line);
+  }
 }
 
 function gtinNumber(upc) {
@@ -66,8 +78,10 @@ const srcStats = fs.existsSync(path.join(pubDir, "stats.json")) ? JSON.parse(fs.
 const snapshot = String(srcManifest.version);
 const FORMAT_VERSION = 1;
 const packHash = crypto.createHash("sha256").update(`sfb-pack/${FORMAT_VERSION}\n`);
-for (const f of [fileURLToPath(import.meta.url), path.join(APP, "public", "js", "tokenize.js"), path.join(STORE, "identify", "equivalents.jsonl.gz")])
-  packHash.update(fs.existsSync(f) ? fs.readFileSync(f) : Buffer.from("none")).update("\n");
+for (const f of [fileURLToPath(import.meta.url), path.join(APP, "public", "js", "tokenize.js"), path.join(STORE, "identify", "equivalents.jsonl.gz")]) {
+  const parts = jsonlFiles(f);
+  packHash.update(parts.length ? Buffer.concat(parts.map((p) => fs.readFileSync(p))) : Buffer.from("none")).update("\n");
+}
 const version = `${snapshot}-${packHash.digest("hex").slice(0, 8)}`;
 log(`reading snapshot ${snapshot} from ${pubDir} (pack ${version})`);
 
@@ -240,7 +254,7 @@ function writeGz(name, buf) {
 {
   const eqFile = path.join(STORE, "identify", "equivalents.jsonl.gz");
   const rows = [];
-  if (fs.existsSync(eqFile)) {
+  if (jsonlFiles(eqFile).length) {
     for await (const e of jsonlGz(eqFile)) {
       const key = gtinNumber(e.upc);
       if (!key || !(e.est_price > 0)) continue;

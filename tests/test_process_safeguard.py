@@ -61,5 +61,71 @@ class Safeguard(unittest.TestCase):
         self.assertEqual(stats["unit_outliers_raw"]["count"], 0)
 
 
+
+def item(i, name, price, path):
+    return {"itemId": 200000 + i, "upc": f"{78742060000 + i:012d}", "brandName": "Brand", "salePrice": price, "name": name,
+            "marketplace": False, "stock": "Available", "categoryPath": path}
+
+
+class PackResolution(unittest.TestCase):
+    """The parse keeps its default pack reading unless it is more than 10x off comparable items; then the reading the
+    name also supports that agrees with them wins (flag pack_resolved). Comparable = most specific category path."""
+    TARTS = "Home Page/Food/Breakfast & Cereal/Toaster Pastries"
+    SPICES = "Home Page/Food/Pantry/Herbs, spices & seasoning mixes/Spices"
+    FLOUR = "Home Page/Food/Pantry/Baking/Flour"
+
+    def build(self, raw):
+        tmp = tempfile.mkdtemp(); self.addCleanup(shutil.rmtree, tmp)
+        os.environ["SFB_STORE"] = tmp; os.environ["SFB_NO_COMMIT"] = "1"
+        import crawler.store, crawler.process, crawler.qa
+        for m in (crawler.store, crawler.process, crawler.qa):
+            importlib.reload(m)
+        store, process = crawler.store, crawler.process
+        root = Path(tmp)
+        store.write_jsonl_gz(root / "raw" / "run-1" / "976759" / "part-0001.jsonl.gz", raw)
+        depts = [{"id": d["id"], "name": d["name"], "status": "done" if d["id"] == "976759" else "pending", "next": None,
+                  "pages": 1 if d["id"] == "976759" else 0, "items": 0, "parts": 1, "total_pages": 1} for d in store.config()["departments"]]
+        store.write_json(root / "state" / "run.json", {"run_id": "run-1", "plan": "full", "status": "crawled", "started": "x",
+                                                       "updated": "x", "departments": depts, "calls": 1, "throttle_wait_s": 0})
+        stats = process.build()
+        return {r["id"]: r for r in store.iter_jsonl_gz(root / "build" / "candidate" / "items.jsonl.gz")}, stats
+
+    def test_total_weight_beside_a_piece_count_is_one_box(self):
+        raw = [item(i, f"Toaster Pastries, {20 + i % 5} oz Box", 3.0 + (i % 5) * 0.1, self.TARTS) for i in range(60)]
+        raw += [item(i + 100, f"Toaster Pastries Single, {3 + (i % 3)} oz", 0.6, self.TARTS) for i in range(10)]
+        raw.append(item(900, "Pop-Tarts Frosted Strawberry, 58.6 oz, 32 Count", 10.94, self.TARTS))
+        rows, stats = self.build(raw)
+        r = rows[200900]
+        self.assertEqual(r["pack"], 1, "58.6 oz is the whole box, not 32 boxes"); self.assertIn("pack_resolved", r["flags"])
+        self.assertAlmostEqual(r["unit_price"], round(10.94 / 58.6, 4)); self.assertNotIn("unit_price_suspect", r["flags"])
+        self.assertNotIn("pack_options", r, "the candidates never reach the snapshot")
+        self.assertGreaterEqual(stats["unit_outliers_raw"]["pack_resolved"], 1)
+
+    def test_containers_beside_a_size_multiply_it(self):
+        beans = "Home Page/Food/Pantry/Canned goods/Canned beans"
+        raw = [item(i, f"Baked Beans, {15 + i % 3} oz Can", 1.5 + (i % 4) * 0.1, beans) for i in range(60)]
+        raw.append(item(901, "(12 Cans) Bush's Original Baked Beans, Canned Beans, 16 oz", 20.38, beans))
+        raw.append(item(902, "Famous Amos Cookies, 2 oz Snack Pack, 36/Carton", 30.22, beans))
+        rows, _ = self.build(raw)
+        self.assertEqual(rows[200901]["pack"], 12); self.assertIn("pack_resolved", rows[200901]["flags"])
+        self.assertEqual(rows[200902]["pack"], 36)
+        self.assertEqual(rows[200000]["pack"], 1); self.assertNotIn("pack_resolved", rows[200000]["flags"], "in-band rows keep their reading")
+
+    def test_comparable_items_are_the_category_path_not_the_whole_category(self):
+        # spices at ~$4/oz and flour at ~$0.04/oz share a snapshot category; each is judged against its own path
+        raw = [item(i, f"Ground Spice {i}, 1.{i % 9 + 1} oz", 4.5 + (i % 7) * 0.2, self.SPICES) for i in range(60)]
+        raw += [item(i + 100, f"All Purpose Flour {i}, 5 lb", 2.5 + (i % 5) * 0.2, self.FLOUR) for i in range(60)]
+        rows, stats = self.build(raw)
+        self.assertEqual(stats["unit_outliers_raw"]["count"], 0)
+        self.assertFalse(any("unit_price_suspect" in r["flags"] for r in rows.values()))
+
+    def test_a_reading_nothing_supports_stays_flagged(self):
+        raw = [item(i, f"Baked Beans, {15 + i % 3} oz Can", 1.5 + (i % 4) * 0.1, "Home Page/Food/Pantry/Canned goods/Canned beans") for i in range(60)]
+        raw.append(item(903, "Choc Bar Dark W Hzlnuts, 3.5 Oz (pack Of", 44.29, "Home Page/Food/Pantry/Canned goods/Canned beans"))
+        rows, _ = self.build(raw)
+        self.assertIn("unit_price_suspect", rows[200903]["flags"], "a pack count cut off the name cannot be recovered")
+        self.assertNotIn("pack_resolved", rows[200903]["flags"])
+
+
 if __name__ == "__main__":
     unittest.main()

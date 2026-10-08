@@ -63,7 +63,7 @@ Editing `data/gates.json`, `data/sentinels.json` or `data/categories.json` makes
 
 ### Alerts (GitHub issues, label `pipeline-alert`)
 One open issue per kind, updated in place, closed automatically when the condition clears: `[pipeline-failed]`, `[gates-hold]`,
-`[review-key-missing]`, `[audit-regression]`, `[audit-failed]` (the audit could not reach Walmart: a 401/403 means the WM_* secrets no longer match), `[stale-prices]` (no publish for stale_days while idle), `[throttled]`
+`[review-key-missing]`, `[audit-regression]`, `[audit-failed]` (the audit could not reach Walmart: a 401/403 means the WM_* secrets no longer match), `[data-store-size]` (the files on the data-store branch passed 1 GB; the issue carries the breakdown and the proposal to move raw pages to Cloudflare R2), `[snapshot-archive]` (a publish could not be kept as a GitHub Release; the publish itself stands and the next one retries), `[stale-prices]` (no publish for stale_days while idle), `[throttled]`
 (three consecutive runs ended on Walmart throttling), `[deploy-failed]`, `[deploy-mismatch]`, `[tests-failed]`.
 Watch the repository (or just the issues) on the GitHub app for phone notifications.
 
@@ -97,7 +97,7 @@ and carry the flag `unit_price_suspect`; the `unit_outliers` gate reports the ra
 - Merge rule while a crawl runs: `tests/fixtures/run-live.json` (the live state) must resume through `decide()` and `continue`
   in the suite, and the scratch dry run must replay a copy of the real data-store through the new code without an exception.
 
-Run manually: Actions tab → pipeline → Run workflow → plan (continue | core | full | approve | identify | audit | size | status).
+Run manually: Actions tab → pipeline → Run workflow → plan (continue | core | full | approve | identify | audit | size | status | rollback).
 Working data: branch `data-store` (state/, raw/, build/, identify/, history/, audit/, sizing.json). Report for the latest build:
 `data-store:build/candidate/report.md`. Published snapshot: `data-store:build/published/`.
 
@@ -127,11 +127,34 @@ turns the banner amber after 14 days without new prices and red after 45, with a
 persistent storage on every platform. There is no Web Push (iOS cannot refresh data in the background from a push).
 
 Local: `cd app && npm run fixture && npm run build && npm run serve` → http://127.0.0.1:8787/.
-Tests: `npm test`. Performance numbers: `npm run measure` (Playwright, 4× CPU throttle; add `--video barcode.y4m`
-for a fake camera). Screenshots: `npm run shots`.
+Tests: `npm test`. Performance numbers: `npm run measure` (Playwright, 4× CPU throttle; add `--video build/barcode.y4m`
+for a fake camera, made by `node tools/make-barcode-clip.mjs`). Screenshots: `npm run shots`. Both take `--browser webkit`
+(iPhone's engine). From the phone: Actions → app-browsers → Run workflow compares Chromium and WebKit on the 760k fixture
+(summary table plus screenshot artifacts; nothing is deployed).
 
 ### Rate limit bindings for the live check
 `pipeline/wrangler.toml` declares two `[[ratelimits]]` bindings (PRICE_LIMITER per IP, PRICE_GLOBAL_LIMITER for
 the whole key). On the first deploy after this change Cloudflare creates them automatically; nothing to configure
 in the dashboard. `namespace_id` only has to be unique within the account. `/health` reports whether both are bound;
 without them the public route answers 503 instead of spending the Walmart key without a cap.
+
+### Rollback (last three published snapshots)
+Every publish uploads `build/published/*` (shards as they are) to a GitHub Release tagged `snapshot-<version>` (not marked
+latest) and deletes all but the newest three (`crawler/releases.py`). To put an earlier one back from a phone: Actions →
+pipeline → Run workflow → plan `rollback`, `rollback_to` = `previous` (the newest kept snapshot that is not live; run it
+again to go forward) or a version from the repo's Releases page. The run downloads it, checks the manifest and that every
+item reads back, replaces `data-store:build/published/` (manifest gains `rolled_back` {from, to, at}) and pushes; deploy-app
+then ships it, and phones treat any live version other than their own as an update (older or newer), so it arrives through
+the normal "Update now" banner. The crawl state and any candidate are untouched. After a rollback, new crawls (start-core /
+start-full) wait `core_every_days` so the restored prices stay live while the cause is fixed; a crawl already running
+continues, and its publish would replace the rollback, so fix the cause (rules, thresholds) first or run plan=core/full when
+ready. A refused rollback (unknown version, incomplete download) changes nothing.
+
+### Data-store size (GitHub limits)
+GitHub rejects any pushed file over 100 MB and warns over 50 MB. `store.write_jsonl_gz` writes any `.jsonl.gz` whose
+compressed size passes 45 MB as shards `<name>.s000`, `<name>.s001`, ... (each a complete gzip stream; concatenated they
+are one valid stream), and every reader (`store.iter_jsonl_gz`, `app/tools/build-db.mjs`) accepts either form. The first
+real snapshot (773k items) is already 57 MB, so it is sharded from the first publish. `store.checkpoint` refuses to commit
+or push when any file passes 95 MB and names it. Every pipeline run prints the branch size by top-level folder in its
+summary and opens `[data-store-size]` past 1 GB.
+

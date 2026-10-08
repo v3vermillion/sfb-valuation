@@ -97,6 +97,27 @@ class T(unittest.TestCase):
                             "categoryPath": "Home Page/Food/Frozen"}, FOOD, CFG)
         self.assertEqual((r["size"], r["unit"]), (14.0, "fl oz"), "the stated 14 fl oz beats the word Pint")
 
+    def test_nutrient_grams_are_not_the_size(self):
+        self.assertEqual(self.q("Ratio Granola Cereal, 18g Protein, 9.8 oz"), (9.8, "oz", None))
+        self.assertEqual(self.q("Nalley Chili, 19g Protein Per Serving, 14 oz. Can"), (14.0, "oz", None))
+        self.assertEqual(N.parse_quantity("Chomps Beef Sticks, 10g of Protein", extended=False), (None, None, None))
+        self.assertEqual(self.q("Quest Bar 60g"), (60.0, "g", None))
+
+    def test_pack_options_list_every_reading_the_name_supports(self):
+        po = N.pack_options
+        self.assertEqual(po("Pop-Tarts Frosted Strawberry, 58.6 oz, 32 Count"), [1, 32])
+        self.assertEqual(po("Kikkoman Miso Soup, 1.05 oz, 3 Packets"), [1, 3])
+        self.assertEqual(po("(24 Cans) Monster Rehab, 15.5 fl oz"), [1, 24])
+        self.assertEqual(po("Famous Amos 2 oz Snack Pack, 36/Carton"), [1, 36])
+        self.assertEqual(po("(3 pack) Pop-Ice, 1.5 Fl Oz, 80 Ct"), [1, 3, 80, 240])
+        self.assertEqual(po("Hershey Topping Bettercream 15/12oz"), [1, 15])
+        self.assertEqual(po("120pcspk Swdsh Fsh"), [1, 120])
+        self.assertEqual(po("2.5oz Popcorn Kernel Packs, 24 Case"), [1, 24])
+        self.assertEqual(po("Rhythm Kale Chips, 2 oz, (Pack of, 12)"), [1, 12])
+        self.assertEqual(po("Niagara Water, 16.9 oz Bottle, 24/Pack, 2016/Pallet"), [1, 24, 2016])
+        self.assertEqual(po("Del Monte Cut Green Beans, 14.5 oz Can"), [1])
+        self.assertEqual(self.q("Klass Pineapple Drink, 0.26 Fl Oz, 36 Co"), (0.26, "fl oz", 36), "a count cut to 'Co'")
+
     def test_gtin(self):
         self.assertEqual(N.gtin14("078742054261")[0], "00078742054261")
         self.assertTrue(N.gtin14("078742054261")[2])

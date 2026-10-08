@@ -38,6 +38,8 @@ Alert keys (one GitHub issue per key, label pipeline-alert, see .github/actions/
   review-key-missing  the sample review was skipped because ANTHROPIC_API_KEY is not set, so the
                       snapshot is held
   audit-regression    the weekly live audit found the published prices drifting (audit.run alert flag)
+  data-store-size     the files on the data-store branch passed 1 GB (store.STORE_ALERT_BYTES)
+  snapshot-archive    a published snapshot could not be kept as a GitHub Release for rollback
   audit-failed        the live audit could not reach Walmart (an HTTP 4xx at once, else AUDIT_ERRORS_ALERT attempts)
   stale-prices        the published snapshot is older than schedule.stale_days and no crawl is running
   throttled           three or more consecutive crawl runs ended rate limited (state.throttled_runs)
@@ -48,7 +50,7 @@ audit ok -> audit-regression, audit-failed; a successful run -> pipeline-failed 
 
 Local use: WM_CONSUMER_ID / WM_PRIVATE_KEY set and SFB_STORE pointing at a data-store checkout.
 """
-import argparse, hashlib, inspect, json, os, subprocess, tempfile
+import argparse, shutil, hashlib, inspect, json, os, subprocess, tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -60,7 +62,7 @@ CONFIG_FILES = (DATA / "gates.json", DATA / "sentinels.json", DATA / "categories
 SCHEDULE_DEFAULTS = {"full_every_days": 30, "core_every_days": 7, "audit_every_days": 7, "identify_every_days": 30,
                      "sizing_every_days": 30, "stale_days": 14, "budget_min": 300}
 KINDS = ("size", "crawl", "build", "recheck", "start-full", "start-core", "audit", "identify", "none")
-PLANS = ("continue", "full", "core", "approve", "identify", "audit", "size", "status", "peek", "finish")
+PLANS = ("continue", "full", "core", "approve", "identify", "audit", "size", "status", "peek", "finish", "rollback")
 # gates.json statuses that mean "held, waiting for David" (new qa: hold; old qa: needs_review / awaiting_approval)
 HOLD_STATUSES = ("hold", "needs_review", "awaiting_approval")
 CANDIDATE_STATES = ("built", "needs_review", "awaiting_approval")
@@ -335,9 +337,12 @@ def decide(state, manifest, sizing, audit_latest, gates, cfg, now, *, current_ha
     age = age_days(manifest.get("published"), now) if manifest else None
     # weekly core publishes keep `published` young, so the monthly full crawl keys off the last full publish
     full_age = age_days(manifest.get("full_published") or manifest.get("published"), now) if manifest else None
-    if manifest is None or age is None or full_age is None or full_age > cfg["full_every_days"]:
+    # a rollback holds new crawl starts for one core period, so the restored prices stay live while the cause is fixed
+    since_rollback = age_days(manifest.get("rolled_back_at"), now) if manifest else None
+    paused = since_rollback is not None and since_rollback <= cfg["core_every_days"]
+    if not paused and (manifest is None or age is None or full_age is None or full_age > cfg["full_every_days"]):
         return "start-full"
-    if age > cfg["core_every_days"]:
+    if not paused and age > cfg["core_every_days"]:
         return "start-core"
     audit_every = cfg["audit_every_days"]
     if isinstance(audit_latest, dict) and audit_latest.get("status") == "error":
@@ -503,7 +508,7 @@ def _qa_check(wm):
 
 def _candidate_complete():
     cand = store.ROOT / "build" / "candidate"
-    return (cand / "items.jsonl.gz").exists() and (cand / "stats.json").exists()
+    return store.jsonl_exists(cand / "items.jsonl.gz") and (cand / "stats.json").exists()
 
 
 def _build(recheck=False):
@@ -548,11 +553,66 @@ def _publish(state, approve=False):
     store.checkpoint(f"{state.get('run_id')} published" + (" (approved manually)" if approve else ""))
     compact_store()
     resolve(*PUBLISH_RESOLVES)
+    _archive_published()
     set_out("next", "continue")
     man = store.read_json(_manifest_path()) or {}
     summary(f"**Published {man.get('version', state.get('run_id'))}**: {man.get('items', '?')} items. "
             "deploy-app follows; the next run refreshes identification data if due.")
     return True
+
+
+def _archive_published():
+    """Keep the published snapshot as a GitHub Release for rollback (newest three kept). A failure never undoes the
+    publish: it opens [snapshot-archive] and the next publish tries again."""
+    from . import releases
+    pub = store.ROOT / "build" / "published"
+    man = store.read_json(pub / "manifest.json") or {}
+    if not releases.available():
+        print("snapshot archive skipped: gh / GH_TOKEN / GITHUB_REPOSITORY not available (local run)")
+        return
+    try:
+        tag = releases.archive(pub, man)
+        deleted = releases.prune()
+    except releases.ReleaseError as e:
+        alert("snapshot-archive", f"published snapshot {man.get('version')} not kept for rollback",
+              f"The snapshot was published, but uploading it as a GitHub Release (for plan=rollback) failed:\n\n`{e}`\n\n"
+              "Rollback to earlier kept snapshots still works. The next publish tries again; to retry now, re-run the "
+              "workflow with plan=status after fixing the cause.")
+        return
+    resolve("snapshot-archive")
+    summary(f"- kept for rollback as release `{tag}`" + (f"; removed {', '.join(deleted)}" if deleted else ""))
+
+
+def _rollback(target):
+    """Put a kept snapshot back as build/published; the pipeline's completion triggers deploy-app, which ships it.
+    The crawl state and any candidate are left alone. New crawls pause for schedule.core_every_days after a rollback."""
+    from . import releases
+    if not releases.available():
+        raise SystemExit("rollback needs the gh CLI with GH_TOKEN and GITHUB_REPOSITORY (run it from the pipeline workflow)")
+    pub = store.ROOT / "build" / "published"
+    cur = (store.read_json(pub / "manifest.json") or {}).get("version")
+    try:
+        snap = releases.pick(releases.list_snapshots(), target, cur)
+        tmp = releases.download(snap)
+    except releases.ReleaseError as e:
+        raise SystemExit(f"rollback refused: {e}")
+    staged = pub.with_name("published.rollback")   # copy beside it first, so a failed copy leaves the live snapshot whole
+    shutil.rmtree(staged, ignore_errors=True)
+    shutil.copytree(tmp, staged)
+    shutil.rmtree(tmp, ignore_errors=True)
+    if pub.exists():
+        shutil.rmtree(pub)
+    staged.rename(pub)
+    man = store.read_json(pub / "manifest.json")
+    now = utcnow().isoformat(timespec="seconds")
+    man["rolled_back_at"] = now
+    man["rolled_back"] = {"from": cur, "to": snap["version"], "at": now}
+    store.write_json(pub / "manifest.json", man)
+    store.checkpoint(f"rolled back to {snap['version']} (from {cur})")
+    resolve("snapshot-archive")
+    summary(f"**Rolled back** to snapshot `{snap['version']}` ({man.get('items')} items, prices of "
+            f"{str(man.get('published'))[:10]}); was `{cur}`. deploy-app ships it to the app next. New crawls pause for "
+            f"{schedule()['core_every_days']} days; run plan=core or full to start one sooner.")
 
 
 def _hold(state):
@@ -685,7 +745,7 @@ def _identify():
     identify.fetch()
     pub = store.ROOT / "build" / "published" / "items.jsonl.gz"
     cand = store.ROOT / "build" / "candidate" / "items.jsonl.gz"
-    if pub.exists() or cand.exists():
+    if store.jsonl_exists(pub) or store.jsonl_exists(cand):
         identify.match()
     else:
         print("no snapshot yet: identification data fetched, equivalents skipped")
@@ -754,6 +814,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--plan", default="continue", choices=PLANS)
     ap.add_argument("--budget-min", type=float, default=None, help="crawl time per run (default: data/schedule.json)")
+    ap.add_argument("--rollback-to", default="previous", help='plan=rollback: "previous" or a kept snapshot version')
     a = ap.parse_args(argv)
     budget = a.budget_min if a.budget_min is not None else schedule()["budget_min"]
     _reset_outputs(a.plan)
@@ -780,8 +841,40 @@ def main(argv=None):
             _size()
         elif a.plan == "finish":
             _finish()
+        elif a.plan == "rollback":
+            _rollback(a.rollback_to)
+        if a.plan not in ("peek", "status"):
+            _size_watch()
     finally:
         flush_outputs()
+
+
+def _size_watch():
+    """[data-store-size] when the files on the data-store branch pass store.STORE_ALERT_BYTES (1 GB): every pipeline and
+    deploy run checks the branch out, and GitHub recommends keeping a repository well under 5 GB. Files over GitHub's
+    100 MB limit cannot occur: store.write_jsonl_gz shards large files and store.checkpoint refuses to push one."""
+    if not store.ROOT.exists():
+        return
+    total = store.tree_bytes()
+    by_dir = {}
+    for p in store.ROOT.iterdir():
+        if p.name == ".git":
+            continue
+        by_dir[p.name] = (sum(f.stat().st_size for f in p.rglob("*") if f.is_file()) if p.is_dir() else p.stat().st_size)
+    top = ", ".join(f"{k} {v / 1048576:.0f} MB" for k, v in sorted(by_dir.items(), key=lambda x: -x[1])[:6])
+    summary(f"- data-store branch: {total / 1048576:.0f} MB of files ({top})")
+    if total <= store.STORE_ALERT_BYTES:
+        resolve("data-store-size")
+        return
+    alert("data-store-size", f"data-store branch holds {total / 1024 ** 3:.2f} GB of files",
+          f"The data-store branch passed {store.STORE_ALERT_BYTES / 1024 ** 3:.0f} GB ({top}). Every pipeline and deploy run "
+          "downloads it, and GitHub recommends keeping repositories well under 5 GB.\n\n"
+          "Proposed fix (needs your decision; it touches the Cloudflare account): move the raw crawl pages "
+          "(`raw/<run>/`) to a Cloudflare R2 bucket (10 GB free, no egress fees). The crawler writes each part there "
+          "instead of the branch and process.build reads them back; the branch keeps the state, snapshots, history "
+          "and reports. It needs one R2 bucket and an API token limited to it, stored as repository secrets. Without new "
+          "accounts, the fallback is to upload each finished run's raw pages as a GitHub Release asset (2 GB per file) "
+          "and drop them from the branch once its snapshot is published.")
 
 
 if __name__ == "__main__":
