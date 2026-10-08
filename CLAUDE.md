@@ -45,7 +45,8 @@ A snapshot publishes only when every gate passes; otherwise it holds and an issu
 - data/categories.json — scope (departments), category rules, exclusions
 - data/sentinels.json — items that must always be found and priced
 - data/gates.json — acceptance thresholds (null = measure only); data/schedule.json — cadence; data/review-criteria.md — sample review rules
-- .github/workflows/ — pipeline.yml (30-min continue, manual plans), deploy-app.yml, tests.yml, keepalive.yml; actions/alert (issue alerts)
+- .github/workflows/ — pipeline.yml (30-min continue, manual plans), deploy-app.yml, tests.yml, keepalive.yml,
+  app-browsers.yml (manual: app perf + screenshots in Chromium and WebKit, comparison in the run summary); actions/alert (issue alerts)
 - pipeline/ — Cloudflare Worker (public /v1/price/<gtin> live check, token-gated test routes)
 - app/ — PWA (public/ shell + workers, tools/ fixture + pack builder + measure, tests/); deploy-app.yml deploys it
 - docs/ — PLAN, DECISIONS, SCHEMA, RUNBOOK, WORKFLOW

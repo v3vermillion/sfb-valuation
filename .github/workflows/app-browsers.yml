@@ -1,0 +1,189 @@
+name: app-browsers
+
+# Performance numbers and screenshots of the volunteer app in Chromium AND WebKit (the engine of every iPhone browser),
+# on the full-size synthetic fixture built exactly as deploy-app.yml builds it. Manual only (Actions -> app-browsers ->
+# Run workflow); nothing is deployed and no secret is used.
+#
+# Each browser job uploads its results (measure JSON + log, screenshots, audit.json) as the artifact
+# app-browsers-<browser> and writes its key metrics to the run summary; the compare job then writes a
+# Chromium-vs-WebKit table that flags any metric where WebKit is more than 25% slower, or that failed.
+#
+# Like-for-like: CPU throttling is a Chrome DevTools feature, so WebKit always runs at host speed. Chromium therefore
+# runs unthrottled by default too (chromium_cpu = 1); set 4 to reproduce the docs/perf budget numbers instead (the
+# comparison then says it is not like-for-like). WebKit has no fake camera either: its camera-scan numbers are
+# reported as "not measurable on WebKit in CI", and the scanner screen's typed-barcode path is measured in both.
+
+on:
+  workflow_dispatch:
+    inputs:
+      items:
+        description: "fixture size (items); 760000 = the real scale deploy-app builds"
+        required: true
+        default: "760000"
+      runs:
+        description: "runs per number"
+        required: true
+        default: "5"
+      chromium_cpu:
+        description: "Chromium CPU throttle (1 = none, like WebKit; 4 = the docs/perf budget setting)"
+        required: true
+        default: "1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: app-browsers-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  measure:
+    name: measure (${{ matrix.browser }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, webkit]
+    defaults:
+      run:
+        working-directory: app
+        shell: bash
+    env:
+      BROWSER: ${{ matrix.browser }}
+      ITEMS: ${{ github.event.inputs.items || '760000' }}
+      RUNS: ${{ github.event.inputs.runs || '5' }}
+      CHROMIUM_CPU: ${{ github.event.inputs.chromium_cpu || '1' }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Check the inputs
+        run: |
+          set -eu
+          for v in "ITEMS=$ITEMS" "RUNS=$RUNS" "CHROMIUM_CPU=$CHROMIUM_CPU"; do
+            case "${v#*=}" in ''|*[!0-9]*) echo "::error::${v%%=*} must be a whole number (got '${v#*=}')"; exit 1;; esac
+          done
+          [ "$RUNS" -ge 1 ] && [ "$CHROMIUM_CPU" -ge 1 ] && [ "$ITEMS" -ge 1000 ] || { echo "::error::runs and chromium_cpu must be >= 1, items >= 1000"; exit 1; }
+
+      # app/ has no package-lock.json, so `npm ci` cannot run: install from package.json (playwright ^1.56.1), then the
+      # one browser this job needs, with its system libraries.
+      - name: Install Playwright and ${{ matrix.browser }}
+        id: deps
+        run: |
+          set -eu
+          npm install --no-audit --no-fund
+          npx playwright --version
+          npx playwright install --with-deps "$BROWSER"
+
+      - name: Build the fixture (same as deploy-app)
+        run: |
+          pip install -q -r ../requirements.txt
+          python3 tools/make_fixture.py --store build/fixture-store --items "$ITEMS"
+      - name: Build the database pack
+        run: node --max-old-space-size=6144 tools/build-db.mjs --store build/fixture-store --out dist/db
+      - name: Build the site
+        id: site
+        run: node tools/build-site.mjs
+
+      - name: Serve dist
+        run: |
+          set -u
+          nohup node tools/serve.mjs dist 8787 > build/serve.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -fsS -o /dev/null http://127.0.0.1:8787/ && { echo "serving (check $i)"; exit 0; }
+            sleep 1
+          done
+          echo "::error::the local server did not answer"; cat build/serve.log; exit 1
+
+      # Chromium's fake camera reads this clip, so the real scan path (frame -> decoder -> lookup -> sheet) is measured.
+      - name: Make the barcode clip (Chromium fake camera)
+        if: matrix.browser == 'chromium'
+        run: node tools/make-barcode-clip.mjs --out build/barcode.y4m
+
+      - name: Measure
+        id: measure
+        continue-on-error: true
+        run: |
+          set -uo pipefail
+          mkdir -p build/results
+          extra=()
+          if [ "$BROWSER" = chromium ]; then extra=(--cpu "$CHROMIUM_CPU" --video build/barcode.y4m); fi
+          # measure.mjs writes its JSON even when a step fails (recorded under "failures") and then exits 1
+          rc=0
+          node tools/measure.mjs --browser "$BROWSER" --runs "$RUNS" "${extra[@]}" --json "build/results/measure-${BROWSER}.json" \
+            | tee "build/results/measure-${BROWSER}.log" || rc=$?
+          if [ -f build/scan-sheet.png ]; then cp build/scan-sheet.png "build/results/scan-sheet-${BROWSER}.png"; fi
+          exit "$rc"
+
+      - name: Screenshots + accessibility audit
+        id: shots
+        if: ${{ !cancelled() && steps.site.outcome == 'success' }}
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          mkdir -p build/results
+          node tools/shots.mjs --browser "$BROWSER" --out "build/results/shots-${BROWSER}"
+
+      - name: Summary
+        if: ${{ !cancelled() && steps.deps.outcome == 'success' }}
+        run: |
+          {
+            node tools/perf-table.mjs summary --browser "$BROWSER" --measure "build/results/measure-${BROWSER}.json" \
+              --audit "build/results/shots-${BROWSER}/audit.json"
+            echo
+            echo "Fixture: ${ITEMS} items · runs: ${RUNS} · Playwright $(npx playwright --version | awk '{print $2}')"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-browsers-${{ matrix.browser }}
+          path: app/build/results/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Fail when measuring or the screenshots failed
+        if: ${{ !cancelled() && (steps.measure.outcome != 'success' || steps.shots.outcome != 'success') }}
+        run: |
+          echo "::error::measure: ${{ steps.measure.outcome }}, screenshots: ${{ steps.shots.outcome }} (${BROWSER}); the results that were written are in the artifact and the summary"
+          exit 1
+
+  compare:
+    needs: measure
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - name: Download both browsers' results
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: app-browsers-*
+          path: results
+      - name: Chromium vs WebKit
+        run: |
+          set -u
+          mkdir -p results
+          node app/tools/perf-table.mjs compare \
+            --chromium results/app-browsers-chromium/measure-chromium.json \
+            --webkit results/app-browsers-webkit/measure-webkit.json \
+            --chromium-audit results/app-browsers-chromium/shots-chromium/audit.json \
+            --webkit-audit results/app-browsers-webkit/shots-webkit/audit.json > results/comparison.md
+          cat results/comparison.md >> "$GITHUB_STEP_SUMMARY"
+          cat results/comparison.md
+      - name: Upload the comparison
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-browsers-comparison
+          path: results/comparison.md

@@ -169,3 +169,11 @@
   parents and then the category. What stays flagged in Food is mostly not a parse: names cut before the pack count, case or
   pallet prices, placeholder/test listings and Walmart price errors, and premium items in the catch-all "Pantry meal
   essentials" leaf. The unit_outliers gate stays measure-only; its threshold is David's call now that the share is ~3%.
+- 2026-10-08 — The app is measured and screenshotted in WebKit as well as Chromium, because volunteers' iPhones run WebKit
+  whatever the browser. `measure.mjs` and `shots.mjs` take `--browser chromium|webkit` (Chromium unchanged by default; WebKit
+  uses the iPhone 14 profile and writes `webkit-` prefixed files). WebKit has no CPU throttling and no fake camera (both
+  Chromium-only), so its camera-scan numbers are recorded as "not measurable on WebKit in CI" and the scanner screen's
+  typed-barcode path is measured in both browsers instead. The manual `app-browsers` workflow runs both browsers on the full
+  760k fixture and writes a comparison to the run summary that flags any metric where WebKit is more than 25% slower (and by at
+  least 2 ms / 1 MB) or that failed. Chromium runs unthrottled there by default (`chromium_cpu = 1`), so the two browsers are
+  compared at the same speed; ×4 remains the setting for the docs/perf budget numbers.

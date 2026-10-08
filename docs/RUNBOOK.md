@@ -127,8 +127,10 @@ turns the banner amber after 14 days without new prices and red after 45, with a
 persistent storage on every platform. There is no Web Push (iOS cannot refresh data in the background from a push).
 
 Local: `cd app && npm run fixture && npm run build && npm run serve` → http://127.0.0.1:8787/.
-Tests: `npm test`. Performance numbers: `npm run measure` (Playwright, 4× CPU throttle; add `--video barcode.y4m`
-for a fake camera). Screenshots: `npm run shots`.
+Tests: `npm test`. Performance numbers: `npm run measure` (Playwright, 4× CPU throttle; add `--video build/barcode.y4m`
+for a fake camera, made by `node tools/make-barcode-clip.mjs`). Screenshots: `npm run shots`. Both take `--browser webkit`
+(iPhone's engine). From the phone: Actions → app-browsers → Run workflow compares Chromium and WebKit on the 760k fixture
+(summary table plus screenshot artifacts; nothing is deployed).
 
 ### Rate limit bindings for the live check
 `pipeline/wrangler.toml` declares two `[[ratelimits]]` bindings (PRICE_LIMITER per IP, PRICE_GLOBAL_LIMITER for
