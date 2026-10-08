@@ -156,7 +156,7 @@ class T(unittest.TestCase):
 
 
 class Decisions20261008(unittest.TestCase):
-    """David's decisions of 2026-10-08: per-unit prices only for consumables, placeholders barcode-only, store categories."""
+    """Decisions of 2026-10-08: per-unit prices only for consumables, placeholders barcode-only, store categories."""
 
     def item(self, name, **kw):
         it = {"itemId": 7, "name": name, "brandName": kw.pop("brand", "Great Value"), "salePrice": kw.pop("price", 2.0),

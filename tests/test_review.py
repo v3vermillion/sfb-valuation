@@ -95,7 +95,7 @@ class Review(StoreCase, unittest.TestCase):
         v, _ = self.run_review(api_response(json.dumps({"systematic_junk": False, "junk_rate": 0.2, "junk_examples": []})))
         self.assertEqual(v["status"], "pass", "the limit comes from data/gates.json when the candidate has no gates.json yet")
         self.assertEqual(v["max_junk_rate"], 0.3)
-        # once qa.check recorded thresholds for this candidate, those win (David's edit applies at the next check)
+        # once qa.check recorded thresholds for this candidate, those win (an edit applies at the next check)
         price = {str(r["id"]): r["price"] for r in self.rows}
         self.qa.check(wm=mock.Mock(get_items=lambda ids: [{"itemId": int(i), "salePrice": price[str(i)]} for i in ids]))
         self.write_gates(sample_review={"max_junk_rate": 0.1})

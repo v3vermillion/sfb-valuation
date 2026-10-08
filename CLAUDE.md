@@ -6,21 +6,21 @@ exact item and its current price. Prices come from the Walmart I/O Affiliate API
 
 ## Rules
 - Since 2026-10-07 Claude Code owns the pre-rollout automation (docs/DECISIONS.md, that date): it ships tested, reviewed
-  changes without waiting, and David's decisions arrive as `pipeline-alert` issues. Still proposed first, never done unilaterally:
+  changes without waiting, and the owner's decisions arrive as `pipeline-alert` issues. Still proposed first, never done unilaterally:
   anything touching secrets or the Cloudflare account, crawl scope, and work outside that list.
 - docs/DECISIONS.md is the source of truth; append a dated entry for every new decision.
-- Never commit secrets. They live in GitHub Actions secrets, Cloudflare Worker secrets, and David's password manager.
-- David works from a phone. Anything that must run goes through GitHub Actions or Cloudflare.
+- Never commit secrets. They live in GitHub Actions secrets, Cloudflare Worker secrets, and the owner's password manager.
+- The owner works from a phone. Anything that must run goes through GitHub Actions or Cloudflare.
 
 ## How the pipeline runs itself (since 2026-10-07)
-Nothing waits for a human. `.github/workflows/pipeline.yml` runs `plan=continue` every 30 minutes (17 and 47 past the hour):
+Nothing waits for a human. `.github/workflows/pipeline.yml` is scheduled every 30 minutes (17 and 47 past the hour; not firing yet, see RUNBOOK) and chains its own next run:
 a cheap peek reads `state/run.json`, the published manifest, `sizing.json`, `audit/latest.json` and the candidate `gates.json`
 through the GitHub API and stops when nothing is due. Otherwise `crawler/ci.py` picks ONE Walmart job per run, in priority order:
 sizing pass (once per 30 days) > crawl resume > build + gates + publish > weekly live audit > identify refresh. Cadence lives in
 `data/schedule.json`; gate thresholds in `data/gates.json`; the 300-row sample review uses the `ANTHROPIC_API_KEY` secret.
 A snapshot publishes only when every gate passes; otherwise it holds and an issue is opened.
 
-## What David decides (everything else is automatic)
+## What the owner decides (everything else is automatic)
 - An open issue labelled `pipeline-alert` is the to-do list: `[gates-hold]` (read the report in the issue; fix rules or thresholds,
   or run `plan=approve` to override), `[review-key-missing]` (add the `ANTHROPIC_API_KEY` secret or set
   `sample_review.required=false` in data/gates.json), `[review-key-invalid]` (replace the key: 401/403), `[review-credits]`
@@ -36,7 +36,7 @@ A snapshot publishes only when every gate passes; otherwise it holds and an issu
 
 ## Commands (also runnable locally with WM_CONSUMER_ID / WM_PRIVATE_KEY set and SFB_STORE pointing at a data-store checkout)
 - `python -m crawler.ci --plan continue|core|full|approve|identify|audit|size|status|peek|finish|rollback`
-- `python -m unittest discover tests` (240 tests; `tests/fixtures/run-live.json` is the live crawl state the pipeline must resume from)
+- `python -m unittest discover tests` (278 tests; `tests/fixtures/run-live.json` is the live crawl state the pipeline must resume from)
 - `cd app && node --test tests/*.test.mjs`
 
 ## Layout

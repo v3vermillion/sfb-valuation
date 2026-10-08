@@ -371,7 +371,7 @@ def normalize(item: dict, dept: dict, cfg: dict):
     basis = "lb" if PER_LB.search(name) or PER_LB.search(item.get("size") or "") else "each"
     base, dim = to_base(size, unit)
     nn = classify.noun(name, item.get("categoryPath"), dept, cfg)
-    # per-unit prices only for consumables (David, 2026-10-08): not in durable-goods departments, not for a durable good
+    # per-unit prices only for consumables (docs/DECISIONS.md, 2026-10-08): not in durable-goods departments, not for a durable good
     # inside a consumable department (a Fitbit weighs 0.28 oz), not for a single piece (its "unit price" is its price),
     # and not for a placeholder listing
     single_piece = dim == "ct" and base and base * (pack or 1) == 1

@@ -1,4 +1,4 @@
-"""Price sanity and equivalent values (David, 2026-10-08).
+"""Price sanity and equivalent values (docs/DECISIONS.md, 2026-10-08).
 
 An item price outside a plausible range for its department is withheld: it stays in the snapshot as Walmart listed it
 (`price`, for history and audits) but the app never shows it. The row carries `price_withheld` and an equivalent value

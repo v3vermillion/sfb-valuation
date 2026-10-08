@@ -5,7 +5,7 @@
 continue  (default) do the one thing the data-store asks for, chosen by decide(): size, crawl, build,
           recheck, start-full, start-core, audit, identify or none. Safe to run at any time.
 full/core start a crawl of every / the core departments (resumes instead when one is in progress)
-approve   publish the current candidate although the gates hold (David's manual override)
+approve   publish the current candidate although the gates hold (manual override)
 identify  refresh the Open Food Facts identification data and the equivalent prices
 audit     live re-check of a sample of published prices (crawler/audit.py)
 size      one call per department to record Walmart's page counts (crawler/sizing.py)
@@ -63,7 +63,7 @@ SCHEDULE_DEFAULTS = {"full_every_days": 30, "core_every_days": 7, "audit_every_d
                      "sizing_every_days": 30, "stale_days": 14, "budget_min": 300}
 KINDS = ("size", "crawl", "build", "recheck", "start-full", "start-core", "audit", "identify", "none")
 PLANS = ("continue", "full", "core", "approve", "identify", "audit", "size", "status", "peek", "finish", "rollback")
-# gates.json statuses that mean "held, waiting for David" (new qa: hold; old qa: needs_review / awaiting_approval)
+# gates.json statuses that mean "held, waiting for a decision" (new qa: hold; old qa: needs_review / awaiting_approval)
 HOLD_STATUSES = ("hold", "needs_review", "awaiting_approval")
 CANDIDATE_STATES = ("built", "needs_review", "awaiting_approval")
 THROTTLED_ALERT_AFTER = 3
@@ -301,7 +301,7 @@ def decide(state, manifest, sizing, audit_latest, gates, cfg, now, *, current_ha
         "recheck" when gates.json is missing, has no config_hash, its config_hash differs from the current one,
         or it does not record a hold (an unfinished review/publish); a hold that qa marked `transient` (the live
         check or the sample review could not run) is rechecked once its stamp is TRANSIENT_RETRY_HOURS old;
-        otherwise "none" (the hold stands until David edits the config or approves)
+        otherwise "none" (the hold stands until the config changes or the candidate is approved)
      4. no crawl in progress: "start-full" when there is no manifest or the last full publish (manifest
         full_published, else published) is older than full_every_days (or a date is unreadable); "start-core" when
         the last publish of any kind is older than core_every_days
@@ -685,7 +685,7 @@ def _approve():
         compact_store()
         resolve(*PUBLISH_RESOLVES)
         set_out("next", "continue")
-        summary("**Published on David's approval.**")
+        summary("**Published by manual approval.**")
         return True
     summary("Nothing published (no candidate or `check` not run).")
     return False

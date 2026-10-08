@@ -731,5 +731,5 @@
   "12": "International/Specialty (2026-10-08: international foods are labelled by what they are)"
  },
  "exclude_note": "What is not carried at all (apparel, footwear, pet beds, alcohol, tobacco, media) is decided by crawler/classify.exclusion() from the name, brand and path; docs/CATEGORIES.md lists the rules.",
- "consumable_note": "consumable departments get a per-unit price (price per oz, fl oz or count); durable-goods departments never do (2026-10-08, David)."
+ "consumable_note": "consumable departments get a per-unit price (price per oz, fl oz or count); durable-goods departments never do (2026-10-08)."
 }

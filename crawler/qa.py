@@ -3,7 +3,7 @@
   python -m crawler.qa check             # evaluate the candidate: report.md, gates.json, review-sample.jsonl
   python -m crawler.qa finalize          # fold build/candidate/review-verdict.json (crawler/review.py) into the gates
   python -m crawler.qa publish           # promote the candidate when gates.json says "ready"
-  python -m crawler.qa publish --approve # David's override: publish a held candidate after reading the report
+  python -m crawler.qa publish --approve # manual override: publish a held candidate after reading the report
 
 check(wm) -> "ready" | "review" | "hold"      state.status: ready/review -> "built", hold -> "needs_review"
 finalize() -> "ready" | "hold"
@@ -11,7 +11,7 @@ publish(approve=False) -> bool                 records price history (crawler/hi
 
 Thresholds live in data/gates.json (defaults below). A null threshold means measure-only: the gate is
 measured and reported but never holds. gates.json records config_hash (sha256 of data/gates.json +
-data/sentinels.json + data/categories.json) so the orchestrator can re-evaluate a hold after David edits
+data/sentinels.json + data/categories.json) so the orchestrator can re-evaluate a hold after an edit to
 a threshold. A snapshot reaches the app only through `publish`; a hold keeps the previous snapshot live.
 """
 import argparse, hashlib, json, os, random, shutil, statistics
@@ -252,7 +252,7 @@ def gate_live(rows, wm, cfg, seed):
 
 
 def gate_size_parse(rows, min_rate):
-    # placeholder listings (barcode only, no product name to parse) are not part of the rate (David, 2026-10-08)
+    # placeholder listings (barcode only, no product name to parse) are not part of the rate (docs/DECISIONS.md, 2026-10-08)
     food = [r for r in rows if r.get("dept") == "Food" and "placeholder" not in (r.get("flags") or [])]
     if not food:
         return _gate(True, None, min_rate, "no Food rows to measure")
