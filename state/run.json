@@ -1,5 +1,5 @@
 {
-  "calls": 8065,
+  "calls": 8156,
   "calls_base": 7066,
   "departments": [
     {
@@ -84,11 +84,11 @@
     },
     {
       "id": "1115193",
-      "items": 7200,
+      "items": 25400,
       "name": "Household Essentials",
-      "next": "/api-proxy/service/affil/product/v2/paginated/items?category=1115193&soldByWmt=true&count=200&lastDoc=22460650&remainingHits=68911",
-      "pages": 36,
-      "parts": 1,
+      "next": "/api-proxy/service/affil/product/v2/paginated/items?category=1115193&soldByWmt=true&count=200&lastDoc=161534236&remainingHits=50711",
+      "pages": 127,
+      "parts": 2,
       "status": "crawling",
       "total_pages": 381
     },
@@ -260,5 +260,5 @@
   "throttle_base": 18936,
   "throttle_wait_s": 18936,
   "throttled_runs": 1,
-  "updated": "2026-10-08T20:34:16+00:00"
+  "updated": "2026-10-08T20:49:20+00:00"
 }
