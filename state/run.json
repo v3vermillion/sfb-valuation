@@ -1,6 +1,6 @@
 {
-  "calls": 5052,
-  "calls_base": 4037,
+  "calls": 5179,
+  "calls_base": 5052,
   "departments": [
     {
       "id": "976759",
@@ -44,12 +44,12 @@
     },
     {
       "id": "1085666",
-      "items": 186000,
+      "items": 204670,
       "name": "Beauty",
-      "next": "/api-proxy/service/affil/product/v2/paginated/items?category=1085666&soldByWmt=true&count=200&lastDoc=15519150049&remainingHits=18670",
-      "pages": 930,
-      "parts": 11,
-      "status": "crawling",
+      "next": null,
+      "pages": 1024,
+      "parts": 12,
+      "status": "done",
       "total_pages": 1024
     },
     {
@@ -237,7 +237,7 @@
   "run_id": "20261007-182439-full",
   "started": "2026-10-07T18:24:39+00:00",
   "status": "crawling",
-  "throttle_base": 10814,
-  "throttle_wait_s": 13523,
-  "updated": "2026-10-08T08:15:43+00:00"
+  "throttle_base": 13523,
+  "throttle_wait_s": 13903,
+  "updated": "2026-10-08T13:54:12+00:00"
 }
