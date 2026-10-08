@@ -11,11 +11,16 @@ on:
   workflow_dispatch:
     inputs:
       plan:
-        description: "continue | full | core | approve | identify | audit | size | status"
+        description: "continue | full | core | approve | identify | audit | size | status | rollback"
         required: true
         default: continue
         type: choice
-        options: [continue, full, core, approve, identify, audit, size, status]
+        options: [continue, full, core, approve, identify, audit, size, status, rollback]
+      rollback_to:
+        description: "plan=rollback only: previous, or a kept snapshot version (see the repo's snapshot-* releases)"
+        required: false
+        default: previous
+        type: string
   schedule:
     - cron: "17,47 * * * *"   # resume check every 30 min, off-peak minutes
 
@@ -40,6 +45,9 @@ jobs:
       WM_KEY_VERSION: ${{ vars.WM_KEY_VERSION || '1' }}
       SFB_STORE: store
       PLAN: ${{ inputs.plan || 'continue' }}
+      ROLLBACK_TO: ${{ inputs.rollback_to || 'previous' }}
+      # gh for snapshot releases: every publish keeps a copy (crawler/releases.py); plan=rollback restores one
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -88,7 +96,7 @@ jobs:
           git -C store config user.email "sfb-pipeline@users.noreply.github.com"
 
       - name: Check secrets
-        if: (steps.peek.outputs.work != 'none' || github.event_name == 'workflow_dispatch') && env.PLAN != 'status'
+        if: (steps.peek.outputs.work != 'none' || github.event_name == 'workflow_dispatch') && env.PLAN != 'status' && env.PLAN != 'rollback'
         run: |
           set -u
           if [ -z "${WM_CONSUMER_ID:-}" ] || [ -z "${WM_PRIVATE_KEY:-}" ]; then
@@ -112,7 +120,7 @@ jobs:
           EOF
           )"
           echo "budget: $BUDGET min"
-          python -m crawler.ci --plan "$PLAN" --budget-min "$BUDGET"
+          python -m crawler.ci --plan "$PLAN" --budget-min "$BUDGET" --rollback-to "$ROLLBACK_TO"
 
       - name: Sample review
         if: steps.ci.outputs.review == 'pending'

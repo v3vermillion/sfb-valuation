@@ -142,3 +142,24 @@ test("start() with the live snapshot already installed checks once and stays put
   assert.equal(b.fetched.filter((u) => u.endsWith("current.json")).length, 1);
   assert.equal(db.version, "v1"); assert.equal(store.get("sfb.db.pending"), undefined);
 });
+
+// ---- rollback: plan=rollback republishes an OLDER snapshot; any version other than the installed one is an update
+test("a rollback to an older snapshot reaches the phone: a different live version is an update even when older", async () => {
+  const older = "run-20261001-aaaa1111", newer = "run-20261008-bbbb2222";
+  const b = stubBrowser({ live: older });
+  b.install(newer);
+  store.set("sfb.db", JSON.stringify({ version: newer }));
+  const db = new DbClient(); fakeWorker(db);
+  const seen = [];
+  db.addEventListener("update-available", (e) => seen.push(e.detail.version));
+  await db.start();
+  assert.equal(db.version, newer);
+  for (let i = 0; i < 50 && !seen.length; i++) await new Promise((r) => setTimeout(r, 5));
+  assert.deepEqual(seen, [older], "the older live snapshot was downloaded as an update");
+  assert.ok(b.fetched.some((u) => u.includes(`/db/${older}/`)), "its pack files were fetched");
+  assert.equal(JSON.parse(store.get("sfb.db.pending")).version, older);
+  await db.applyUpdate();
+  assert.equal(db.version, older, "Update now swaps to the rolled-back snapshot");
+  assert.equal(JSON.parse(store.get("sfb.db")).version, older);
+  assert.equal(store.get("sfb.db.pending"), undefined);
+});

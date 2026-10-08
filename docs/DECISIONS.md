@@ -186,3 +186,12 @@
   the largest folder) to a Cloudflare R2 bucket (10 GB free, no egress fees) with a token limited to that bucket, kept as
   repository secrets; the branch keeps state, snapshots, history and reports. Fallback without new accounts: upload each
   finished run's raw pages as a GitHub Release asset (2 GB per file) and drop them from the branch once published.
+- 2026-10-08 — Rollback (approved). The newest three published snapshots are kept outside the data-store branch as GitHub
+  Release assets (`snapshot-<version>`, uploaded with the workflow token after each publish, older ones deleted), so the
+  branch squash after a publish never loses them and they cost the branch nothing. `plan=rollback` with `rollback_to`
+  (`previous` or a version) restores one as `build/published` after checking its manifest and item count, records
+  `rolled_back` in the manifest, and leaves the crawl state and candidate alone; deploy-app redeploys because the published
+  tree changed. The app already compares pack versions for equality, never order, so an older snapshot is offered as an
+  update like a newer one (now covered by a test). New crawl starts pause for one core period after a rollback so the
+  restored prices are not replaced by the next scheduled crawl before the cause is fixed. A failed upload alerts
+  `[snapshot-archive]` but never undoes the publish.

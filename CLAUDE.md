@@ -25,22 +25,23 @@ A snapshot publishes only when every gate passes; otherwise it holds and an issu
   or run `plan=approve` to override), `[review-key-missing]` (add the `ANTHROPIC_API_KEY` secret or set
   `sample_review.required=false` in data/gates.json), `[review-key-invalid]` (replace the key: 401/403), `[review-credits]`
   (add Anthropic credits; auto-reload is off), `[pipeline-failed]`, `[deploy-failed]`, `[deploy-mismatch]`,
-  `[audit-regression]`, `[audit-failed]`, `[data-store-size]` (branch past 1 GB: decide where raw pages move), `[stale-prices]`, `[throttled]`, `[tests-failed]`. Issues close themselves when the condition clears.
+  `[audit-regression]`, `[audit-failed]`, `[data-store-size]` (branch past 1 GB: decide where raw pages move), `[snapshot-archive]`, `[stale-prices]`, `[throttled]`, `[tests-failed]`. Issues close themselves when the condition clears.
 - Changing scope or rules: edit `data/categories.json`, `data/sentinels.json`, `data/gates.json`, `data/schedule.json`;
   the next run re-evaluates a held candidate automatically when those files change.
 - When Claude Code is asked to look: read the open alert issues and `data-store:build/candidate/report.md`, diagnose, propose fixes
   (never edit published data by hand; change rules, rebuild, re-check). Manual plans still work from the Actions tab:
-  continue | full | core | approve | identify | audit | size | status. The anthropic-key-check workflow
+  continue | full | core | approve | identify | audit | size | status | rollback (rollback_to: previous or a kept
+  `snapshot-*` release; the newest three publishes are kept as GitHub Releases). The anthropic-key-check workflow
   tests the ANTHROPIC_API_KEY secret (HTTP status and pass/fail only).
 
 ## Commands (also runnable locally with WM_CONSUMER_ID / WM_PRIVATE_KEY set and SFB_STORE pointing at a data-store checkout)
-- `python -m crawler.ci --plan continue|core|full|approve|identify|audit|size|status|peek|finish`
-- `python -m unittest discover tests` (227 tests; `tests/fixtures/run-live.json` is the live crawl state the pipeline must resume from)
+- `python -m crawler.ci --plan continue|core|full|approve|identify|audit|size|status|peek|finish|rollback`
+- `python -m unittest discover tests` (240 tests; `tests/fixtures/run-live.json` is the live crawl state the pipeline must resume from)
 - `cd app && node --test tests/*.test.mjs`
 
 ## Layout
 - crawler/ — wm.py (signed client, pacing), crawl.py (resumable), normalize.py (rules), process.py (snapshot),
-  qa.py (gates/publish), audit.py (weekly live audit), history.py (price history), review.py (sample review),
+  qa.py (gates/publish), releases.py (kept snapshots, rollback), audit.py (weekly live audit), history.py (price history), review.py (sample review),
   sizing.py (department sizes), throttle.py (429 analysis, pace cap), identify.py (non-Walmart barcodes → equivalents), ci.py (orchestrator + decide())
 - data/categories.json — scope (departments), category rules, exclusions
 - data/sentinels.json — items that must always be found and priced
