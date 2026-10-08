@@ -390,6 +390,21 @@ class Publish(StoreCase, unittest.TestCase):
         man = self.store.read_json(self.qa.PUB / "manifest.json")
         self.assertEqual(man["version"], "run-2"); self.assertEqual(man["history"]["kind"], "changes"); self.assertEqual(man["history"]["rows"], 1)
 
+    def test_full_published_survives_core_publishes(self):
+        full = "20261001-060000-full"
+        self.write_candidate(self.rows, state=make_state(run_id=full), stats=make_stats(self.rows, run_id=full))
+        self.qa.check(wm=FakeWM(self.rows)); self.verdict(run_id=full); self.qa.finalize(); self.assertTrue(self.qa.publish())
+        man1 = self.store.read_json(self.qa.PUB / "manifest.json")
+        self.assertEqual(man1["full_published"], man1["published"])
+        core = "20261008-070000-core"
+        self.write_candidate(self.rows, state=make_state(run_id=core), stats=make_stats(self.rows, run_id=core))
+        self.qa.check(wm=FakeWM(self.rows)); self.verdict(run_id=core); self.qa.finalize()
+        with mock.patch.object(self.qa, "_now", lambda: "2026-10-08T07:30:00+00:00"):
+            self.assertTrue(self.qa.publish())
+        man2 = self.store.read_json(self.qa.PUB / "manifest.json")
+        self.assertEqual(man2["published"], "2026-10-08T07:30:00+00:00")
+        self.assertEqual(man2["full_published"], man1["full_published"], "a core publish keeps the last full date")
+
     def test_publish_refuses_gates_from_another_run(self):
         self.qa.check(wm=FakeWM(self.rows)); self.verdict(); self.assertEqual(self.qa.finalize(), "ready")
         self.write_candidate(self.rows, state=make_state(run_id="run-2"), stats=make_stats(self.rows, run_id="run-2"))

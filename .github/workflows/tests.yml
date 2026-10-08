@@ -32,13 +32,15 @@ jobs:
         run: |
           set -u
           for f in .github/workflows/*.yml .github/actions/*/action.yml; do
-            python3 -c "import yaml, sys; yaml.safe_load(open(sys.argv[1]))" "$f" && echo "ok $f"
+            python3 -c "import yaml, sys; yaml.safe_load(open(sys.argv[1]))" "$f" || { echo "::error::$f does not parse"; exit 1; }
+            echo "ok $f"
           done
       - name: Config files parse
         run: |
           set -u
           for f in data/*.json; do
-            python3 -c "import json, sys; json.load(open(sys.argv[1]))" "$f" && echo "ok $f"
+            python3 -c "import json, sys; json.load(open(sys.argv[1]))" "$f" || { echo "::error::$f does not parse"; exit 1; }
+            echo "ok $f"
           done
 
   app:

@@ -68,7 +68,7 @@ class Review(StoreCase, unittest.TestCase):
         self.assertEqual(args[0], "https://api.anthropic.com/v1/messages")
         self.assertEqual(kwargs["headers"], {"content-type": "application/json", "x-api-key": KEY, "anthropic-version": "2023-06-01"})
         body = kwargs["json"]
-        self.assertEqual(body["model"], "claude-sonnet-5-5"); self.assertEqual(body["max_tokens"], 4000)
+        self.assertEqual(body["model"], "claude-sonnet-5-5"); self.assertEqual(body["max_tokens"], 12000)
         self.assertIn("systematic junk", body["system"]); self.assertIn("Sample review criteria", body["system"])
         self.assertEqual(body["messages"][0]["role"], "user"); self.assertIn('"id":15544057', body["messages"][0]["content"])
         self.assertIn(f"Here are {len(self.rows)} rows", body["messages"][0]["content"])
@@ -116,6 +116,10 @@ class Review(StoreCase, unittest.TestCase):
         self.assertEqual(v["junk_rate"], 0.02, "a percentage given as a number"); self.assertEqual(v["junk_examples"], [{"id": None, "why": "a string"}])
         v, _ = self.run_review(api_response('Prose first {"junk_rate": 0.0, "systematic_junk": false} prose after'))
         self.assertEqual(v["status"], "pass")
+        echoed = '```\n{"id": 5, "why": "album"}\n```\n```json\n{"systematic_junk": true, "junk_rate": 0.2}\n```'
+        v, _ = self.run_review(api_response(echoed))
+        self.assertEqual(v["status"], "fail", "the verdict after an echoed example object is found")
+        self.assertEqual(v["junk_rate"], 0.2)
 
     def test_malformed_answers_are_errors(self):
         v, _ = self.run_review(api_response("The sample looks fine to me."))
@@ -136,7 +140,7 @@ class Review(StoreCase, unittest.TestCase):
         self.assertEqual(v["status"], "error")
         cut = '{"junk_rate": 0.01, "systematic_junk": false, "junk_examples": [], "notes": "cut'
         v, post = self.run_review(api_response(cut, stop_reason="max_tokens"), api_response(cut, stop_reason="max_tokens"))
-        self.assertEqual(v["status"], "error"); self.assertIn("truncated at max_tokens=16000", v["reason"]); self.assertEqual(post.call_count, 2)
+        self.assertEqual(v["status"], "error"); self.assertIn("truncated at max_tokens=20000", v["reason"]); self.assertEqual(post.call_count, 2)
         v, _ = self.run_review(api_response("", stop_reason="refusal"))
         self.assertIn("refused", v["reason"])
 
@@ -144,11 +148,11 @@ class Review(StoreCase, unittest.TestCase):
         cut = '{"junk_rate": 0.01, "systematic_junk": false, "junk_examples": [], "notes": "cut'
         v, post = self.run_review(api_response(cut, stop_reason="max_tokens"), api_response(GOOD))
         self.assertEqual(v["status"], "pass"); self.assertEqual(post.call_count, 2); self.assertEqual(self.sleeps, [])
-        self.assertEqual([c.kwargs["json"]["max_tokens"] for c in post.call_args_list], [4000, 16000])
-        self.assertEqual(v["max_tokens"], 16000)
+        self.assertEqual([c.kwargs["json"]["max_tokens"] for c in post.call_args_list], [12000, 20000])
+        self.assertEqual(v["max_tokens"], 20000)
         # a complete answer that merely stopped at max_tokens is not retried
         v, post = self.run_review(api_response(GOOD, stop_reason="max_tokens"))
-        self.assertEqual(v["status"], "pass"); self.assertEqual(post.call_count, 1); self.assertEqual(v["max_tokens"], 4000)
+        self.assertEqual(v["status"], "pass"); self.assertEqual(post.call_count, 1); self.assertEqual(v["max_tokens"], 12000)
 
     def test_missing_key_is_skipped_without_a_request(self):
         del os.environ["ANTHROPIC_API_KEY"]

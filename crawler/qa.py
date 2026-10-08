@@ -489,7 +489,13 @@ def publish(approve=False):
         shutil.rmtree(PUB)
     shutil.copytree(CAND, PUB)
     failed = [n for n, x in g["gates"].items() if x.get("pass") is False]
-    manifest = {"version": run_id, "published": _now(), "items": stats["items"], "upcs": stats["upcs"],
+    now = _now()
+    # full_published: when every department was last refreshed (a core publish carries the rest over from the
+    # previous snapshot), so ci.decide() can start the monthly full crawl even while weekly core publishes continue
+    full_published = now if str(run_id).endswith("-full") else (prev_manifest.get("full_published")
+                                                                or prev_manifest.get("published"))
+    manifest = {"version": run_id, "published": now, "full_published": full_published,
+                "items": stats["items"], "upcs": stats["upcs"],
                 "gates_passed": g["status"] == "ready", "approved_manually": bool(approve), "file": "items.jsonl.gz",
                 "gates": {"status": g["status"], "passed_deterministic": g.get("passed_deterministic"), "failed": failed,
                           "config_hash": g.get("config_hash"), "checked": g.get("checked"),

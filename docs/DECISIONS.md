@@ -109,3 +109,12 @@
   no-op. (i) The alert action skips a comment when the body is unchanged and caps bodies at 60 KB. (j) Merge rule while a crawl
   runs: the suite carries the live state as a fixture (`tests/fixtures/run-live.json`) and a dry run replays the real data-store
   through the new pipeline before anything merges. Hourly watch retired once the alert path has run on GitHub.
+- 2026-10-08 — Second adversarial review of the automation, all findings fixed before merging: (a) the monthly full crawl keyed off
+  the last publish of any kind, so weekly core publishes would have kept the 15 non-core departments on their first prices forever;
+  the manifest now records `full_published` and the full crawl is due 30 days after it (a simulated 120-day season starts a full
+  crawl every 30 days). (b) A failed weekly audit is recorded in `audit/latest.json` and retried every 6 hours instead of every run;
+  `[audit-failed]` opens at once on an HTTP 4xx (Walmart key revoked or rotated) and after 3 failed attempts otherwise, and the next
+  successful audit closes it; this supersedes 2026-10-07 (f) for errors. (c) The keepalive commit, the tests.yml parse checks and the
+  pipeline chain step no longer fail silently or drop alerts (exit status checked; chaining runs last and cannot fail the run).
+  (d) The sample review starts with room for the model's thinking (12,000 tokens, one retry at 20,000) and finds the verdict even
+  when the model quotes an example row object before it.

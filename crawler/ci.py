@@ -36,12 +36,13 @@ Alert keys (one GitHub issue per key, label pipeline-alert, see .github/actions/
   review-key-missing  the sample review was skipped because ANTHROPIC_API_KEY is not set, so the
                       snapshot is held
   audit-regression    the weekly live audit found the published prices drifting (audit.run alert flag)
+  audit-failed        the live audit could not reach Walmart (an HTTP 4xx at once, else AUDIT_ERRORS_ALERT attempts)
   stale-prices        the published snapshot is older than schedule.stale_days and no crawl is running
   throttled           three or more consecutive crawl runs ended rate limited (state.throttled_runs)
   deploy-failed / deploy-mismatch   raised by deploy-app.yml
   tests-failed        raised by tests.yml on main
 Resolution: published -> gates-hold, review-key-missing, stale-prices; crawl progress -> throttled;
-audit ok -> audit-regression; a successful run -> pipeline-failed (done by the workflow).
+audit ok -> audit-regression, audit-failed; a successful run -> pipeline-failed (done by the workflow).
 
 Local use: WM_CONSUMER_ID / WM_PRIVATE_KEY set and SFB_STORE pointing at a data-store checkout.
 """
@@ -65,6 +66,7 @@ THROTTLED_ALERT_AFTER = 3
 SIZING_ERROR_RETRY_DAYS = 1
 # a hold that qa marked transient (live check or review could not run) is re-checked this often, not every 30 min
 TRANSIENT_RETRY_HOURS = 6
+AUDIT_ERRORS_ALERT = 3          # consecutive failed audit attempts (one per TRANSIENT_RETRY_HOURS) before audit-failed
 PUBLISH_RESOLVES = ("gates-hold", "review-key-missing", "stale-prices")
 
 # store paths (functions, so a reloaded store.ROOT is honoured)
@@ -296,9 +298,11 @@ def decide(state, manifest, sizing, audit_latest, gates, cfg, now, *, current_ha
         or it does not record a hold (an unfinished review/publish); a hold that qa marked `transient` (the live
         check or the sample review could not run) is rechecked once its stamp is TRANSIENT_RETRY_HOURS old;
         otherwise "none" (the hold stands until David edits the config or approves)
-     4. no crawl in progress: "start-full" when there is no manifest or it is older than full_every_days
-        (or its date is unreadable); "start-core" when it is older than core_every_days
+     4. no crawl in progress: "start-full" when there is no manifest or the last full publish (manifest
+        full_published, else published) is older than full_every_days (or a date is unreadable); "start-core" when
+        the last publish of any kind is older than core_every_days
      5. "audit" when a manifest exists and audit/latest.json is missing or older than audit_every_days
+        (TRANSIENT_RETRY_HOURS after a failed attempt)
      6. "identify" when a manifest exists and identify/latest.json is missing or older than identify_every_days
      7. "none"
     """
@@ -327,12 +331,17 @@ def decide(state, manifest, sizing, audit_latest, gates, cfg, now, *, current_ha
 
     # no crawl in progress
     age = age_days(manifest.get("published"), now) if manifest else None
-    if manifest is None or age is None or age > cfg["full_every_days"]:
+    # weekly core publishes keep `published` young, so the monthly full crawl keys off the last full publish
+    full_age = age_days(manifest.get("full_published") or manifest.get("published"), now) if manifest else None
+    if manifest is None or age is None or full_age is None or full_age > cfg["full_every_days"]:
         return "start-full"
     if age > cfg["core_every_days"]:
         return "start-core"
+    audit_every = cfg["audit_every_days"]
+    if isinstance(audit_latest, dict) and audit_latest.get("status") == "error":
+        audit_every = TRANSIENT_RETRY_HOURS / 24      # a failed audit is retried every few hours, not every 30 minutes
     if _stale(audit_latest, ("checked", "date", "finished", "run_at", "timestamp", "time", "created", "updated"),
-              cfg["audit_every_days"], now):
+              audit_every, now):
         return "audit"
     if _stale(identify_latest, ("refreshed", "checked", "date", "updated"), cfg["identify_every_days"], now):
         return "identify"
@@ -606,16 +615,35 @@ def _audit():
         raise SystemExit(f"crawler/audit.py is missing: {e}")
     res = audit.run(_wm()) or {}
     status = res.get("status", "ok")
+    now = utcnow().isoformat(timespec="seconds")
     if status == "skipped":
         # audit.run wrote nothing; remember the attempt so the next audit waits a full period instead of 30 minutes
-        store.write_json(_audit_path(), {"status": "skipped", "checked": utcnow().isoformat(timespec="seconds"),
-                                         "reason": res.get("reason")})
+        store.write_json(_audit_path(), {"status": "skipped", "checked": now, "reason": res.get("reason")})
+    elif status == "error":
+        # the live check could not run: remember the attempt so decide() retries in TRANSIENT_RETRY_HOURS, not 30 min
+        prev = store.read_json(_audit_path())
+        errors = (prev.get("errors") or 0) + 1 if isinstance(prev, dict) and prev.get("status") == "error" else 1
+        store.write_json(_audit_path(), {"status": "error", "checked": now, "reason": res.get("reason"),
+                                         "errors": errors})
+        res["errors"] = errors
     store.checkpoint("audit")
     lines = [f"- {k}: {v}" for k, v in sorted(res.items()) if not isinstance(v, (list, dict))]
     body = "## Audit\n\n" + "\n".join(lines)
     summary(body)
+    if status == "error":
+        reason = str(res.get("reason") or "")
+        # an HTTP 4xx other than 429 (key revoked or rotated, access removed) will not clear by itself: say so at once;
+        # throttling or network trouble gets AUDIT_ERRORS_ALERT attempts first
+        if "RuntimeError: HTTP 4" in reason or res["errors"] >= AUDIT_ERRORS_ALERT:
+            alert("audit-failed", f"live audit could not run ({res['errors']} attempt(s))",
+                  "The weekly live re-check of published prices could not reach Walmart. An HTTP 401/403 usually means "
+                  "the WM_CONSUMER_ID / WM_PRIVATE_KEY secrets or WM_KEY_VERSION no longer match the Walmart I/O "
+                  f"app; throttling or network errors clear by themselves. It is retried every {TRANSIENT_RETRY_HOURS} h "
+                  "and this issue closes after the next successful audit.\n\n" + body)
+        return res
     if status != "ok":
-        return res          # skipped: waits a period; error: nothing written, retried at the next run; no alert either way
+        return res          # skipped: waits a full period, no alert
+    resolve("audit-failed")
     if res.get("alert"):
         rate = res.get("match_rate")
         shown = f"{rate} ({rate:.0%})" if isinstance(rate, (int, float)) and not isinstance(rate, bool) else "?"

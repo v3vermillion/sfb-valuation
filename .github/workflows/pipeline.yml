@@ -166,13 +166,6 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           echo "alert=$alert resolve=$resolve next=$next"
 
-      - name: Chain the next run
-        if: steps.result.outputs.next != ''
-        env:
-          GH_TOKEN: ${{ github.token }}
-          NEXT: ${{ steps.result.outputs.next }}
-        run: gh workflow run pipeline.yml -f plan="$NEXT"
-
       - name: Alert
         if: steps.result.outputs.alert != '' && steps.result.outputs.alert != 'none'
         uses: ./.github/actions/alert
@@ -187,6 +180,15 @@ jobs:
         with:
           mode: resolve
           key: ${{ steps.result.outputs.resolve }}
+
+      - name: Chain the next run
+        # after Alert/Resolve so a failed dispatch never drops them; the 30-minute schedule covers a lost chain
+        if: steps.result.outputs.next != ''
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NEXT: ${{ steps.result.outputs.next }}
+        run: gh workflow run pipeline.yml -f plan="$NEXT"
 
       - name: Alert on failure
         if: failure()

@@ -145,6 +145,40 @@ class Decide(unittest.TestCase):
         self.assertEqual(dec(state("published"), man=manifest(7)), "audit")        # not strictly older than 7 days
         self.assertEqual(dec(state("published"), man=manifest(30)), "start-core")
 
+    def test_monthly_full_follows_the_last_full_publish_not_the_last_core(self):
+        # weekly core publishes keep `published` young; the full crawl keys off full_published
+        core = {**manifest(3), "full_published": iso(31)}
+        self.assertEqual(dec(state("published"), man=core), "start-full")
+        core["full_published"] = iso(20)
+        self.assertEqual(dec(state("published"), man=core, audit={"checked": iso(1)}, identify={"refreshed": iso(1)}), "none")
+        core["full_published"] = "garbage"
+        self.assertEqual(dec(state("published"), man=core), "start-full")
+        # a manifest from before full_published existed falls back to `published`
+        self.assertEqual(dec(state("published"), man=manifest(3), audit={"checked": iso(1)}, identify={"refreshed": iso(1)}), "none")
+
+    def test_monthly_full_is_reached_over_a_simulated_season(self):
+        # 120 days, each started crawl publishes the same day: full crawls must recur about monthly
+        man, fulls, day = None, [], 0
+        for day in range(120):
+            now = NOW + timedelta(days=day)
+            work = ci.decide(state("published"), man, None, {"checked": now.isoformat()}, None, CFG, now,
+                             current_hash=HASH, identify_latest={"refreshed": now.isoformat()})
+            if work in ("start-full", "start-core"):
+                prev = man or {}
+                full = work == "start-full"
+                man = {"version": f"d{day}", "published": now.isoformat(), "items": 1,
+                       "full_published": now.isoformat() if full else (prev.get("full_published") or prev.get("published"))}
+                if full:
+                    fulls.append(day)
+        self.assertGreaterEqual(len(fulls), 4, fulls)
+        self.assertTrue(all(b - a <= 32 for a, b in zip(fulls, fulls[1:])), fulls)
+
+    def test_failed_audit_is_retried_after_hours_not_every_run(self):
+        fresh = dict(st=state("published"), man=manifest(1), identify={"refreshed": iso(1)})
+        self.assertEqual(dec(**fresh, audit={"status": "error", "checked": iso(0.1)}), "none")
+        self.assertEqual(dec(**fresh, audit={"status": "error", "checked": iso(0.3)}), "audit")   # > 6 h
+        self.assertEqual(dec(**fresh, audit={"status": "skipped", "checked": iso(0.3)}), "none")  # a full period
+
     def test_unreadable_manifest_date_biases_towards_a_full_crawl(self):
         self.assertEqual(dec(state("published"), man=manifest(published="soon")), "start-full")
         self.assertEqual(dec(state("published"), man={"version": "x"}), "start-full")
@@ -610,18 +644,32 @@ class Continue(PlanBase):
             self.assertIn("0.91", o["alert_title"]); self.assertIn("- match_rate: 0.91", self.body(o))
             fake.run = lambda wm: {"match_rate": 0.99, "alert": False}
             o, _ = self.run_plan("--plan", "audit")
-            self.assertEqual(o["alert"], "none"); self.assertEqual(o["resolve"], "audit-regression")
+            self.assertEqual(o["alert"], "none"); self.assertEqual(o["resolve"], "audit-failed,audit-regression")
             # a skipped audit writes nothing itself; ci remembers the attempt so decide() waits a full period
             fake.run = lambda wm: {"status": "skipped", "alert": False, "reason": "no eligible rows"}
             o, _ = self.run_plan("--plan", "audit")
             self.assertEqual(o["alert"], "none"); self.assertEqual(o["resolve"], "")
             self.assertEqual(self.store.read_json(self.root / "audit" / "latest.json")["status"], "skipped")
-            # an audit error writes nothing and alerts nothing: the next run simply retries
+            # an audit error is remembered (retried in TRANSIENT_RETRY_HOURS) and alerts after AUDIT_ERRORS_ALERT tries
             (self.root / "audit" / "latest.json").unlink()
-            fake.run = lambda wm: {"status": "error", "alert": False, "reason": "throttled"}
+            fake.run = lambda wm: {"status": "error", "alert": False, "reason": "live check unavailable: Throttled: 429"}
+            latest = lambda: self.store.read_json(self.root / "audit" / "latest.json")
+            for n in range(1, ci.AUDIT_ERRORS_ALERT):
+                o, _ = self.run_plan("--plan", "audit")
+                self.assertEqual(o["alert"], "none"); self.assertEqual(o["resolve"], "")
+                self.assertEqual((latest()["status"], latest()["errors"]), ("error", n))
             o, _ = self.run_plan("--plan", "audit")
-            self.assertEqual(o["alert"], "none"); self.assertEqual(o["resolve"], "")
-            self.assertFalse((self.root / "audit" / "latest.json").exists())
+            self.assertEqual(o["alert"], "audit-failed"); self.assertEqual(latest()["errors"], ci.AUDIT_ERRORS_ALERT)
+            # an HTTP 4xx (key revoked) alerts on the first attempt
+            (self.root / "audit" / "latest.json").unlink()
+            fake.run = lambda wm: {"status": "error", "alert": False,
+                                   "reason": "live check unavailable after 0/500 rows: RuntimeError: HTTP 401 for /items"}
+            o, _ = self.run_plan("--plan", "audit")
+            self.assertEqual(o["alert"], "audit-failed"); self.assertEqual(latest()["errors"], 1)
+            # a successful audit clears it
+            fake.run = lambda wm: {"match_rate": 0.99, "alert": False}
+            o, _ = self.run_plan("--plan", "audit")
+            self.assertEqual(o["alert"], "none"); self.assertIn("audit-failed", o["resolve"].split(","))
 
     def test_audit_module_missing_is_a_clear_error(self):
         import crawler

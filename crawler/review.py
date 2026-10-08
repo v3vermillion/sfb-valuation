@@ -21,8 +21,8 @@ from . import store
 API_URL = "https://api.anthropic.com/v1/messages"
 API_VERSION = "2023-06-01"
 DEFAULT_MODEL = "claude-sonnet-5-5"
-MAX_TOKENS = 4000                 # first attempt (design default)
-MAX_TOKENS_RETRY = 16000          # one retry when the answer was cut off: thinking tokens count against max_tokens
+MAX_TOKENS = 12000                # first attempt: the model's thinking over 300 rows shares this cap with the answer
+MAX_TOKENS_RETRY = 20000          # one retry when the answer was still cut off (kept under the non-streaming comfort zone)
 TIMEOUT_S = 300
 RETRIES = 3                       # attempts for 429 / 5xx / connection errors
 RETRY_WAIT_S = (10, 30)
@@ -134,7 +134,7 @@ def parse_verdict(text: str) -> dict:
     """Pull the JSON object out of the model's answer and normalise it. Raises ValueError when no usable object."""
     if not text or not text.strip():
         raise ValueError("empty response")
-    obj, last = None, None
+    obj, first, last = None, None, None
     for cand in _json_candidates(text):
         try:
             o = json.loads(cand)
@@ -142,8 +142,12 @@ def parse_verdict(text: str) -> dict:
             last = e
             continue
         if isinstance(o, dict):
-            obj = o
-            break
+            if "junk_rate" in o and "systematic_junk" in o:
+                obj = o          # the verdict, even when an echoed {id, why} example object came first
+                break
+            first = first if first is not None else o
+    if obj is None:
+        obj = first          # no complete verdict: the first object gives the precise "missing" error below
     if obj is None:
         raise ValueError(f"no JSON object in response ({last})")
     if "junk_rate" not in obj:

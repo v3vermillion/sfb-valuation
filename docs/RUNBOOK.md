@@ -63,7 +63,7 @@ Editing `data/gates.json`, `data/sentinels.json` or `data/categories.json` makes
 
 ### Alerts (GitHub issues, label `pipeline-alert`)
 One open issue per kind, updated in place, closed automatically when the condition clears: `[pipeline-failed]`, `[gates-hold]`,
-`[review-key-missing]`, `[audit-regression]`, `[stale-prices]` (no publish for stale_days while idle), `[throttled]`
+`[review-key-missing]`, `[audit-regression]`, `[audit-failed]` (the audit could not reach Walmart: a 401/403 means the WM_* secrets no longer match), `[stale-prices]` (no publish for stale_days while idle), `[throttled]`
 (three consecutive runs ended on Walmart throttling), `[deploy-failed]`, `[deploy-mismatch]`, `[tests-failed]`.
 Watch the repository (or just the issues) on the GitHub app for phone notifications.
 

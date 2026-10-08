@@ -41,7 +41,8 @@ jobs:
       - name: Touch .github/keepalive when the branch has been quiet
         run: |
           set -u
-          last="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${BRANCH}" --jq '.commit.committer.date' 2>/dev/null || true)"
+          # gh prints the JSON error body on a non-2xx response, so test the exit status, not the captured text
+          last="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${BRANCH}" --jq '.commit.committer.date' 2>/dev/null)" || last=""
           if [ -z "$last" ]; then
             echo "::warning::could not read the newest commit on ${BRANCH}; skipping the keepalive commit"; exit 0
           fi
@@ -52,7 +53,7 @@ jobs:
           if [ "$last_s" -gt 0 ] && [ "$age_days" -lt "$QUIET_DAYS" ]; then
             echo "active within ${QUIET_DAYS} days; nothing to do"; exit 0
           fi
-          sha="$(gh api "repos/${GITHUB_REPOSITORY}/contents/.github/keepalive?ref=${BRANCH}" --jq '.sha' 2>/dev/null || true)"
+          sha="$(gh api "repos/${GITHUB_REPOSITORY}/contents/.github/keepalive?ref=${BRANCH}" --jq '.sha' 2>/dev/null)" || sha=""   # 404: new file
           content="$(printf 'keepalive %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" | base64 -w0)"
           args=(-f message="keepalive: keep scheduled workflows enabled" -f content="$content" -f branch="$BRANCH")
           if [ -n "$sha" ]; then args+=(-f sha="$sha"); fi
