@@ -1,5 +1,5 @@
 {
-  "calls": 7612,
+  "calls": 7703,
   "calls_base": 7066,
   "departments": [
     {
@@ -74,11 +74,11 @@
     },
     {
       "id": "5440",
-      "items": 153200,
+      "items": 171400,
       "name": "Pets",
-      "next": "/api-proxy/service/affil/product/v2/paginated/items?category=5440&soldByWmt=true&count=200&lastDoc=659628549&remainingHits=83358",
-      "pages": 766,
-      "parts": 9,
+      "next": "/api-proxy/service/affil/product/v2/paginated/items?category=5440&soldByWmt=true&count=200&lastDoc=815343681&remainingHits=65158",
+      "pages": 857,
+      "parts": 10,
       "status": "crawling",
       "total_pages": 1183
     },
@@ -260,5 +260,5 @@
   "throttle_base": 18936,
   "throttle_wait_s": 18936,
   "throttled_runs": 1,
-  "updated": "2026-10-08T19:18:24+00:00"
+  "updated": "2026-10-08T19:34:01+00:00"
 }
