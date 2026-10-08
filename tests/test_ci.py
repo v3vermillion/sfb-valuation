@@ -706,11 +706,11 @@ class Continue(PlanBase):
 
 
 class LiveWM:
-    """Walmart as the resumed live crawl sees it: the saved Food cursor gets one final page of 200 items,
-    every other request (sizing or an unstarted department's first page) one page and no next page."""
+    """Walmart as the resumed live crawl sees it: the saved cursor of the department in progress gets one final page of
+    200 items, every other request (sizing or an unstarted department's first page) one page and no next page."""
 
-    def __init__(self, cursor):
-        self.cursor = cursor
+    def __init__(self, cursor, total_pages=1579):
+        self.cursor, self.total_pages = cursor, total_pages
         self.calls = 0; self.throttle_waited = 0; self.paths = []
 
     def get(self, path):
@@ -719,7 +719,7 @@ class LiveWM:
         if path == self.cursor:
             items = [{"itemId": 9_000_000 + i, "upc": f"0{i:011d}", "name": f"Food item {i}, 10 oz", "salePrice": 1.0,
                       "marketplace": False, "stock": "Available", "categoryPath": "Home Page/Food/Pantry"} for i in range(200)]
-            return {"items": items, "totalPages": 1579, "nextPage": None, "nextPageExist": False}
+            return {"items": items, "totalPages": self.total_pages, "nextPage": None, "nextPageExist": False}
         if "lastDoc" in path or "maxId" in path:
             raise AssertionError(f"unexpected cursor request {path}")
         return {"items": [{"itemId": int(cat) * 10, "name": f"Item in {cat}, 10 oz", "salePrice": 3.0}],
@@ -727,50 +727,57 @@ class LiveWM:
 
 
 class LiveState(PlanBase):
-    """Resuming from the real state/run.json that was mid-crawl when the automation landed."""
+    """Resuming from the real state/run.json of the crawl in progress (tests/fixtures/run-live.json, refreshed from the
+    data-store branch before each merge): whichever department it is in, the crawl resumes at its saved cursor."""
 
     def setUp(self):
         super().setUp()
         self.live = live_state()
-        self.cursor = next(d for d in self.live["departments"] if d["name"] == "Food")["next"]
+        self.dept = next(d for d in self.live["departments"] if d["status"] == "crawling")
+        self.pending = [d for d in self.live["departments"] if d["status"] == "pending"]
+        self.cursor = self.dept["next"]
         self.write("state/run.json", self.live)
-        self.wm = LiveWM(self.cursor)
+        self.wm = LiveWM(self.cursor, self.dept["total_pages"])
         self.first_pages = {f"/paginated/items?category={d}&soldByWmt=true" for d in self.depts}
 
     def assert_resumed(self, o):
         st = self.read("state/run.json")
         self.assertEqual(st["status"], "crawled"); self.assertEqual(st["run_id"], self.live["run_id"])
-        food = next(d for d in st["departments"] if d["name"] == "Food")
-        self.assertEqual(food["status"], "done"); self.assertIsNone(food["next"])
-        self.assertEqual(food["pages"], 650); self.assertEqual(food["items"], 129800 + 200); self.assertEqual(food["parts"], 7)
-        self.assertEqual(food["total_pages"], 1579)
-        part = self.root / "raw" / self.live["run_id"] / "976759" / "part-0007.jsonl.gz"
+        before = {d["id"]: d for d in self.live["departments"]}
+        for d in st["departments"]:
+            if before[d["id"]]["status"] == "done":
+                self.assertEqual(d, before[d["id"]], f"{d['name']} was finished and must be untouched")
+        cur = next(d for d in st["departments"] if d["id"] == self.dept["id"])
+        self.assertEqual(cur["status"], "done"); self.assertIsNone(cur["next"])
+        self.assertEqual(cur["pages"], self.dept["pages"] + 1); self.assertEqual(cur["items"], self.dept["items"] + 200)
+        self.assertEqual(cur["parts"], self.dept["parts"] + 1)
+        part = self.root / "raw" / self.live["run_id"] / self.dept["id"] / f"part-{self.dept['parts'] + 1:04d}.jsonl.gz"
         rows = list(self.store.iter_jsonl_gz(part))
         self.assertEqual(len(rows), 200); self.assertEqual(rows[0]["itemId"], 9_000_000)
         self.assertTrue(all(d["status"] == "done" for d in st["departments"]))
-        self.assertEqual(st["calls"], 860 + self.wm.calls); self.assertEqual(st.get("throttled_runs", 0), 0)
+        self.assertEqual(st["calls"], self.live["calls"] + self.wm.calls); self.assertEqual(st.get("throttled_runs", 0), 0)
         self.assertEqual(o["next"], "continue"); self.assertEqual(o["alert"], "none")
         self.assertIn("throttled", o["resolve"].split(","))
 
-    def test_continue_without_sizing_sizes_then_resumes_at_the_saved_food_cursor(self):
+    def test_continue_without_sizing_sizes_then_resumes_at_the_saved_cursor(self):
         o, _ = self.run_plan("--plan", "continue", "--budget-min", "5")
         self.assertEqual(o["work"], "size")
         n = len(self.depts)
         self.assertEqual(set(self.wm.paths[:n]), self.first_pages)             # one sizing call per department first
         self.assertEqual(self.wm.paths[n], self.cursor)                        # then the crawl resumes exactly where it stopped
         siz = self.read("sizing.json")
-        self.assertEqual(siz["976759"]["total_pages"], 1); self.assertEqual(set(siz), set(self.depts))
+        self.assertEqual(siz[self.dept["id"]]["total_pages"], 1); self.assertEqual(set(siz), set(self.depts))
         self.assert_resumed(o)
-        self.assertEqual(self.wm.calls, n + 1 + (n - 1))                         # sizing + Food's last page + 22 first pages
+        self.assertEqual(self.wm.calls, n + 1 + len(self.pending))    # sizing + the last page + each unstarted first page
 
-    def test_continue_with_sizing_resumes_at_the_saved_food_cursor_first(self):
+    def test_continue_with_sizing_resumes_at_the_saved_cursor_first(self):
         self.write("sizing.json", sizing(1, depts=self.depts))
         o, _ = self.run_plan("--plan", "continue", "--budget-min", "5")
         self.assertEqual(o["work"], "crawl")
         self.assertEqual(self.wm.paths[0], self.cursor)
         self.assertEqual(self.read("sizing.json"), sizing(1, depts=self.depts))  # untouched
         self.assert_resumed(o)
-        self.assertEqual(self.wm.calls, len(self.depts))
+        self.assertEqual(self.wm.calls, 1 + len(self.pending))
 
     def test_peek_on_the_live_state(self):
         self.assertEqual(self.run_plan("--plan", "peek")[0]["work"], "size")
