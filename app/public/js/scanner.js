@@ -85,6 +85,9 @@ export function getEngine() {
       w.onerror = (e) => failAll(new Error(e.message || "barcode decoder failed to start"));
       return {
         name: "zxing",
+        // stop the worker (and the wasm it is fetching or compiling); a later detect fails as "failed to start", so a
+        // scanner still holding this engine gives up on it and the next open builds a fresh one
+        close: () => { w.terminate(); failAll(new Error("barcode decoder failed to start (closed)")); },
         detect: async (video) => {
           if (broken) throw broken;
           const vw = video.videoWidth, vh = video.videoHeight;
@@ -117,6 +120,13 @@ function productDigits(r) {
   return [8, 12, 13, 14].includes(v.length) ? v : null;
 }
 
+/** Forget an engine nobody will use (the camera was refused) and stop its worker, so the 0.9 MB wasm decoder is not
+ *  compiled for nothing while the volunteer types the digits instead. */
+function dropEngine(p) {
+  if (enginePromise === p) enginePromise = null;
+  p.then((engine) => engine.close?.(), () => {});
+}
+
 /**
  * Start the camera + detection loop.
  * @param {HTMLVideoElement} video
@@ -125,10 +135,18 @@ function productDigits(r) {
  * @param {(info) => void} onStatus   {engine} | {torch} | {error} | {fatal, error}
  */
 export async function startScanner(video, overlay, onHit, onStatus) {
-  const engine = await getEngine();
-  onStatus?.({ engine: engine.name });
   const constraints = { audio: false, video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } } };
-  const stream = await navigator.mediaDevices.getUserMedia(constraints);
+  // Ask for the camera first and build the decoder alongside it. A refused or missing camera answers at once (the
+  // typed path takes over without waiting for the decoder's self-test or worker), and a granted camera does not wait
+  // for the decoder either: the two start together, as before.
+  const streamP = navigator.mediaDevices.getUserMedia(constraints);
+  const engineP = getEngine();
+  engineP.catch(() => {});   // a decoder that fails while the camera is still starting is reported below, not as unhandled
+  let stream;
+  try { stream = await streamP; } catch (err) { dropEngine(engineP); throw err; }
+  let engine;
+  try { engine = await engineP; } catch (err) { stream.getTracks().forEach((t) => t.stop()); throw err; }
+  onStatus?.({ engine: engine.name });
   video.srcObject = stream;
   await video.play().catch(() => {});
   const track = stream.getVideoTracks()[0];

@@ -58,7 +58,7 @@ departments_complete (every department done, kept > 0, pages within 30% of `sizi
 live_match (500 random items re-checked live in 25 calls, ≥ 97% exact), size_parse (≥ 92% of Food rows sized: a parsed size, sold by the pound, or sold each; 92.7% measured 2026-10-08),
 unit_outliers (< 0.5% of unit-priced rows outside 10× of their category median), the existing drift and count gates, and
 sample_review (300 random rows judged against `data/review-criteria.md`; systematic junk or > 5% junk holds). All pass → publish;
-otherwise hold + `[gates-hold]` issue with the report. `plan=approve` publishes a held candidate after David has read the report.
+otherwise hold + `[gates-hold]` issue with the report. `plan=approve` publishes a held candidate after the owner has read the report.
 Editing `data/gates.json`, `data/sentinels.json` or `data/categories.json` makes the next run re-evaluate a held candidate.
 
 ### Alerts (GitHub issues, label `pipeline-alert`)
@@ -87,12 +87,11 @@ remembered in `audit/latest.json` and waits a full period; an audit that errored
 Rows whose per-unit price is more than 10× off their category+unit median keep their item price but lose the per-unit price
 and carry the flag `unit_price_suspect`; the `unit_outliers` gate reports the raw share (measure-only until parsing improves).
 
-### Schedule ownership
-GitHub runs a scheduled workflow as the account that last changed its `cron:` line. On 2026-10-08 the 30-minute schedule
-never fired: the commit that introduced it was authored by `sfb-pipeline`, a git identity with no GitHub account, so the
-schedule had no owner. Any change to a `cron:` line must reach main in a commit authored by a real GitHub account (a
-squash merge of a pull request is authored by the PR's author). Check after a change: a `schedule` run appears in the
-Actions tab within the hour.
+### Schedule not firing
+The 30-minute schedule has not produced a `schedule` run since it was introduced on 2026-10-08 (see DECISIONS.md). Ruled out:
+cron syntax, workflow state, and the committer of the `cron:` line. Until it is fixed, chained runs keep the crawl moving; if a
+run ends with nothing chained, start `plan=continue` from the Actions tab. Check after any change: a `schedule` run appears
+in the Actions tab within the hour.
 
 ### Other automation
 - `keepalive.yml` (weekly): re-enables the scheduled workflows through the API and touches `.github/keepalive` when main has

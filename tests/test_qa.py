@@ -39,7 +39,7 @@ class Gates(StoreCase, unittest.TestCase):
         self.assertIn("Status: **review**", report); self.assertIn("PASS live_match", report); self.assertIn("PENDING sample_review", report)
         sample = [json.loads(l) for l in (self.qa.CAND / "review-sample.jsonl").read_text().splitlines()]
         self.assertEqual(len(sample), len(self.rows))
-        self.assertEqual(sample[0]["category"], "Canned & Jarred", "sample rows carry the category name")
+        self.assertEqual(sample[0]["category"], "Canned & Jarred Foods", "sample rows carry the category name")
         # 181 eligible rows -> 10 calls of at most 20 ids
         self.assertEqual(len(wm.requested), 10); self.assertTrue(all(len(c) <= 20 for c in wm.requested))
 
@@ -149,6 +149,15 @@ class Gates(StoreCase, unittest.TestCase):
         self.write_candidate(rows)
         self.qa.check(wm=FakeWM(rows, fail_after=0))
         self.assertFalse(self.gates()["transient"])
+
+    def test_placeholders_and_withheld_prices_stay_out_of_checks_and_rates(self):
+        rows = self.rows + [row(6000, flags=["placeholder"], size=None, base_qty=None),
+                            row(6001, flags=["price_withheld"], price_withheld=True, price=9000.0)]
+        live = {r["id"] for r in self.qa.live_sample_rows(rows, 1000, "seed")}
+        self.assertTrue(live.isdisjoint({6000, 6001}))
+        g_with = self.qa.gate_size_parse(rows, 0.5)
+        g_without = self.qa.gate_size_parse(self.rows, 0.5)
+        self.assertEqual(g_with["value"], g_without["value"], "an unsized placeholder does not lower the size-parse rate")
 
     def test_live_sample_selection(self):
         rows = self.rows + [row(5000, flags=["promo_price"]), row(5001, flags=["carried_over"]), row(5002, upc=None),
@@ -327,7 +336,7 @@ class Finalize(StoreCase, unittest.TestCase):
         self.assertEqual(self.qa.finalize(), "hold")
         self.assertIn("systematic junk: yes", self.gates()["gates"]["sample_review"]["detail"])
         self.assertEqual(self.state()["status"], "needs_review"); self.assertFalse(self.gates()["transient"])
-        self.verdict(status="pass", junk_rate=0.08)              # the model said pass but the rate is over David's limit
+        self.verdict(status="pass", junk_rate=0.08)              # the model said pass but the rate is over the limit
         self.assertEqual(self.qa.finalize(), "hold")
         self.write_gates(sample_review={"max_junk_rate": None})
         self.qa.check(wm=FakeWM(self.rows)); self.verdict(status="pass", junk_rate=0.5)
@@ -495,15 +504,26 @@ if __name__ == "__main__":
 class UnitOutlierExtremes(unittest.TestCase):
     def test_extreme_low_ratio_does_not_divide_by_zero(self):
         from crawler.qa import unit_outlier_stats
-        rows = [{"id": i, "name": f"row {i}", "cat": "7", "base_unit": "ct", "unit_price": 1.0} for i in range(60)]
-        rows.append({"id": 998, "name": "tiny", "cat": "7", "base_unit": "ct", "unit_price": 0.0001})   # ratio 0.0001
-        rows.append({"id": 999, "name": "huge", "cat": "7", "base_unit": "ct", "unit_price": 50.0})
+        rows = [{"id": i, "name": f"row {i}", "cat": "7", "base_unit": "oz", "unit_price": 1.0} for i in range(60)]
+        rows.append({"id": 998, "name": "tiny", "cat": "7", "base_unit": "oz", "unit_price": 0.0001})   # ratio 0.0001
+        rows.append({"id": 999, "name": "huge", "cat": "7", "base_unit": "oz", "unit_price": 50.0})
         share, total, outliers = unit_outlier_stats(rows, group_min=50)
         self.assertEqual(total, 62)
         self.assertEqual([o["id"] for o in outliers], [998, 999], "the 10000x-low row sorts before the 50x-high row")
         self.assertAlmostEqual(share, 2 / 62, places=5)
-        zero = [{"id": 1, "cat": "7", "base_unit": "ct", "unit_price": 0.0}] * 60
+        zero = [{"id": 1, "cat": "7", "base_unit": "oz", "unit_price": 0.0}] * 60
         self.assertEqual(unit_outlier_stats(zero, group_min=50)[1], 0, "zero unit prices are not unit-priced rows")
+
+    def test_counts_compare_only_within_their_aisle(self):
+        from crawler.qa import unit_outlier_stats
+        swabs = [{"id": i, "name": "Cotton Swabs, 500 ct", "cat": "15", "base_unit": "ct", "unit_price": 0.01,
+                  "path": "Home Page/Personal Care/Ear Care/Cotton Swabs"} for i in range(60)]
+        pills = [{"id": 100 + i, "name": "Vitamin C, 100 ct", "cat": "15", "base_unit": "ct", "unit_price": 0.12,
+                  "path": "Home Page/Personal Care/Vitamins/Vitamin C"} for i in range(60)]
+        odd = [{"id": 999, "name": "Gauze, 200 ct", "cat": "15", "base_unit": "ct", "unit_price": 0.005,
+                "path": "Home Page/Personal Care/First Aid/Gauze"}]
+        _, _, outliers = unit_outlier_stats(swabs + pills + odd, group_min=50)
+        self.assertEqual(outliers, [], "gauze is not judged against vitamins: its aisle has too few items to judge")
 
 
 if __name__ == "__main__":

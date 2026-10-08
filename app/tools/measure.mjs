@@ -49,8 +49,26 @@ const pageErrors = [];
 // camera permission: Chromium only (Playwright's WebKit rejects "camera" as an unknown permission)
 const contextOptions = () => (IS_CHROMIUM ? { ...device, permissions: ["camera"] } : { ...device });
 
+// "Sheet painted" means the same thing in every engine: the sheet is open and the main thread has finished rendering
+// the first frame that shows it (a requestAnimationFrame callback starts that frame; a task queued from it runs once the
+// frame's style, layout and paint are done). The older mark, two frames after the sheet opened (double rAF), is kept as
+// "presented" for diagnosis only: WebKit's second rAF waits for its compositor to finish the frame (done in software on a
+// GPU-less CI runner, an iPhone composites on its GPU), Chromium's does not wait for raster, so that number measures
+// different work in the two engines and is never compared. lookup.withoutBackdropFilter shows how much of it is the
+// full-screen blur behind the sheet.
+const FRAME_MARKS = () => {
+  window.__sfbFrames = {
+    painted: () => new Promise((resolve) => requestAnimationFrame(() => { const ch = new MessageChannel(); ch.port1.onmessage = () => resolve(performance.now()); ch.port2.postMessage(0); })),
+    presented: () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(performance.now())))),
+  };
+};
+// diagnosis of "presented": the same lookups with every backdrop-filter switched off (the sheet's ::backdrop blurs the
+// whole screen, and the header and dock behind it blur too)
+const NO_BACKDROP_FILTER = "*, *::before, *::after, *::backdrop { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }";
+
 async function newPage(ctx) {
   const page = await ctx.newPage();
+  await page.addInitScript(FRAME_MARKS);
   page.on("pageerror", (e) => pageErrors.push(String(e.message).split("\n")[0]));
   if (!IS_CHROMIUM) return { page, cdp: null };
   const cdp = await ctx.newCDPSession(page);
@@ -105,7 +123,9 @@ async function chromiumMemory(cdp) {
     await page.goto(URL_, { waitUntil: "domcontentloaded" });
     await page.waitForSelector("html[data-ready='1']", { timeout: 180000 });
     const boot = await page.evaluate(() => window.__sfb.perf.boot);
-    out.firstInstall = { ms: boot.interactiveMs, wall: Date.now() - t0, note: "download 33 MB from local server + index; happens once" };
+    // where the time goes: downloadMs = fetch every pack file into Cache Storage (main thread), dbLoadMs = open it
+    // (manifest + the worker reading Cache Storage, inflating and indexing), workerMs = the worker's part of that
+    out.firstInstall = { ms: boot.interactiveMs, wall: Date.now() - t0, downloadMs: boot.downloadMs ?? null, dbLoadMs: boot.wallMs ?? null, workerMs: boot.loadMs ?? null, note: "download 33 MB from local server + index; happens once" };
     await page.waitForTimeout(500);
     const colds = [];
     for (let i = 0; i < RUNS; i++) {
@@ -154,17 +174,38 @@ async function chromiumMemory(cdp) {
     }
   });
 
-  // ---- 4. typed-barcode -> price (resolution + sheet render), no camera involved
+  // ---- 4. typed-barcode -> price (resolution + sheet painted), no camera involved
   await step("lookup", async () => {
+    const CODES = ["078742054261", "4011", "201234928751", "012345678905", "078742054261"];
+    const once = (c) => page.evaluate(async (code) => {
+      const sheet = document.getElementById("sheet");
+      const t0 = performance.now();
+      const r = await window.__sfb.resolveCode(code);
+      const t1 = performance.now();
+      await window.__sfb.openCode(code);          // resolves once the sheet has been opened (openResolution ran)
+      const tOpen = performance.now();
+      if (!sheet.open) throw new Error(`the sheet did not open for ${code}`);
+      const [painted, presented] = await Promise.all([window.__sfbFrames.painted(), window.__sfbFrames.presented()]);
+      return { code, kind: r?.kind, resolveMs: +(t1 - t0).toFixed(1), openMs: +(tOpen - t0).toFixed(1), toSheetMs: +(painted - t0).toFixed(1), presentedMs: +(presented - t0).toFixed(1) };
+    }, c);
+    const closeSheet = async () => { await page.evaluate(() => document.getElementById("sheet").close()); await page.waitForTimeout(150); };
     const lookups = [];
-    for (const code of ["078742054261", "4011", "201234928751", "012345678905", "078742054261"]) {
+    for (const code of CODES) {
       await page.fill("#q", "");
-      const t = await page.evaluate(async (c) => { const t0 = performance.now(); const r = await window.__sfb.resolveCode(c); const t1 = performance.now(); window.__sfb.openCode(c); await new Promise((r2) => requestAnimationFrame(() => requestAnimationFrame(r2))); return { code: c, kind: r?.kind, resolveMs: +(t1 - t0).toFixed(1), toSheetMs: +(performance.now() - t0).toFixed(1) }; }, code);
-      lookups.push(t);
-      await page.evaluate(() => document.getElementById("sheet").close());
-      await page.waitForTimeout(150);
+      lookups.push(await once(code));
+      await closeSheet();
     }
-    out.lookup = { resolve: stats(lookups.map((l) => l.resolveMs)), toSheet: stats(lookups.map((l) => l.toSheetMs)), runs: lookups };
+    out.lookup = {
+      resolve: stats(lookups.map((l) => l.resolveMs)), toSheet: stats(lookups.map((l) => l.toSheetMs)), presented: stats(lookups.map((l) => l.presentedMs)), runs: lookups,
+      note: "toSheetMs = typed code -> resolved -> sheet open -> first frame showing it rendered by the main thread (same definition in every engine); presentedMs = two frames after the sheet opened (engine-dependent: includes WebKit's compositing; diagnosis only)",
+    };
+    // diagnosis: is the gap between painted and presented the compositor's backdrop-filter work?
+    const style = await page.addStyleTag({ content: NO_BACKDROP_FILTER });
+    try {
+      const diag = [];
+      for (const code of CODES) { await page.fill("#q", ""); diag.push(await once(code)); await closeSheet(); }
+      out.lookup.withoutBackdropFilter = { toSheet: stats(diag.map((l) => l.toSheetMs)), presented: stats(diag.map((l) => l.presentedMs)), note: "the same lookups with every backdrop-filter switched off (diagnosis only; the app keeps its blur)" };
+    } finally { await style.evaluate((n) => n.remove()).catch(() => {}); }
   });
 
   // ---- 4b. memory once the pack is open and has answered searches (heap APIs are Chromium-only: CDP)
@@ -207,13 +248,14 @@ await step("scanTyped", async () => {
         });
         form.requestSubmit();
         await opened;
-        await new Promise((r2) => requestAnimationFrame(() => requestAnimationFrame(r2)));
-        return { code: c, toSheetMs: +(performance.now() - t0).toFixed(1), kind: document.querySelector("#sheet .kind")?.textContent?.trim(), title: document.getElementById("sheetTitle")?.textContent?.trim() };
+        const tOpen = performance.now();
+        const [painted, presented] = await Promise.all([window.__sfbFrames.painted(), window.__sfbFrames.presented()]);
+        return { code: c, openMs: +(tOpen - t0).toFixed(1), toSheetMs: +(painted - t0).toFixed(1), presentedMs: +(presented - t0).toFixed(1), kind: document.querySelector("#sheet .kind")?.textContent?.trim(), title: document.getElementById("sheetTitle")?.textContent?.trim() };
       }, "078742054261");
       runs.push({ ...r, camera });
     }
   } finally { await ctx.close(); }
-  out.scanTyped = { toSheet: stats(runs.map((r) => r.toSheetMs)), runs, note: "scanner open -> 'Type the barcode instead' -> digits submitted -> sheet painted (in-page clock, two frames after the sheet opens); camera = what the camera did when the scanner opened" };
+  out.scanTyped = { toSheet: stats(runs.map((r) => r.toSheetMs)), presented: stats(runs.map((r) => r.presentedMs)), runs, note: "scanner open -> 'Type the barcode instead' -> digits submitted -> sheet painted (in-page clock: the first frame showing the sheet rendered by the main thread); presentedMs = two frames after it opened (engine-dependent, diagnosis only); camera = what the camera did when the scanner opened" };
 });
 
 // ---- 5. scan -> price with the fake camera (full path: camera frame -> decoder -> lookup -> sheet painted)

@@ -39,14 +39,28 @@ export function sizeText(item) {
   return "";
 }
 
+function moneyText(cents) {
+  return "$" + (cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 export function fmtNum(n) {
   if (n == null || Number.isNaN(n)) return "";
   const r = Math.round(n * 100) / 100;
   return Number.isInteger(r) ? String(r) : String(r).replace(/0+$/, "");
 }
 
-/** Resolution from a search hit the volunteer tapped. */
+/** Resolution from a search hit the volunteer tapped (or the listing a barcode found). */
 export function fromItem(item, { closest = false, query = "", dropped = [] } = {}) {
+  if (item.priceWithheld) {
+    // Walmart's own price for this listing is implausible (data/gates.json price_sanity): the snapshot values it at an
+    // equivalent instead, so the volunteer still gets a sensible value and sees where it came from
+    return {
+      kind: "equivalent", code: item.upc, gtin: item.upc, item, others: [],
+      equiv: { withheld: true, rawCents: item.rawPriceCents, confidence: item.valueConfidence, basis: item.valueBasis },
+      priceCents: item.priceCents, unit: item.basis === "lb" ? "lb" : "each", title: titleOf(item),
+      key: item.upc ? `g:${item.upc}` : `r:${item.rank}`, query, dropped,
+    };
+  }
   return {
     kind: closest ? "closest" : "exact",
     code: item.upc, gtin: item.upc, item, others: [],
@@ -61,6 +75,8 @@ export function fromItem(item, { closest = false, query = "", dropped = [] } = {
 /** Pick the listing for a barcode: the one whose Walmart id the caller wants, else the primary (first). */
 function pickListing(items, preferId) {
   if (preferId != null) { const i = items.findIndex((it) => String(it.id) === String(preferId)); if (i > 0) return [items[i], ...items.filter((_, k) => k !== i)]; }
+  // a listing with Walmart's own (plausible) price beats one whose price was withheld
+  if (items.length > 1 && items[0].priceWithheld) { const i = items.findIndex((it) => !it.priceWithheld); if (i > 0) return [items[i], ...items.filter((_, k) => k !== i)]; }
   return items;
 }
 
@@ -131,7 +147,11 @@ export function notesFor(res, ctx = {}) {
   if (res.kind === "closest") {
     notes.push({ tone: "warn", text: `Closest match. Nothing matched all of “${res.query}”${res.dropped?.length ? ` — “${res.dropped.join(" ")}” was ignored` : ""}. Check the type and size against the item in your hand.` });
   }
-  if (res.kind === "equivalent") {
+  if (res.kind === "equivalent" && res.equiv.withheld) {
+    const e = res.equiv;
+    const how = e.basis ? "the closest comparable Walmart item" : e.confidence === "rough" ? "the typical price of items in its category" : "the typical per-unit price of comparable items";
+    notes.push({ tone: "equiv", text: `Walmart's listed price${e.rawCents != null ? ` (${moneyText(e.rawCents)})` : ""} is outside the normal range for this kind of item, so it is valued at ${how} instead.` });
+  } else if (res.kind === "equivalent") {
     const e = res.equiv;
     notes.push({ tone: "equiv", text: `Not sold at Walmart. Valued at the price of the closest Walmart equivalent by type and size (${e.confidence === "high" ? "close match" : e.confidence === "medium" ? "fair match" : "rough match"}).` });
     if (!e.basis) notes.push({ tone: "warn", text: "The Walmart item this estimate was based on is no longer listed, so treat the value as approximate." });
@@ -162,6 +182,7 @@ export function notesFor(res, ctx = {}) {
     if (it.promo) notes.push({ tone: "", text: "This was a Rollback or sale price when checked." });
     if (it.unavailable) notes.push({ tone: "", text: "Out of stock online when checked. The price is the last one listed." });
     if (it.sizeConflict) notes.push({ tone: "", text: "Walmart's listing shows two sizes. The one in the title is used." });
+    if (it.discontinued) notes.push({ tone: "", text: "Walmart marks this item as discontinued. The price is the last one listed." });
     if (!it.primary && (res.kind === "exact" || res.kind === "closest")) notes.push({ tone: "", text: "Walmart lists this barcode more than once; this is one of the other listings." });
   }
   return notes;

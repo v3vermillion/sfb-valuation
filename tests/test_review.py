@@ -48,7 +48,7 @@ class Review(StoreCase, unittest.TestCase):
         self.assertEqual(len(lines), len(self.rows))
         first = json.loads(lines[0])
         self.assertEqual(set(first) <= set(self.review.SAMPLE_FIELDS) | {"category"}, True)
-        self.assertEqual(first["category"], "Canned & Jarred"); self.assertNotIn("variants", first); self.assertNotIn("flags", first, "empty lists are dropped")
+        self.assertEqual(first["category"], "Canned & Jarred Foods"); self.assertNotIn("variants", first); self.assertNotIn("flags", first, "empty lists are dropped")
         small = self.review.write_sample(self.rows, RUN_ID, n=20, path=self.root / "s.jsonl")
         again = self.review.write_sample(self.rows, RUN_ID, n=20, path=self.root / "s2.jsonl")
         other = self.review.write_sample(self.rows, "other-run", n=20, path=self.root / "s3.jsonl")
@@ -95,7 +95,7 @@ class Review(StoreCase, unittest.TestCase):
         v, _ = self.run_review(api_response(json.dumps({"systematic_junk": False, "junk_rate": 0.2, "junk_examples": []})))
         self.assertEqual(v["status"], "pass", "the limit comes from data/gates.json when the candidate has no gates.json yet")
         self.assertEqual(v["max_junk_rate"], 0.3)
-        # once qa.check recorded thresholds for this candidate, those win (David's edit applies at the next check)
+        # once qa.check recorded thresholds for this candidate, those win (an edit applies at the next check)
         price = {str(r["id"]): r["price"] for r in self.rows}
         self.qa.check(wm=mock.Mock(get_items=lambda ids: [{"itemId": int(i), "salePrice": price[str(i)]} for i in ids]))
         self.write_gates(sample_review={"max_junk_rate": 0.1})

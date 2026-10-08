@@ -80,7 +80,7 @@ jobs:
           done
           SFB_STORE=store-peek python -m crawler.ci --plan peek
 
-      # ---- everything below runs only when there is work, or when David chose a plan ----
+      # ---- everything below runs only when there is work, or when a plan was chosen by hand ----
 
       - name: Check out the data-store branch
         if: steps.peek.outputs.work != 'none' || github.event_name == 'workflow_dispatch'
@@ -167,7 +167,7 @@ jobs:
           [ "$CI_OUTCOME" = success ] && keys="$keys,pipeline-failed"
           resolve="$(printf '%s' "$keys" | tr ',' '\n' | sed '/^[[:space:]]*$/d' | sort -u | paste -sd, -)"
           case ",$resolve," in *",$alert,"*) alert=none ;; esac   # raised and cleared in one run: cleared
-          # next run to chain: a named plan from Run (e.g. the full crawl David asked for) beats a plain continue
+          # next run to chain: a named plan from Run (e.g. a manually started full crawl) beats a plain continue
           next="$CI_NEXT"
           if [ -n "$FIN_NEXT" ] && { [ -z "$next" ] || [ "$next" = continue ]; }; then next="$FIN_NEXT"; fi
           {

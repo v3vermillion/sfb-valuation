@@ -8,7 +8,11 @@ import { tokenize } from "./tokenize.js";
 const te = new TextEncoder(), td = new TextDecoder();
 const F = { RETIRED: 1, NO_SIZE: 2, PROMO: 4, CARRIED: 8, STORE_BRAND: 16, PRIMARY: 32, SIZE_CONFLICT: 64, UNAVAILABLE: 128 };
 const UNIT_NAME = [null, "oz", "fl oz", "lb", "ct", "g", "kg", "ml", "l", "gal", "qt", "pt"];
-const CAT_NAME = { 1: "Produce", 2: "Dairy & Eggs", 3: "Meat & Seafood", 4: "Deli & Prepared", 5: "Frozen", 6: "Canned & Jarred", 7: "Dry Goods & Baking", 8: "Bread & Bakery", 9: "Snacks & Candy", 10: "Beverages", 11: "Condiments & Sauces", 12: "International/Specialty", 13: "Baby", 14: "Health", 15: "Personal Care & Beauty", 16: "Household Cleaning & Paper", 17: "Kitchen & Storage", 18: "Home Goods", 19: "Pet", 20: "School, Office & Crafts", 21: "Toys, Books & Games", 22: "Seasonal/Holiday & Party", 23: "Other/Misc", 24: "Auto", 25: "Electronics", 26: "Jewelry", 27: "Sports & Outdoors" };
+// category names come from the pack manifest (data/categories.json); this table only covers a pack built before that
+const CAT_NAME = { 1: "Produce", 2: "Dairy & Eggs", 3: "Meat & Seafood", 4: "Deli & Prepared Foods", 5: "Frozen Foods", 6: "Canned & Jarred Foods", 7: "Pasta, Rice & Dry Goods", 8: "Bread & Bakery", 9: "Snacks & Candy", 10: "Beverages", 11: "Condiments, Sauces & Spreads", 12: "International Foods", 13: "Baby", 14: "Health & Medicine", 15: "Personal Care", 16: "Household Supplies", 17: "Kitchen & Dining", 18: "Home", 19: "Pet Food & Supplies", 20: "School, Office & Crafts", 21: "Toys, Books & Games", 22: "Seasonal & Party", 23: "Other", 24: "Auto", 25: "Electronics", 26: "Jewelry & Accessories", 27: "Sports & Outdoors", 28: "Baking, Spices & Oils", 29: "Breakfast & Cereal", 30: "Beauty", 31: "Hardware & Tools", 32: "Lawn, Garden & Floral" };
+const F2 = { PLACEHOLDER: 1, PRICE_WITHHELD: 2, DISCONTINUED: 4 };
+const VALUE_CONF = ["rough", "low", "medium", "high"];
+const NO_RANK = 0xFFFFFFFF;
 
 // Query-time vocabulary: abbreviations volunteers actually type (AND-expansions) and spellings that
 // should match each other (OR-groups). Index tokens are never altered; this only widens the query.
@@ -89,7 +93,11 @@ async function load({ base, manifest, cacheName }) {
   // cols
   { const r = new Reader(bufs.cols); r.magic("SFBC"); const N = r.u32(); d.N = N;
     d.price = r.arr(Uint32Array, N); d.size = r.arr(Float32Array, N); d.pack = r.arr(Uint16Array, N); d.unit = r.arr(Uint8Array, N);
-    d.basis = r.arr(Uint8Array, N); d.flags = r.arr(Uint8Array, N); d.cat = r.arr(Uint8Array, N); d.id = r.arr(Float64Array, N); d.upcOf = r.arr(Float64Array, N); }
+    d.basis = r.arr(Uint8Array, N); d.flags = r.arr(Uint8Array, N); d.cat = r.arr(Uint8Array, N); d.id = r.arr(Float64Array, N); d.upcOf = r.arr(Float64Array, N);
+    // format 2 appends flags2, the value basis and Walmart's own price of a withheld item; a format-1 pack has none
+    if (pad8(r.o) + N * 9 <= bufs.cols.byteLength) { d.flags2 = r.arr(Uint8Array, N); d.valueBasis = r.arr(Uint32Array, N); d.rawPrice = r.arr(Uint32Array, N); }
+    else { d.flags2 = new Uint8Array(N); d.valueBasis = new Uint32Array(N).fill(NO_RANK); d.rawPrice = new Uint32Array(N); } }
+  d.catNames = manifest.categories || null;
   // strings
   d.strings = manifest.files.strings.map((s, i) => { const r = new Reader(bufs[`strings${i}`]); r.magic("SFBS"); const count = r.u32(), first = r.u32(); const offs = r.arr(Uint32Array, count + 1); const bytes = r.bytes(offs[count]); return { first, count, offs, bytes }; });
   // upc
@@ -127,15 +135,20 @@ function itemText(rank) {
   const i = rank - s.first;
   return td.decode(s.bytes.subarray(s.offs[i], s.offs[i + 1]));
 }
-function item(rank) {
+function item(rank, withBasis = true) {
   const txt = itemText(rank);
   const sep = txt.indexOf("\x1F");
-  const flags = db.flags[rank];
+  const flags = db.flags[rank], flags2 = db.flags2[rank];
   const upc = db.upcOf[rank];
+  const withheld = !!(flags2 & F2.PRICE_WITHHELD);
+  const basisRank = db.valueBasis[rank];
   return {
     rank, id: db.id[rank], brand: txt.slice(0, sep), name: txt.slice(sep + 1), priceCents: db.price[rank],
     size: db.size[rank] || null, unit: UNIT_NAME[db.unit[rank]], pack: db.pack[rank], basis: db.basis[rank] ? "lb" : "each",
-    cat: db.cat[rank], catName: CAT_NAME[db.cat[rank]] || "Other", upc: upc ? String(upc).padStart(14, "0") : null,
+    cat: db.cat[rank], catName: (db.catNames && db.catNames[db.cat[rank]]) || CAT_NAME[db.cat[rank]] || "Other", upc: upc ? String(upc).padStart(14, "0") : null,
+    placeholder: !!(flags2 & F2.PLACEHOLDER), discontinued: !!(flags2 & F2.DISCONTINUED),
+    priceWithheld: withheld, rawPriceCents: withheld ? db.rawPrice[rank] : null, valueConfidence: withheld ? VALUE_CONF[(flags2 >> 3) & 3] : null,
+    valueBasis: withheld && withBasis && basisRank !== NO_RANK && basisRank !== rank ? item(basisRank, false) : null,
     retired: !!(flags & F.RETIRED), noSize: !!(flags & F.NO_SIZE), promo: !!(flags & F.PROMO), carried: !!(flags & F.CARRIED),
     storeBrand: !!(flags & F.STORE_BRAND), primary: !!(flags & F.PRIMARY), sizeConflict: !!(flags & F.SIZE_CONFLICT), unavailable: !!(flags & F.UNAVAILABLE),
   };

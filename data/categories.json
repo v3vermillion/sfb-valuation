@@ -1,65 +1,735 @@
 {
-  "note": "Single source of truth for crawl scope and category assignment. Crawl unit = whole Walmart department (every page, filter soldByWmt=true). Category is assigned per item from its Walmart categoryPath using path_rules (first match wins), then keyword_rules, then the department default.",
-  "categories": {
-    "1": "Produce", "2": "Dairy & Eggs", "3": "Meat & Seafood", "4": "Deli & Prepared",
-    "5": "Frozen", "6": "Canned & Jarred", "7": "Dry Goods & Baking", "8": "Bread & Bakery",
-    "9": "Snacks & Candy", "10": "Beverages", "11": "Condiments & Sauces", "12": "International/Specialty",
-    "13": "Baby", "14": "Health", "15": "Personal Care & Beauty", "16": "Household Cleaning & Paper",
-    "17": "Kitchen & Storage", "18": "Home Goods", "19": "Pet", "20": "School, Office & Crafts",
-    "21": "Toys, Books & Games", "22": "Seasonal/Holiday & Party", "23": "Other/Misc",
-    "24": "Auto", "25": "Electronics", "26": "Jewelry", "27": "Sports & Outdoors"
+ "note": "Crawl scope and category ids. Category = what the item is, as a store labels it (docs/CATEGORIES.md); crawler/classify.py decides it from the product noun first and Walmart's path second, so path_rules are hints: the most specific (longest) matching fragment of the lower-cased path wins. Crawl unit = whole Walmart department (every page, soldByWmt=true).",
+ "categories": {
+  "1": "Produce",
+  "2": "Dairy & Eggs",
+  "3": "Meat & Seafood",
+  "4": "Deli & Prepared Foods",
+  "5": "Frozen Foods",
+  "6": "Canned & Jarred Foods",
+  "7": "Pasta, Rice & Dry Goods",
+  "8": "Bread & Bakery",
+  "9": "Snacks & Candy",
+  "10": "Beverages",
+  "11": "Condiments, Sauces & Spreads",
+  "13": "Baby",
+  "14": "Health & Medicine",
+  "15": "Personal Care",
+  "16": "Household Supplies",
+  "17": "Kitchen & Dining",
+  "18": "Home",
+  "19": "Pet Food & Supplies",
+  "20": "School, Office & Crafts",
+  "21": "Toys, Books & Games",
+  "22": "Seasonal & Party",
+  "23": "Other",
+  "24": "Auto",
+  "25": "Electronics",
+  "26": "Jewelry & Accessories",
+  "27": "Sports & Outdoors",
+  "28": "Baking, Spices & Oils",
+  "29": "Breakfast & Cereal",
+  "30": "Beauty",
+  "31": "Hardware & Tools",
+  "32": "Lawn, Garden & Floral"
+ },
+ "departments": [
+  {
+   "id": "976759",
+   "name": "Food",
+   "core": true,
+   "default_category": "7",
+   "consumable": true
   },
-  "departments": [
-    {"id": "976759",  "name": "Food",                 "core": true,  "default_category": "7"},
-    {"id": "976760",  "name": "Health and Medicine",  "core": true,  "default_category": "14"},
-    {"id": "5431",    "name": "Pharmacy",             "core": true,  "default_category": "14"},
-    {"id": "1005862", "name": "Personal Care",        "core": true,  "default_category": "15"},
-    {"id": "1085666", "name": "Beauty",               "core": true,  "default_category": "15"},
-    {"id": "7924299", "name": "Premium Beauty",       "core": false, "default_category": "15"},
-    {"id": "5427",    "name": "Baby",                 "core": true,  "default_category": "13"},
-    {"id": "5440",    "name": "Pets",                 "core": true,  "default_category": "19"},
-    {"id": "1115193", "name": "Household Essentials", "core": true,  "default_category": "16"},
-    {"id": "4044",    "name": "Home",                 "core": false, "default_category": "18"},
-    {"id": "1072864", "name": "Home Improvement",     "core": false, "default_category": "18"},
-    {"id": "5428",    "name": "Patio & Garden",       "core": false, "default_category": "18"},
-    {"id": "1229749", "name": "Office Supplies",      "core": false, "default_category": "20"},
-    {"id": "1334134", "name": "Arts Crafts & Sewing", "core": false, "default_category": "20"},
-    {"id": "4171",    "name": "Toys",                 "core": false, "default_category": "21"},
-    {"id": "3920",    "name": "Books",                "core": false, "default_category": "21"},
-    {"id": "1085632", "name": "Seasonal",             "core": false, "default_category": "22"},
-    {"id": "2637",    "name": "Party & Occasions",    "core": false, "default_category": "22"},
-    {"id": "91083",   "name": "Auto & Tires",         "core": false, "default_category": "24"},
-    {"id": "3944",    "name": "Electronics",          "core": false, "default_category": "25"},
-    {"id": "1105910", "name": "Cell Phones",          "core": false, "default_category": "25"},
-    {"id": "3891",    "name": "Jewelry",              "core": false, "default_category": "26"},
-    {"id": "4125",    "name": "Sports & Outdoors",    "core": false, "default_category": "27"}
-  ],
-  "not_crawled": {
-    "5438": "Clothing", "4104": "Music", "4096": "Movies & TV Shows", "2636": "Video Games",
-    "6197502": "Industrial & Scientific", "7796869": "Musical Instruments", "5967908": "Collectibles",
-    "note": "Promo/meta departments (Shop by Brand, Feature, Ideas, Services, MoneyCenter, Subscriptions, Gift Registry, Photo Center, etc.) are skipped. Add a department here by moving it into departments."
+  {
+   "id": "976760",
+   "name": "Health and Medicine",
+   "core": true,
+   "default_category": "14",
+   "consumable": true
   },
-  "exclude_path_keywords": ["/alcohol", "clothing", "apparel", "/shoes", "wine", "beer", "spirits", "tobacco"],
-  "path_rules": [
-    ["/food/fresh produce", "1"], ["/food/dairy & eggs", "2"], ["/food/meat & seafood", "3"],
-    ["/food/deli", "4"], ["/food/frozen foods", "5"],
-    ["/food/pantry/canned goods", "6"], ["/food/pantry/soup", "6"], ["canned & jarred", "6"],
-    ["/food/pantry/condiments", "11"], ["/food/pantry/sauces", "11"], ["/food/pantry/salad dressings", "11"],
-    ["/food/condiments, sauces", "11"],
-    ["/food/breakfast & cereal", "7"], ["/food/baking", "7"], ["/food/pantry", "7"],
-    ["/food/bakery & bread", "8"], ["/food/snacks", "9"], ["/food/candy", "9"],
-    ["/food/beverages", "10"], ["/food/coffee", "10"],
-    ["/food/international food", "12"], ["/food/dietary & lifestyle", "12"],
-    ["/food/seasonal grocery", "22"],
-    ["/home/kitchen", "17"], ["/home/food storage", "17"], ["/home/dining", "17"],
-    ["/household essentials/food storage", "17"]
+  {
+   "id": "5431",
+   "name": "Pharmacy",
+   "core": true,
+   "default_category": "14",
+   "consumable": true
+  },
+  {
+   "id": "1005862",
+   "name": "Personal Care",
+   "core": true,
+   "default_category": "15",
+   "consumable": true
+  },
+  {
+   "id": "1085666",
+   "name": "Beauty",
+   "core": true,
+   "default_category": "30",
+   "consumable": true
+  },
+  {
+   "id": "7924299",
+   "name": "Premium Beauty",
+   "core": false,
+   "default_category": "30",
+   "consumable": true
+  },
+  {
+   "id": "5427",
+   "name": "Baby",
+   "core": true,
+   "default_category": "13",
+   "consumable": true
+  },
+  {
+   "id": "5440",
+   "name": "Pets",
+   "core": true,
+   "default_category": "19",
+   "consumable": true
+  },
+  {
+   "id": "1115193",
+   "name": "Household Essentials",
+   "core": true,
+   "default_category": "16",
+   "consumable": true
+  },
+  {
+   "id": "4044",
+   "name": "Home",
+   "core": false,
+   "default_category": "18",
+   "consumable": false
+  },
+  {
+   "id": "1072864",
+   "name": "Home Improvement",
+   "core": false,
+   "default_category": "31",
+   "consumable": false
+  },
+  {
+   "id": "5428",
+   "name": "Patio & Garden",
+   "core": false,
+   "default_category": "32",
+   "consumable": false
+  },
+  {
+   "id": "1229749",
+   "name": "Office Supplies",
+   "core": false,
+   "default_category": "20",
+   "consumable": false
+  },
+  {
+   "id": "1334134",
+   "name": "Arts Crafts & Sewing",
+   "core": false,
+   "default_category": "20",
+   "consumable": false
+  },
+  {
+   "id": "4171",
+   "name": "Toys",
+   "core": false,
+   "default_category": "21",
+   "consumable": false
+  },
+  {
+   "id": "3920",
+   "name": "Books",
+   "core": false,
+   "default_category": "21",
+   "consumable": false
+  },
+  {
+   "id": "1085632",
+   "name": "Seasonal",
+   "core": false,
+   "default_category": "22",
+   "consumable": false
+  },
+  {
+   "id": "2637",
+   "name": "Party & Occasions",
+   "core": false,
+   "default_category": "22",
+   "consumable": false
+  },
+  {
+   "id": "91083",
+   "name": "Auto & Tires",
+   "core": false,
+   "default_category": "24",
+   "consumable": false
+  },
+  {
+   "id": "3944",
+   "name": "Electronics",
+   "core": false,
+   "default_category": "25",
+   "consumable": false
+  },
+  {
+   "id": "1105910",
+   "name": "Cell Phones",
+   "core": false,
+   "default_category": "25",
+   "consumable": false
+  },
+  {
+   "id": "3891",
+   "name": "Jewelry",
+   "core": false,
+   "default_category": "26",
+   "consumable": false
+  },
+  {
+   "id": "4125",
+   "name": "Sports & Outdoors",
+   "core": false,
+   "default_category": "27",
+   "consumable": false
+  }
+ ],
+ "not_crawled": {
+  "5438": "Clothing",
+  "4104": "Music",
+  "4096": "Movies & TV Shows",
+  "2636": "Video Games",
+  "6197502": "Industrial & Scientific",
+  "7796869": "Musical Instruments",
+  "5967908": "Collectibles",
+  "note": "Promo/meta departments (Shop by Brand, Feature, Ideas, Services, MoneyCenter, Subscriptions, Gift Registry, Photo Center, etc.) are skipped. Add a department here by moving it into departments."
+ },
+ "exclude_path_keywords": [
+  "/tobacco"
+ ],
+ "path_rules": [
+  [
+   "/food/fresh produce",
+   "1"
   ],
-  "keyword_rules_for_food": [
-    ["frozen", "5"], ["beverage", "10"], ["drink", "10"], ["juice", "10"], ["soda", "10"], ["water", "10"],
-    ["coffee", "10"], ["tea", "10"], ["snack", "9"], ["chip", "9"], ["cookie", "9"], ["cracker", "9"],
-    ["candy", "9"], ["canned", "6"], ["jarred", "6"], ["soup", "6"], ["condiment", "11"], ["sauce", "11"],
-    ["dressing", "11"], ["spice", "11"], ["bread", "8"], ["bakery", "8"], ["dairy", "2"], ["cheese", "2"],
-    ["milk", "2"], ["egg", "2"], ["yogurt", "2"], ["meat", "3"], ["seafood", "3"], ["chicken", "3"],
-    ["beef", "3"], ["produce", "1"], ["fresh fruit", "1"], ["fresh vegetable", "1"]
+  [
+   "/food/shop all produce",
+   "1"
+  ],
+  [
+   "/fresh fruit",
+   "1"
+  ],
+  [
+   "/fresh vegetables",
+   "1"
+  ],
+  [
+   "/food/fresh food",
+   "1"
+  ],
+  [
+   "/food/dairy & eggs",
+   "2"
+  ],
+  [
+   "/food/shop all dairy",
+   "2"
+  ],
+  [
+   "/food/meat & seafood",
+   "3"
+  ],
+  [
+   "/food/shop all meat",
+   "3"
+  ],
+  [
+   "/food/deli",
+   "4"
+  ],
+  [
+   "/food/shop all deli",
+   "4"
+  ],
+  [
+   "/food/meal solutions",
+   "4"
+  ],
+  [
+   "/food/grab & go",
+   "9"
+  ],
+  [
+   "/food/frozen foods",
+   "5"
+  ],
+  [
+   "/food/shop all frozen",
+   "5"
+  ],
+  [
+   "/frozen",
+   "5"
+  ],
+  [
+   "/food/pantry/canned",
+   "6"
+  ],
+  [
+   "/food/pantry/soup",
+   "6"
+  ],
+  [
+   "canned & jarred",
+   "6"
+  ],
+  [
+   "/food/pantry/packaged meals",
+   "6"
+  ],
+  [
+   "/food/pantry/condiments",
+   "11"
+  ],
+  [
+   "/food/pantry/sauces",
+   "11"
+  ],
+  [
+   "/food/pantry/salad dressings",
+   "11"
+  ],
+  [
+   "/food/condiments",
+   "11"
+  ],
+  [
+   "/food/pantry/peanut butter",
+   "11"
+  ],
+  [
+   "/food/pantry/jams",
+   "11"
+  ],
+  [
+   "/food/pantry/honey",
+   "11"
+  ],
+  [
+   "/food/pantry/tex mex",
+   "11"
+  ],
+  [
+   "/food/pantry/herbs",
+   "28"
+  ],
+  [
+   "/food/pantry/cooking oils",
+   "28"
+  ],
+  [
+   "/food/baking",
+   "28"
+  ],
+  [
+   "/food/shop all baking",
+   "28"
+  ],
+  [
+   "/food/pantry/rice",
+   "7"
+  ],
+  [
+   "/food/pantry/pasta",
+   "7"
+  ],
+  [
+   "/food/pantry/stir fry",
+   "7"
+  ],
+  [
+   "/food/pantry/taco",
+   "7"
+  ],
+  [
+   "/food/pantry/pantry staples",
+   "7"
+  ],
+  [
+   "/food/pantry/cajun",
+   "7"
+  ],
+  [
+   "/food/breakfast & cereal",
+   "29"
+  ],
+  [
+   "/food/shop all breakfast",
+   "29"
+  ],
+  [
+   "/food/bakery & bread",
+   "8"
+  ],
+  [
+   "/food/shop all bread",
+   "8"
+  ],
+  [
+   "/food/snacks",
+   "9"
+  ],
+  [
+   "/food/candy",
+   "9"
+  ],
+  [
+   "/food/shop all candy",
+   "9"
+  ],
+  [
+   "/food/protein foods",
+   "9"
+  ],
+  [
+   "/snacks, cookies & chips/dips",
+   "11"
+  ],
+  [
+   "/snacks, cookies & chips/salsa",
+   "11"
+  ],
+  [
+   "/snacks, cookies & chips/pudding",
+   "9"
+  ],
+  [
+   "/snacks, cookies & chips/fruit pouches",
+   "6"
+  ],
+  [
+   "/food/beverages",
+   "10"
+  ],
+  [
+   "/food/coffee",
+   "10"
+  ],
+  [
+   "/food/modern tea",
+   "10"
+  ],
+  [
+   "/modern tea",
+   "10"
+  ],
+  [
+   "/coffee/coffee filters",
+   "16"
+  ],
+  [
+   "/coffee/coffee creamers",
+   "2"
+  ],
+  [
+   "/food/flower shop",
+   "32"
+  ],
+  [
+   "/value packs/beverages",
+   "10"
+  ],
+  [
+   "/value packs/canned",
+   "6"
+  ],
+  [
+   "/value packs/coffee",
+   "10"
+  ],
+  [
+   "/value packs/condiments",
+   "11"
+  ],
+  [
+   "/value packs/packaged meals",
+   "7"
+  ],
+  [
+   "/value packs/snacks",
+   "9"
+  ],
+  [
+   "/international food/international beverages",
+   "10"
+  ],
+  [
+   "/international food/international snacks",
+   "9"
+  ],
+  [
+   "/seasonal grocery/holiday desserts",
+   "8"
+  ],
+  [
+   "/seasonal grocery/grilling foods",
+   "3"
+  ],
+  [
+   "/deli/create your charcuterie",
+   "4"
+  ],
+  [
+   "/food/food gifts",
+   "9"
+  ],
+  [
+   "/baby/diapering/baby wipes",
+   "13"
+  ],
+  [
+   "/baby/feeding",
+   "13"
+  ],
+  [
+   "/baby/diapering",
+   "13"
+  ],
+  [
+   "/baby/baby bath",
+   "13"
+  ],
+  [
+   "/baby & toddler toys",
+   "21"
+  ],
+  [
+   "/baby/nursery",
+   "13"
+  ],
+  [
+   "/baby/car seats",
+   "13"
+  ],
+  [
+   "/baby/strollers",
+   "13"
+  ],
+  [
+   "/baby/baby travel",
+   "13"
+  ],
+  [
+   "/baby/health & safety",
+   "13"
+  ],
+  [
+   "/baby/baby activities",
+   "13"
+  ],
+  [
+   "/toddlers' room/toddlers' room decor",
+   "18"
+  ],
+  [
+   "/toddlers' room/toddler furniture",
+   "18"
+  ],
+  [
+   "/toddlers' room/toddler bedding",
+   "18"
+  ],
+  [
+   "/health and medicine/",
+   "14"
+  ],
+  [
+   "/pharmacy/",
+   "14"
+  ],
+  [
+   "/vision centers/eyewear accessories",
+   "14"
+  ],
+  [
+   "/sports medicine",
+   "14"
+  ],
+  [
+   "/home health care/exercise",
+   "27"
+  ],
+  [
+   "/protein/electrolytes",
+   "10"
+  ],
+  [
+   "/protein/protein drinks",
+   "10"
+  ],
+  [
+   "/protein/protein shakes",
+   "10"
+  ],
+  [
+   "/protein/protein bars",
+   "9"
+  ],
+  [
+   "/weight loss/meal replacements",
+   "10"
+  ],
+  [
+   "/caregiver/air purification",
+   "18"
+  ],
+  [
+   "/children's health/shop all humidifiers",
+   "14"
+  ],
+  [
+   "/personal care/",
+   "15"
+  ],
+  [
+   "/personal care/men's essentials/mens hair",
+   "30"
+  ],
+  [
+   "/hair care",
+   "30"
+  ],
+  [
+   "/beauty/",
+   "30"
+  ],
+  [
+   "/premium beauty/",
+   "30"
+  ],
+  [
+   "/beauty/personal care",
+   "15"
+  ],
+  [
+   "/oral care",
+   "15"
+  ],
+  [
+   "/bath & body",
+   "15"
+  ],
+  [
+   "/deodorant",
+   "15"
+  ],
+  [
+   "/shaving",
+   "15"
+  ],
+  [
+   "/feminine care",
+   "15"
+  ],
+  [
+   "/incontinence",
+   "15"
+  ],
+  [
+   "/sexual wellness",
+   "15"
+  ],
+  [
+   "/cold weather skincare",
+   "15"
+  ],
+  [
+   "/pets/",
+   "19"
+  ],
+  [
+   "/household essentials/",
+   "16"
+  ],
+  [
+   "/household essentials/food storage",
+   "16"
+  ],
+  [
+   "/home/kitchen",
+   "17"
+  ],
+  [
+   "/home/food storage",
+   "17"
+  ],
+  [
+   "/home/dining",
+   "17"
+  ],
+  [
+   "/home/",
+   "18"
+  ],
+  [
+   "/home improvement/",
+   "31"
+  ],
+  [
+   "/patio & garden/",
+   "32"
+  ],
+  [
+   "/office supplies/",
+   "20"
+  ],
+  [
+   "/arts crafts & sewing/",
+   "20"
+  ],
+  [
+   "/toys/",
+   "21"
+  ],
+  [
+   "/books/",
+   "21"
+  ],
+  [
+   "/seasonal/",
+   "22"
+  ],
+  [
+   "/party & occasions/",
+   "22"
+  ],
+  [
+   "/auto & tires/",
+   "24"
+  ],
+  [
+   "/electronics/",
+   "25"
+  ],
+  [
+   "/cell phones/",
+   "25"
+  ],
+  [
+   "/jewelry/",
+   "26"
+  ],
+  [
+   "/sports & outdoors/",
+   "27"
   ]
+ ],
+ "retired_categories": {
+  "12": "International/Specialty (2026-10-08: international foods are labelled by what they are)"
+ },
+ "exclude_note": "What is not carried at all (apparel, footwear, pet beds, alcohol, tobacco, media) is decided by crawler/classify.exclusion() from the name, brand and path; docs/CATEGORIES.md lists the rules.",
+ "consumable_note": "consumable departments get a per-unit price (price per oz, fl oz or count); durable-goods departments never do (2026-10-08)."
 }

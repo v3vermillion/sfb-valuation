@@ -99,7 +99,7 @@ class T(unittest.TestCase):
         food = next(d for d in st["departments"] if d["name"] == "Food")
         self.assertEqual(food["pages"], 2)
         stats = self.process.build()
-        self.assertEqual(stats["rejects_by_department"]["Food"].get("media_misfiled"), 1)
+        self.assertEqual(stats["rejects_by_department"]["Food"].get("media"), 1)
         rows = {r["id"]: r for r in self.store.iter_jsonl_gz(self.process.BUILD / "candidate" / "items.jsonl.gz")}
         self.assertIn(15544057, rows); self.assertNotIn(1033828, rows)
         self.assertEqual(rows[2]["pack"], 12); self.assertIn("promo_price", rows[2]["flags"])

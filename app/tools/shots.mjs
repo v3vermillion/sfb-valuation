@@ -6,7 +6,7 @@
 import { chromium, webkit, devices } from "playwright";
 import fs from "node:fs";
 import path from "node:path";
-import { AUDIT_JS } from "./audit-lib.mjs";
+import { AUDIT_JS, browserNote, foldNotes } from "./audit-lib.mjs";
 
 const args = Object.fromEntries(process.argv.slice(2).map((a, i, arr) => (a.startsWith("--") ? [a.slice(2), arr[i + 1] && !arr[i + 1].startsWith("--") ? arr[i + 1] : true] : [])).filter((x) => x.length));
 const BROWSER = String(args.browser || "chromium").toLowerCase();
@@ -29,10 +29,18 @@ for (const scheme of ["light", "dark"]) {
     const options = { viewport: { width: sz.width, height: sz.height }, deviceScaleFactor: sz.dpr, isMobile: sz.width < 700, hasTouch: true, colorScheme: scheme };
     if (!IS_CHROMIUM && sz.width < 700 && IPHONE_UA) options.userAgent = IPHONE_UA;   // phone sizes look like Safari on iPhone
     const ctx = await browser.newContext(options);
+    // unhandled promise rejections are logged as console errors, so they count whether or not the engine also
+    // reports them as a "pageerror"
+    await ctx.addInitScript(() => addEventListener("unhandledrejection", (e) => console.error(`Unhandled promise rejection: ${e.reason?.message || e.reason}`)));
     const page = await ctx.newPage();
-    const errors = [];
+    const errors = [], notes = [];
     page.on("pageerror", (e) => errors.push(e.message));
-    page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
+    // console.error is a page error unless it is a known, harmless browser message (audit-lib.mjs BROWSER_NOTES)
+    page.on("console", (m) => {
+      if (m.type() !== "error") return;
+      const note = browserNote(m.text());
+      if (note) { if (!notes.some((n) => n.message === note.message)) notes.push(note); } else errors.push(m.text());
+    });
     const tag = `${IS_CHROMIUM ? "" : `${BROWSER}-`}${scheme}-${sz.name}`;
     try {
       await page.goto(URL_, { waitUntil: "domcontentloaded" });
@@ -62,7 +70,7 @@ for (const scheme of ["light", "dark"]) {
       errors.push(`run stopped: ${String(err?.message || err).split("\n")[0]}`);
       await page.screenshot({ path: `${OUT}/${tag}-failed.png` }).catch(() => {});
     }
-    if (errors.length) audit.pages.push({ page: tag, errors });
+    if (errors.length || notes.length) audit.pages.push({ page: tag, ...(errors.length ? { errors } : {}), ...(notes.length ? { notes } : {}) });
     await ctx.close();
   }
 }
@@ -75,6 +83,8 @@ const summary = {
   smallText: flat("smallText"),
   lowContrast: flat("lowContrast"),
   errors: audit.pages.filter((p) => p.errors).map((p) => ({ page: p.page, errors: p.errors })),
+  // known browser messages that are not errors (listed, never counted)
+  notes: foldNotes(audit.pages),
 };
 // colours the browser could not resolve through a canvas are left out of the contrast check, so say so
 const unparsed = flat("unparsedColors");

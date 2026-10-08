@@ -51,7 +51,7 @@ def make_stats(rows, run_id=RUN_ID):
             "raw_by_department": dict(Counter(r["dept"] for r in rows)),
             "kept_by_category": dict(Counter(r["cat"] for r in rows)),
             "kept_by_department": dict(Counter(r["dept"] for r in rows)),
-            "rejects_by_department": {"Food": {"media_misfiled": 1}}, "flags": dict(Counter(f for r in rows for f in r["flags"])),
+            "rejects_by_department": {"Food": {"media": 1}}, "flags": dict(Counter(f for r in rows for f in r["flags"])),
             "upc_price_conflicts": 0, "upc_price_conflict_examples": []}
 
 

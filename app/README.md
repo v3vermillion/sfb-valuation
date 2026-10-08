@@ -70,12 +70,12 @@ on the sheet; `prefers-reduced-motion` turns it off and `prefers-contrast: more`
 
 ## Data: loading and indexing
 
-**Pack format (sfb-pack v1)** — built once per snapshot by `tools/build-db.mjs`, served as static files under
+**Pack format (sfb-pack v2)** — built once per snapshot by `tools/build-db.mjs`, served as static files under
 `/db/<version>/` with immutable caching, ~32 MB over the wire for 760k items:
 
 | file | contents |
 |---|---|
-| `cols.bin.gz` | per-item columns in rank order: price (u32 cents), size (f32), pack (u16), unit, basis, flags, category (u8), Walmart id (f64), GTIN-14 (f64) |
+| `cols.bin.gz` | per-item columns in rank order: price (u32 cents: what the app shows), size (f32), pack (u16), unit, basis, flags, category (u8), Walmart id (f64), GTIN-14 (f64); v2 appends flags2 (u8: placeholder, price withheld, discontinued, value confidence), value basis (u32 rank) and Walmart's own price of a withheld item (u32 cents). A v1 reader stops before the v2 arrays. Placeholders are in the UPC index but never in the token index |
 | `strings-N.bin.gz` | `brand\x1Fname` blobs with offset tables, sharded so no file exceeds Cloudflare's 25 MiB limit |
 | `upc.bin.gz` | sorted GTIN-14 keys → rank, primary listing first for each barcode |
 | `tokens.bin.gz` | sorted dictionary + varint-delta posting lists + each token's home category |
@@ -139,6 +139,13 @@ Memory (`memory`: page and search-worker JS heap, the open pack's buffers) and l
 Actions → **app-browsers** → Run workflow builds the 760k fixture, runs both browsers (Chromium unthrottled by default, so the
 two are compared at the same speed) and writes a Chromium-vs-WebKit table to the run summary. The table flags any metric where
 WebKit is more than 25% slower, or that failed. Screenshots and JSON are uploaded as artifacts.
+"Sheet painted" is the same mark in both engines: the sheet is open and the main thread has rendered the first frame that
+shows it (rAF, then a task queued from it). The sheet two frames later ("presented", the old double-rAF mark) is listed as a
+diagnosis only, since WebKit's second frame waits for its compositor (software on a GPU-less runner) and Chromium's does not;
+`lookup.withoutBackdropFilter` repeats it with every backdrop-filter off to show how much of that is blur. The audit counts
+real page errors only (uncaught exceptions, unhandled rejections, console errors); known harmless browser messages, such as
+WebKit ignoring the viewport's `interactive-widget` key (kept for Chrome on Android's keyboard), are listed as notes
+(`BROWSER_NOTES` in `tools/audit-lib.mjs`).
 
 ## Offline and updates
 

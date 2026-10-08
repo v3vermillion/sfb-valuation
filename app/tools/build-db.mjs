@@ -9,6 +9,11 @@
 //
 // Format "sfb-pack v1" (all integers little-endian, arrays 8-byte aligned, every .bin gzipped as a whole):
 //   cols.bin     "SFBC" u32 N | price u32[N] cents | size f32[N] | pack u16[N] | unit u8[N] | basis u8[N] | flags u8[N] | cat u8[N] | id f64[N] | upc f64[N]
+//                | flags2 u8[N] | valueBasis u32[N] (rank, 0xFFFFFFFF = none) | rawPrice u32[N] cents (0 = not withheld)
+//                (the three trailing arrays were added in format 2; a format-1 reader stops before them)
+//                price is what the app shows: Walmart's price, or for a withheld price (flags2 PRICE_WITHHELD) its
+//                equivalent value, with Walmart's own price in rawPrice; flags2 bits: 1 placeholder (barcode lookup only,
+//                never in the token index), 2 price withheld, 4 discontinued, bits 3-4 value confidence (0 rough .. 3 high)
 //   strings-K    "SFBS" u32 count u32 firstRank | offsets u32[count+1] | utf8 bytes of "brand\x1Fname" per item
 //   upc.bin      "SFBU" u32 M | keys f64[M] sorted (GTIN-14 as a number; primary row first within a key) | ranks u32[M]
 //   tokens.bin   "SFBT" u32 T u32 postingBytes | dictOff u32[T+1] | dict utf8 (tokens in byte order) | postOff u32[T+1] | postings (varint deltas of ascending ranks) | tokCat u8[T] (dominant category, 0 = none)
@@ -32,6 +37,9 @@ const TO_FLOZ = { "fl oz": 1, ml: 0.033814, l: 33.814, gal: 128, qt: 32, pt: 16 
 const F = { RETIRED: 1, NO_SIZE: 2, PROMO: 4, CARRIED: 8, STORE_BRAND: 16, PRIMARY: 32, SIZE_CONFLICT: 64, UNAVAILABLE: 128 };
 const CORE_DEPTS = new Set(["Food", "Health and Medicine", "Pharmacy", "Personal Care", "Beauty", "Baby", "Pets", "Household Essentials"]);
 const CONF = { low: 0, medium: 1, high: 2 };
+const F2 = { PLACEHOLDER: 1, PRICE_WITHHELD: 2, DISCONTINUED: 4 };
+const VALUE_CONF = { rough: 0, low: 1, medium: 2, high: 3 };
+const NO_RANK = 0xFFFFFFFF;
 
 function arg(name, dflt) {
   const i = process.argv.indexOf("--" + name);
@@ -76,9 +84,10 @@ const srcStats = fs.existsSync(path.join(pubDir, "stats.json")) ? JSON.parse(fs.
 // table, this builder, the tokenizer, the format), so an identify refresh or a builder change ships as a new version
 // instead of new bytes under an "immutable" URL that phones already hold.
 const snapshot = String(srcManifest.version);
-const FORMAT_VERSION = 1;
+const FORMAT_VERSION = 2;
 const packHash = crypto.createHash("sha256").update(`sfb-pack/${FORMAT_VERSION}\n`);
-for (const f of [fileURLToPath(import.meta.url), path.join(APP, "public", "js", "tokenize.js"), path.join(STORE, "identify", "equivalents.jsonl.gz")]) {
+const CATEGORIES_FILE = path.join(APP, "..", "data", "categories.json");
+for (const f of [fileURLToPath(import.meta.url), path.join(APP, "public", "js", "tokenize.js"), path.join(STORE, "identify", "equivalents.jsonl.gz"), CATEGORIES_FILE]) {
   const parts = jsonlFiles(f);
   packHash.update(parts.length ? Buffer.concat(parts.map((p) => fs.readFileSync(p))) : Buffer.from("none")).update("\n");
 }
@@ -98,6 +107,11 @@ for await (const r of jsonlGz(path.join(pubDir, srcManifest.file || "items.jsonl
   if (r.store_brand) bits |= F.STORE_BRAND;
   if (r.primary) bits |= F.PRIMARY;
   if (r.stock && r.stock !== "Available") bits |= F.UNAVAILABLE;
+  let bits2 = 0;
+  if (flags.includes("placeholder")) bits2 |= F2.PLACEHOLDER;
+  if (flags.includes("discontinued")) bits2 |= F2.DISCONTINUED;
+  const withheld = Boolean(r.price_withheld && r.equiv && r.equiv.price > 0);
+  if (withheld) bits2 |= F2.PRICE_WITHHELD | ((VALUE_CONF[r.equiv.confidence] ?? 0) << 3);
   const name = String(r.name || "").trim();
   const brand = String(r.brand || "").trim();
   const upc = gtinNumber(r.upc);
@@ -112,9 +126,12 @@ for await (const r of jsonlGz(path.join(pubDir, srcManifest.file || "items.jsonl
   if (bits & F.RETIRED) score -= 3;
   if (bits & F.NO_SIZE) score -= 0.5;
   if (bits & F.PROMO) score -= 0.2;
+  if (bits2 & F2.PLACEHOLDER) score -= 2;
+  if (withheld) score -= 1;
   score -= Math.min(1, name.length / 120);
   items.push({
-    id: Number(r.id), upc, name, brand, price: Math.round(Number(r.price) * 100), size: r.size == null ? 0 : Number(r.size),
+    id: Number(r.id), upc, name, brand, price: Math.round(Number(withheld ? r.equiv.price : r.price) * 100), size: r.size == null ? 0 : Number(r.size),
+    flags2: bits2, rawPrice: withheld ? Math.round(Number(r.price) * 100) : 0, valueBasisId: withheld && r.equiv.basis_id != null ? Number(r.equiv.basis_id) : null,
     unit: UNIT[r.unit] || 0, unitName: r.unit || null, pack: Math.min(65535, Number(r.pack) || 1), basis: r.basis === "lb" ? 1 : 0,
     cat: Number(r.cat) || 0, flags: bits, score, dept: r.dept,
   });
@@ -166,8 +183,15 @@ function writeGz(name, buf) {
     const it = items[i];
     price[i] = it.price; size[i] = it.size; pack[i] = it.pack; unit[i] = it.unit; basis[i] = it.basis; flags[i] = it.flags; cat[i] = it.cat; id[i] = it.id; upc[i] = it.upc;
   }
+  const flags2 = new Uint8Array(N), valueBasis = new Uint32Array(N).fill(NO_RANK), rawPrice = new Uint32Array(N);
+  for (let i = 0; i < N; i++) {
+    const it = items[i];
+    flags2[i] = it.flags2; rawPrice[i] = Math.min(0xFFFFFFFF, it.rawPrice);
+    if (it.valueBasisId != null && rankById.has(it.valueBasisId)) valueBasis[i] = rankById.get(it.valueBasisId);
+  }
   writeGz("cols.bin", concatAligned([header("SFBC", N), Buffer.from(price.buffer), Buffer.from(size.buffer), Buffer.from(pack.buffer), Buffer.from(unit.buffer),
-    Buffer.from(basis.buffer), Buffer.from(flags.buffer), Buffer.from(cat.buffer), Buffer.from(id.buffer), Buffer.from(upc.buffer)]));
+    Buffer.from(basis.buffer), Buffer.from(flags.buffer), Buffer.from(cat.buffer), Buffer.from(id.buffer), Buffer.from(upc.buffer),
+    Buffer.from(flags2.buffer), Buffer.from(valueBasis.buffer), Buffer.from(rawPrice.buffer)]));
 }
 
 // ---------------------------------------------------------------- 4. strings (sharded, ≤ ~40 MB raw each)
@@ -205,6 +229,7 @@ function writeGz(name, buf) {
 {
   const post = new Map();   // token -> number[] ranks (ascending, since we iterate ranks in order)
   for (let i = 0; i < N; i++) {
+    if (items[i].flags2 & F2.PLACEHOLDER) continue;        // barcode lookup only: a placeholder name never answers a typed search
     for (const t of uniqueTokens(items[i].brand + " " + items[i].name)) {
       let a = post.get(t);
       if (!a) { a = []; post.set(t, a); }
@@ -276,7 +301,7 @@ function writeGz(name, buf) {
 {
   const src = JSON.parse(fs.readFileSync(path.join(APP, "data", "plu.json"), "utf8"));
   const produce = [];
-  for (let i = 0; i < N; i++) if (items[i].cat === 1) produce.push(i);
+  for (let i = 0; i < N; i++) if (items[i].cat === 1 && !(items[i].flags2 & (F2.PLACEHOLDER | F2.PRICE_WITHHELD))) produce.push(i);
   const toks = new Map(produce.map((i) => [i, uniqueTokens(items[i].name)]));
   const out = [];
   let priced = 0;
@@ -311,6 +336,7 @@ const manifest = {
   priceDate: (srcStats.built || srcManifest.published || "").slice(0, 10),
   items: N, upcs: files._upcs, equivalents: files._equivalents, tokens: files._tokens, postings: files._postings,
   fixture: Boolean(srcManifest.fixture), gatesPassed: srcManifest.gates_passed ?? null, approvedManually: srcManifest.approved_manually ?? null,
+  categories: fs.existsSync(CATEGORIES_FILE) ? JSON.parse(fs.readFileSync(CATEGORIES_FILE, "utf8")).categories : null,
   files: {
     cols: files["cols.bin"], strings: files._stringShards.map((s) => ({ ...s, ...files[s.file.replace(/\.gz$/, "")] })),
     upc: files["upc.bin"], tokens: files["tokens.bin"], equiv: files["equiv.bin"], plu: files["plu.json"],

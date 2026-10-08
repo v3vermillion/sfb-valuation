@@ -36,6 +36,12 @@ question: does this sample show a *class* of bad rows that the deterministic che
   item (a candy bar at $45, a mattress at $0.99).
 - Placeholder, test or empty listings.
 
+## Category labels (measured, not junk)
+
+Each row's `category` should name what the item is, the way a store labels it (the list and its boundaries are in
+docs/CATEGORIES.md: for example canned soup is Canned & Jarred Foods, frozen pizza is Frozen Foods, shampoo is Beauty,
+toothpaste is Personal Care, a cheese board is Kitchen & Dining). A wrong category is not junk; count it separately.
+
 ## What "systematic junk" means
 
 Systematic junk is a whole class of bad rows, not an isolated oddity: for example every row from one
@@ -54,10 +60,14 @@ Return strict JSON only, no prose before or after:
   "systematic_junk": false,
   "junk_rate": 0.01,
   "junk_examples": [{"id": 123, "why": "one short reason"}],
-  "notes": "one or two sentences on what you saw"
+  "notes": "one or two sentences on what you saw",
+  "miscategorized_rate": 0.02,
+  "miscategorized_examples": [{"id": 123, "category": "Snacks & Candy", "should_be": "Breakfast & Cereal"}]
 }
 ```
 
 - `junk_rate` is the share of the sampled rows you judge to be junk (0 to 1).
 - `junk_examples` lists the junk rows you found (item `id` and a short reason), at most 25.
 - `notes` names any repeating pattern, or says the sample looks clean.
+- `miscategorized_rate` is the share of sampled rows whose category does not fit the item; `miscategorized_examples`
+  lists them (at most 25).

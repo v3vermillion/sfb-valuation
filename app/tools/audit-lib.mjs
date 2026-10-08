@@ -40,3 +40,32 @@ export const AUDIT_JS = () => {
   if (unparsed.size) out.unparsedColors = [...unparsed].map(([color, tag]) => ({ color, tag }));
   return out;
 };
+
+// ---- page errors vs browser notes (used by shots.mjs; pure, tested in tests/audit-lib.test.mjs)
+// A real page error is an uncaught exception, an unhandled promise rejection, or a console.error that is not on the list
+// below. The list holds only exact messages a browser itself logs about markup it deliberately does not support, each
+// with the reason it is harmless; they are reported as notes, never counted as errors. Anything else stays an error.
+export const BROWSER_NOTES = [
+  {
+    match: /^Viewport argument key "interactive-widget" not recognized and ignored\.?$/,
+    why: "WebKit does not implement the viewport meta's interactive-widget key and says so once per page. The key is kept on purpose: it makes Chrome on Android shrink the layout viewport above the keyboard (so 92dvh sheets and the fixed dock stay visible); Safari ignores it and the app's visualViewport keyboard inset (--kb) covers iOS.",
+  },
+];
+
+/** A console.error's text -> the matching browser note ({ message, why }), or null when it must count as a page error. */
+export function browserNote(text) {
+  const t = String(text ?? "").trim();
+  const n = BROWSER_NOTES.find((b) => b.match.test(t));
+  return n ? { message: t, why: n.why } : null;
+}
+
+/** Fold per-screen notes into one entry per message: { message, why, pages: [screen, ...] }. */
+export function foldNotes(pages) {
+  const by = new Map();
+  for (const p of pages) for (const n of p.notes || []) {
+    const e = by.get(n.message) || { message: n.message, why: n.why, pages: [] };
+    if (!e.pages.includes(p.page)) e.pages.push(p.page);
+    by.set(n.message, e);
+  }
+  return [...by.values()];
+}

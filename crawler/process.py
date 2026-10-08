@@ -13,7 +13,7 @@ import json, math, statistics
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 
-from . import store
+from . import classify, store, valuation
 from .normalize import normalize
 
 BUILD = store.ROOT / "build"
@@ -75,6 +75,30 @@ def build():
             r = dict(r); r.setdefault("flags", []).append("carried_over")
             rows[iid] = r; carried += 1
 
+    # categories: the name's noun decided against how coherent each Walmart path is across the whole snapshot
+    # (classify.PathStats); rows carried over from an earlier snapshot are classified again with today's rules
+    cfg_depts = {d["name"]: d for d in cfg["departments"]}
+    stats_paths = classify.PathStats()
+    for r in rows.values():
+        if "noun" not in r:
+            d = cfg_depts.get(r.get("dept"))
+            nn = classify.noun(r["name"], r.get("path"), d, cfg) if d else None
+            r["noun"] = list(nn) if nn else None
+        if "placeholder" not in r.get("flags", []):
+            stats_paths.add(r.get("path"), r["noun"])
+    for r in rows.values():
+        nn, d = r.pop("noun", None), cfg_depts.get(r.get("dept"))
+        if d:
+            r["cat"] = str(classify.decide(tuple(nn) if nn else None, r.get("path"), d, cfg, stats_paths, r["name"]))
+
+    # price sanity before anything that depends on a listing being kept (crawler/valuation.py): an implausible price is
+    # withheld, and a placeholder with one is dropped, before primaries are chosen and per-unit prices are judged (a
+    # $3e21 listing is not a parsing problem); the equivalent value is attached once per-unit prices are final
+    from .qa import unit_outlier_stats, gates_config
+    bounds, dropped_placeholders = valuation.withhold(rows, gates_config())
+    for _, dept_name in dropped_placeholders:
+        rejects[dept_name]["placeholder_price"] += 1           # a barcode-only listing with an implausible price
+
     # one primary row per UPC (barcode lookups): prefer current, in stock, normal price, newest listing
     by_upc = defaultdict(list)
     for r in rows.values():
@@ -93,7 +117,6 @@ def build():
     # per-unit prices that are more than 10x off their category+unit median are almost always a parsing
     # artefact (a packet size taken for the carton, a count read as a weight): keep the item price, drop the
     # per-unit price and flag the row so the app shows nothing misleading and identify.py never uses it as a basis
-    from .qa import unit_outlier_stats, gates_config
     group_min = int(gates_config().get("unit_outlier_group_min") or 50)
     before_share, _, before = unit_outlier_stats(rows.values(), group_min)
     resolved = resolve_packs(rows.values(), group_min)
@@ -104,7 +127,10 @@ def build():
         r["flags"].append("unit_price_suspect")
     unit_outliers_raw = {"share": raw_share, "unit_priced_rows": unit_priced, "count": len(outliers),
                          "examples": outliers[:25], "before_pack_resolution": {"share": before_share, "count": len(before)},
-                         "pack_resolved": resolved}
+                         "pack_resolved": resolved, "scope": "consumable departments (no per-unit price elsewhere)"}
+
+    withheld = valuation.attach_values(rows, bounds, group_min)
+    price_bounds = {d: {"low": lo, "high": hi, "p99": p99} for d, (lo, hi, p99) in bounds.items()}
 
     stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
     out = BUILD / "candidate"
@@ -119,6 +145,10 @@ def build():
         "flags": dict(Counter(f for r in rows.values() for f in r["flags"])),
         "upc_price_conflicts": len(conflicts), "upc_price_conflict_examples": conflicts[:25],
         "unit_outliers_raw": unit_outliers_raw,
+        "price_bounds": price_bounds, "price_withheld": withheld,
+        "placeholders": {"count": sum(1 for r in rows.values() if "placeholder" in r["flags"]),
+                         "examples": [{"id": r["id"], "upc": r.get("upc"), "name": r["name"], "dept": r["dept"],
+                                       "price": r["price"]} for r in rows.values() if "placeholder" in r["flags"]][:50]},
     }
     store.write_json(out / "stats.json", stats)
     state["status"] = "built"
