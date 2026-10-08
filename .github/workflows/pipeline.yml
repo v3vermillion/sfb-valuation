@@ -1,20 +1,28 @@
 name: pipeline
 
+# One Walmart budget, one queue: every job that talks to Walmart runs here, one kind of work per run
+# (crawler/ci.py decide(): sizing > crawl resume > build/gates/publish > weekly audit > identify).
+# Every 30 minutes a run peeks at the data-store branch through the API (a few small JSON files) and
+# stops before checking anything out when there is nothing to do. Problems open GitHub issues labelled
+# pipeline-alert (.github/actions/alert) and close them when the condition clears; nobody has to watch.
+# Manual runs (workflow_dispatch) always run the chosen plan.
+
 on:
   workflow_dispatch:
     inputs:
       plan:
-        description: "continue | core | full | approve | identify | status"
+        description: "continue | full | core | approve | identify | audit | size | status"
         required: true
         default: continue
+        type: choice
+        options: [continue, full, core, approve, identify, audit, size, status]
   schedule:
-    - cron: "0 6 1 * *"      # monthly full crawl (1st, 06:00 UTC)
-    - cron: "0 7 * * 1"      # weekly core price refresh (Mondays, 07:00 UTC)
-    - cron: "30 */12 * * *"  # every 12h: resume anything paused or unfinished
+    - cron: "17,47 * * * *"   # resume check every 30 min, off-peak minutes
 
 permissions:
   contents: write
   actions: write
+  issues: write
 
 concurrency:
   group: pipeline
@@ -23,46 +31,172 @@ concurrency:
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 350
+    # the crawl budget (schedule.budget_min, 300) plus up to 45 min of 429 waits inside one request, sizing,
+    # the sample review and finish; 360 is GitHub's ceiling for a job
+    timeout-minutes: 360
     env:
       WM_CONSUMER_ID: ${{ secrets.WM_CONSUMER_ID }}
       WM_PRIVATE_KEY: ${{ secrets.WM_PRIVATE_KEY }}
       WM_KEY_VERSION: ${{ vars.WM_KEY_VERSION || '1' }}
       SFB_STORE: store
+      PLAN: ${{ inputs.plan || 'continue' }}
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/checkout@v5
-        with:
-          ref: data-store
-          path: store
-          fetch-depth: 1
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - run: pip install -q -r requirements.txt
-      - name: Configure store git identity
-        run: |
-          git -C store config user.name "sfb-pipeline"
-          git -C store config user.email "sfb-pipeline@users.noreply.github.com"
-      - name: Choose plan
-        id: plan
-        run: |
-          case "${{ github.event.schedule }}" in
-            "0 6 1 * *") echo "plan=full" >> "$GITHUB_OUTPUT" ;;
-            "0 7 * * 1") echo "plan=core" >> "$GITHUB_OUTPUT" ;;
-            "30 */12 * * *") echo "plan=continue" >> "$GITHUB_OUTPUT" ;;
-            *) echo "plan=${{ github.event.inputs.plan || 'continue' }}" >> "$GITHUB_OUTPUT" ;;
-          esac
-      - name: Check secrets
-        run: |
-          if [ -z "$WM_CONSUMER_ID" ] || [ -z "$WM_PRIVATE_KEY" ]; then
-            echo "::error::Add repository secrets WM_CONSUMER_ID and WM_PRIVATE_KEY (Settings > Secrets and variables > Actions)"; exit 1
-          fi
-      - name: Run pipeline
-        id: ci
-        run: python -m crawler.ci --plan "${{ steps.plan.outputs.plan }}" --budget-min 300
-      - name: Chain next run
-        if: steps.ci.outputs.next != ''
+
+      - name: Peek at the data-store (small JSON files via the API, no checkout)
+        id: peek
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run pipeline.yml -f plan=${{ steps.ci.outputs.next }}
+        run: |
+          set -u
+          mkdir -p store-peek
+          fetch() {
+            local p="$1" dest="store-peek/$1"
+            mkdir -p "$(dirname "$dest")"
+            if gh api -H "Accept: application/vnd.github.raw" \
+                 "repos/${GITHUB_REPOSITORY}/contents/${p}?ref=data-store" > "$dest" 2>/dev/null; then
+              echo "peek: $p ($(wc -c < "$dest") bytes)"
+            else
+              rm -f "$dest"; echo "peek: $p not on data-store (fine)"
+            fi
+          }
+          for p in state/run.json build/published/manifest.json sizing.json audit/latest.json \
+                   build/candidate/gates.json identify/latest.json; do
+            fetch "$p"
+          done
+          SFB_STORE=store-peek python -m crawler.ci --plan peek
+
+      # ---- everything below runs only when there is work, or when David chose a plan ----
+
+      - name: Check out the data-store branch
+        if: steps.peek.outputs.work != 'none' || github.event_name == 'workflow_dispatch'
+        uses: actions/checkout@v5
+        with:
+          ref: data-store
+          path: store
+          fetch-depth: 1
+
+      - name: Configure store git identity
+        if: steps.peek.outputs.work != 'none' || github.event_name == 'workflow_dispatch'
+        run: |
+          set -u
+          git -C store config user.name "sfb-pipeline"
+          git -C store config user.email "sfb-pipeline@users.noreply.github.com"
+
+      - name: Check secrets
+        if: (steps.peek.outputs.work != 'none' || github.event_name == 'workflow_dispatch') && env.PLAN != 'status'
+        run: |
+          set -u
+          if [ -z "${WM_CONSUMER_ID:-}" ] || [ -z "${WM_PRIVATE_KEY:-}" ]; then
+            echo "::error::Add repository secrets WM_CONSUMER_ID and WM_PRIVATE_KEY (Settings > Secrets and variables > Actions)"
+            exit 1
+          fi
+
+      - name: Run
+        id: ci
+        if: steps.peek.outputs.work != 'none' || github.event_name == 'workflow_dispatch'
+        run: |
+          set -u
+          # crawl minutes per run from data/schedule.json (a broken file falls back to 300, like crawler/ci.py does)
+          BUDGET="$(python - <<'EOF'
+          import json
+          try:
+              v = json.load(open("data/schedule.json")).get("budget_min", 300)
+              print(v if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0 else 300)
+          except Exception:
+              print(300)
+          EOF
+          )"
+          echo "budget: $BUDGET min"
+          python -m crawler.ci --plan "$PLAN" --budget-min "$BUDGET"
+
+      - name: Sample review
+        if: steps.ci.outputs.review == 'pending'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SFB_REVIEW_MODEL: ${{ vars.SFB_REVIEW_MODEL }}
+        run: python -m crawler.review run
+
+      - name: Finish
+        id: finish
+        if: steps.ci.outputs.review == 'pending'
+        run: python -m crawler.ci --plan finish
+
+      - name: Collect outputs
+        id: result
+        env:
+          PEEK_ALERT: ${{ steps.peek.outputs.alert }}
+          PEEK_TITLE: ${{ steps.peek.outputs.alert_title }}
+          PEEK_BODY: ${{ steps.peek.outputs.alert_body_file }}
+          CI_OUTCOME: ${{ steps.ci.outcome }}
+          CI_ALERT: ${{ steps.ci.outputs.alert }}
+          CI_TITLE: ${{ steps.ci.outputs.alert_title }}
+          CI_BODY: ${{ steps.ci.outputs.alert_body_file }}
+          CI_RESOLVE: ${{ steps.ci.outputs.resolve }}
+          CI_NEXT: ${{ steps.ci.outputs.next }}
+          FIN_OUTCOME: ${{ steps.finish.outcome }}
+          FIN_ALERT: ${{ steps.finish.outputs.alert }}
+          FIN_TITLE: ${{ steps.finish.outputs.alert_title }}
+          FIN_BODY: ${{ steps.finish.outputs.alert_body_file }}
+          FIN_RESOLVE: ${{ steps.finish.outputs.resolve }}
+          FIN_NEXT: ${{ steps.finish.outputs.next }}
+        run: |
+          set -u
+          alert=none; title=""; body=""
+          pick() {  # first non-empty alert wins: finish, then run, then peek
+            if [ "$alert" = none ] && [ -n "$1" ] && [ "$1" != none ]; then alert="$1"; title="$2"; body="$3"; fi
+          }
+          [ "$FIN_OUTCOME" = success ] && pick "$FIN_ALERT" "$FIN_TITLE" "$FIN_BODY"
+          [ "$CI_OUTCOME" = success ] && pick "$CI_ALERT" "$CI_TITLE" "$CI_BODY"
+          pick "$PEEK_ALERT" "$PEEK_TITLE" "$PEEK_BODY"
+          keys="$CI_RESOLVE,$FIN_RESOLVE"
+          [ "$CI_OUTCOME" = success ] && keys="$keys,pipeline-failed"
+          resolve="$(printf '%s' "$keys" | tr ',' '\n' | sed '/^[[:space:]]*$/d' | sort -u | paste -sd, -)"
+          case ",$resolve," in *",$alert,"*) alert=none ;; esac   # raised and cleared in one run: cleared
+          # next run to chain: a named plan from Run (e.g. the full crawl David asked for) beats a plain continue
+          next="$CI_NEXT"
+          if [ -n "$FIN_NEXT" ] && { [ -z "$next" ] || [ "$next" = continue ]; }; then next="$FIN_NEXT"; fi
+          {
+            echo "alert=$alert"; echo "alert_title=$title"; echo "alert_body_file=$body"
+            echo "resolve=$resolve"; echo "next=$next"
+          } >> "$GITHUB_OUTPUT"
+          echo "alert=$alert resolve=$resolve next=$next"
+
+      - name: Alert
+        if: steps.result.outputs.alert != '' && steps.result.outputs.alert != 'none'
+        uses: ./.github/actions/alert
+        with:
+          key: ${{ steps.result.outputs.alert }}
+          title: ${{ steps.result.outputs.alert_title }}
+          body_file: ${{ steps.result.outputs.alert_body_file }}
+
+      - name: Resolve cleared alerts
+        if: steps.result.outputs.resolve != ''
+        uses: ./.github/actions/alert
+        with:
+          mode: resolve
+          key: ${{ steps.result.outputs.resolve }}
+
+      - name: Chain the next run
+        # after Alert/Resolve so a failed dispatch never drops them; the 30-minute schedule covers a lost chain
+        if: steps.result.outputs.next != ''
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NEXT: ${{ steps.result.outputs.next }}
+        run: gh workflow run pipeline.yml -f plan="$NEXT"
+
+      - name: Alert on failure
+        if: failure()
+        uses: ./.github/actions/alert
+        with:
+          key: pipeline-failed
+          title: pipeline run failed
+          body: |
+            A pipeline run failed (plan `${{ env.PLAN }}`, event `${{ github.event_name }}`).
+            Open the run below, read the failing step, and fix the cause; the next successful run closes this issue.
+            The 30-minute schedule keeps retrying meanwhile and the published snapshot stays live.

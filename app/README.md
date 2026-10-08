@@ -19,6 +19,7 @@ app/
     js/barcode.js    GTIN / UPC-E / store-label / PLU mathematics
     js/resolve.js    resolution engine (exact → label → PLU → equivalent → closest)
     js/scanner.js    camera + native BarcodeDetector (self-tested) or zxing-cpp wasm in a worker
+    js/staleness.js  how old the prices are (fresh / amber 14 d / red 45 d) in a volunteer's words
     vendor/          zxing-wasm reader (ESM + wasm, Apache-2.0)   fonts/  Geist + Geist Mono (OFL)
   tools/
     make_fixture.py  760k-row synthetic snapshot in the crawler's row format (through crawler/normalize.py); its
@@ -28,7 +29,7 @@ app/
     serve.mjs        local static server that mirrors production headers
     measure.mjs      the performance numbers below (Playwright, 4× CPU throttle, fake camera)
     shots.mjs        phone-size screenshots (light/dark) + accessibility audit
-  tests/             node --test: barcode maths, tokenizer, resolution engine
+  tests/             node --test: barcode maths, tokenizer, resolution engine, staleness thresholds, storage persistence policy
   wrangler.toml      assets-only Worker config
 ```
 
@@ -131,8 +132,22 @@ The latest run is summarised in `docs/perf/README.md` next to the raw JSON.
 - First open online: shell precached (~1.2 MB), pack downloaded (~32 MB) with a progress bar; "Add to Home
   Screen" keeps iOS from evicting storage.
 - Every later open: shell from the service worker, pack from Cache Storage, interactive in well under a second,
-  no network needed. `navigator.storage.persist()` is requested.
+  no network needed. `navigator.storage.persist()` is requested after every successful load (and again when the
+  app is installed to the Home Screen, which is what makes Chrome on Android grant it); Settings shows
+  **Storage: Persistent / Best-effort** from `navigator.storage.persisted()`.
 - Online: `current.json` is checked; a new snapshot is fetched in the background and applied when idle.
+- Prices as of: the header pill and every sheet carry the snapshot's price date. From 14 days a banner under the
+  header says "Prices are N days old" (amber), from 45 days "values may be out of date" (red), with an **Update now**
+  button that checks, downloads and applies the newest snapshot (`js/staleness.js`; thresholds pinned by
+  `tests/staleness.test.mjs`). It is re-evaluated on every database state change, when the app returns to the
+  foreground, when the network comes back and hourly; the dock never moves. No Web Push.
+- Deploy hygiene (`deploy-app.yml`): every build writes `build.json` with a build key (app code, repo build inputs,
+  published snapshot, equivalents). A pipeline run only redeploys when that key differs from the live
+  `APP_URL/build.json` (checked before any setup, so a no-op run costs seconds); after a deploy `build.json` and
+  `db/current.json` are polled until they serve the new build, and a `pipeline-alert` issue
+  (`[deploy-failed]` / `[deploy-mismatch]`) is opened or resolved accordingly. Deploys queue, never cancel each other.
+- Pack versions are `<snapshot>-<hash of equivalents + builder + tokenizer + format>`, so new pack bytes always
+  arrive under a new version (pack URLs are cached as immutable).
 - Live check: when online, a scanned/typed barcode is also sent to the pipeline Worker's public
   `/v1/price/<gtin>` route (rate limited, cached, no token); a differing live price is shown with the delta and
   can be used for the tally with one tap. Unknown barcodes that Walmart does sell become a "Live Walmart price".

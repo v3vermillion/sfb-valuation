@@ -1,0 +1,10 @@
+{
+  "note": "Cadence of the automated pipeline (read by crawler/ci.py decide()). Days unless stated. budget_min is the Walmart crawl time per run.",
+  "full_every_days": 30,
+  "core_every_days": 7,
+  "audit_every_days": 7,
+  "identify_every_days": 30,
+  "sizing_every_days": 30,
+  "stale_days": 14,
+  "budget_min": 300
+}

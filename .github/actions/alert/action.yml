@@ -1,0 +1,147 @@
+name: pipeline alert
+description: >-
+  One GitHub issue per alert key (label pipeline-alert). mode=open creates the issue "[key] title" or, when it is
+  already open, adds the new body as a comment (skipped when the body is unchanged); mode=resolve closes the open
+  issue for each key. Idempotent and never fails the calling job.
+
+inputs:
+  key:
+    description: "Alert key, e.g. gates-hold. mode=resolve accepts a comma-separated list."
+    required: true
+  title:
+    description: "Issue title after the [key] prefix (open mode). Defaults to the key."
+    required: false
+    default: ""
+  body:
+    description: "Markdown body for the issue or comment (open mode)."
+    required: false
+    default: ""
+  body_file:
+    description: "Path of a file holding the body; used instead of `body` when the file exists."
+    required: false
+    default: ""
+  mode:
+    description: "open | resolve"
+    required: false
+    default: open
+  label:
+    description: "Issue label that marks pipeline alerts."
+    required: false
+    default: pipeline-alert
+  token:
+    description: "GitHub token with issues: write (defaults to the workflow token)."
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  issue_url:
+    description: "URL of the issue opened or updated (open mode), empty otherwise."
+    value: ${{ steps.alert.outputs.issue_url }}
+
+runs:
+  using: composite
+  steps:
+    - id: alert
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        ALERT_KEY: ${{ inputs.key }}
+        ALERT_TITLE: ${{ inputs.title }}
+        ALERT_BODY: ${{ inputs.body }}
+        ALERT_BODY_FILE: ${{ inputs.body_file }}
+        ALERT_MODE: ${{ inputs.mode }}
+        ALERT_LABEL: ${{ inputs.label }}
+        REPO: ${{ github.repository }}
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        MAX_BODY_BYTES: "60000"
+      run: |
+        set +e
+        set -u
+        echo "issue_url=" >> "$GITHUB_OUTPUT"
+        warn() { echo "::warning::alert action: $*"; }
+
+        if [ -z "${ALERT_KEY//[[:space:],]/}" ]; then
+          warn "no alert key given; nothing to do"; exit 0
+        fi
+        if ! command -v gh >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1; then
+          warn "gh or jq is not installed on this runner; cannot manage alert issues"; exit 0
+        fi
+
+        # Open issues carrying the label; the key is the title prefix "[key]".
+        find_open() {  # $1 key -> lines "number<TAB>url"
+          gh issue list -R "$REPO" --label "$ALERT_LABEL" --state open --limit 100 --json number,title,url 2>/dev/null \
+            | jq -r --arg p "[$1]" '.[] | select(.title | startswith($p)) | "\(.number)\t\(.url)"' 2>/dev/null
+        }
+
+        if [ "$ALERT_MODE" = "resolve" ]; then
+          IFS=',' read -r -a keys <<< "$ALERT_KEY"
+          for raw in "${keys[@]}"; do
+            key="$(printf '%s' "$raw" | tr -d '[:space:]')"
+            [ -z "$key" ] && continue
+            found="$(find_open "$key")"
+            if [ -z "$found" ]; then
+              echo "resolve $key: no open issue"; continue
+            fi
+            while IFS=$'\t' read -r num url; do
+              [ -z "$num" ] && continue
+              if gh issue close "$num" -R "$REPO" --reason completed --comment "Cleared by pipeline run $RUN_URL" >/dev/null 2>&1; then
+                echo "resolve $key: closed $url"
+              else
+                warn "could not close issue #$num for $key"
+              fi
+            done <<< "$found"
+          done
+          exit 0
+        fi
+
+        if [ "$ALERT_MODE" != "open" ]; then
+          warn "unknown mode '$ALERT_MODE' (open | resolve)"; exit 0
+        fi
+
+        key="$(printf '%s' "$ALERT_KEY" | tr -d '[:space:]')"
+        title="${ALERT_TITLE:-$key}"
+        payload="$RUNNER_TEMP/alert-payload-$$.md"
+        full="$RUNNER_TEMP/alert-body-$$.md"
+        if [ -n "$ALERT_BODY_FILE" ] && [ -f "$ALERT_BODY_FILE" ]; then
+          cp "$ALERT_BODY_FILE" "$payload"
+        elif [ -n "$ALERT_BODY" ]; then
+          printf '%s\n' "$ALERT_BODY" > "$payload"
+        else
+          printf '%s\n' "$title" > "$payload"
+        fi
+        if [ "$(wc -c < "$payload")" -gt "$MAX_BODY_BYTES" ]; then
+          head -c "$MAX_BODY_BYTES" "$payload" > "$payload.cut"
+          printf '\n\n_(body truncated; the full report is on the data-store branch and in the run log)_\n' >> "$payload.cut"
+          mv "$payload.cut" "$payload"
+        fi
+        hash="$(sha256sum "$payload" | cut -c1-16)"
+        { cat "$payload"; printf '\n\n---\nRun: %s\n<!-- sfb-alert-hash:%s -->\n' "$RUN_URL" "$hash"; } > "$full"
+
+        gh label create "$ALERT_LABEL" -R "$REPO" --color D93F0B \
+          --description "Opened by the pipeline when something needs a person" --force >/dev/null 2>&1 \
+          || warn "could not create or update label $ALERT_LABEL"
+
+        found="$(find_open "$key" | head -n 1)"
+        if [ -z "$found" ]; then
+          url="$(gh issue create -R "$REPO" --title "[$key] $title" --body-file "$full" --label "$ALERT_LABEL" 2>/dev/null)"
+          if [ -n "$url" ]; then
+            echo "opened $url"; echo "issue_url=$url" >> "$GITHUB_OUTPUT"
+          else
+            warn "could not open an issue for $key"
+          fi
+          exit 0
+        fi
+        num="${found%%$'\t'*}"; url="${found#*$'\t'}"
+        echo "issue_url=$url" >> "$GITHUB_OUTPUT"
+        last="$(gh issue view "$num" -R "$REPO" --json body,comments \
+          --jq 'if (.comments | length) > 0 then .comments[-1].body else .body end' 2>/dev/null)"
+        if printf '%s' "$last" | grep -q "sfb-alert-hash:$hash"; then
+          echo "$url already reports this; no new comment"
+          exit 0
+        fi
+        if gh issue comment "$num" -R "$REPO" --body-file "$full" >/dev/null 2>&1; then
+          echo "updated $url"
+        else
+          warn "could not comment on issue #$num for $key"
+        fi
+        exit 0

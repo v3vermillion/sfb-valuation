@@ -61,6 +61,8 @@ fs.writeFileSync(path.join(OUT, "_headers"), `/*
   Cache-Control: no-cache
 /db/current.json
   Cache-Control: no-cache
+/build.json
+  Cache-Control: no-cache
 /db/:version/*
   Cache-Control: public, max-age=31536000, immutable
 `);

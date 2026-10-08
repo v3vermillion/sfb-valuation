@@ -1,0 +1,82 @@
+name: tests
+
+# Python (crawler) and app unit tests on every pull request and on pushes to main.
+# A failure on main opens the "[tests-failed]" alert issue; the next green run on main closes it.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install -q -r requirements.txt pyyaml
+      - name: Crawler tests
+        run: python -m unittest discover tests -v
+      - name: Workflow and action files parse
+        run: |
+          set -u
+          for f in .github/workflows/*.yml .github/actions/*/action.yml; do
+            python3 -c "import yaml, sys; yaml.safe_load(open(sys.argv[1]))" "$f" || { echo "::error::$f does not parse"; exit 1; }
+            echo "ok $f"
+          done
+      - name: Config files parse
+        run: |
+          set -u
+          for f in data/*.json; do
+            python3 -c "import json, sys; json.load(open(sys.argv[1]))" "$f" || { echo "::error::$f does not parse"; exit 1; }
+            echo "ok $f"
+          done
+
+  app:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - name: App tests
+        run: node --test tests/*.test.mjs
+
+  report:
+    # only on main: open or close the tests-failed alert
+    needs: [python, app]
+    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Alert tests-failed
+        if: needs.python.result != 'success' || needs.app.result != 'success'
+        uses: ./.github/actions/alert
+        with:
+          key: tests-failed
+          title: tests failing on main
+          body: |
+            The test suite failed on main (python: ${{ needs.python.result }}, app: ${{ needs.app.result }}).
+            Commit `${{ github.sha }}`. The next green run on main closes this issue.
+      - name: Resolve tests-failed
+        if: needs.python.result == 'success' && needs.app.result == 'success'
+        uses: ./.github/actions/alert
+        with:
+          mode: resolve
+          key: tests-failed

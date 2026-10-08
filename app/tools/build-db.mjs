@@ -15,6 +15,7 @@
 //   equiv.bin    "SFBE" u32 E | keys f64[E] sorted | est u32[E] cents | basisRank u32[E] (0xFFFFFFFF = none) | baseQty f32[E] | pack u16[E] | unit u8[E] | conf u8[E] | offsets u32[E+1] | utf8 "brand\x1Fname\x1Fquantity"
 // Items are stored in RANK order (best candidate first), so the search worker's bitset scan from rank 0 yields
 // best-first results without sorting. See app/README.md for the reasoning.
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
@@ -59,8 +60,16 @@ function gtinNumber(upc) {
 const pubDir = path.join(STORE, "build", "published");
 const srcManifest = JSON.parse(fs.readFileSync(path.join(pubDir, "manifest.json"), "utf8"));
 const srcStats = fs.existsSync(path.join(pubDir, "stats.json")) ? JSON.parse(fs.readFileSync(path.join(pubDir, "stats.json"), "utf8")) : {};
-const version = String(srcManifest.version);
-log(`reading snapshot ${version} from ${pubDir}`);
+// The pack version names the snapshot plus a hash of everything else that shapes the pack bytes (the equivalents
+// table, this builder, the tokenizer, the format), so an identify refresh or a builder change ships as a new version
+// instead of new bytes under an "immutable" URL that phones already hold.
+const snapshot = String(srcManifest.version);
+const FORMAT_VERSION = 1;
+const packHash = crypto.createHash("sha256").update(`sfb-pack/${FORMAT_VERSION}\n`);
+for (const f of [fileURLToPath(import.meta.url), path.join(APP, "public", "js", "tokenize.js"), path.join(STORE, "identify", "equivalents.jsonl.gz")])
+  packHash.update(fs.existsSync(f) ? fs.readFileSync(f) : Buffer.from("none")).update("\n");
+const version = `${snapshot}-${packHash.digest("hex").slice(0, 8)}`;
+log(`reading snapshot ${snapshot} from ${pubDir} (pack ${version})`);
 
 const items = [];
 for await (const r of jsonlGz(path.join(pubDir, srcManifest.file || "items.jsonl.gz"))) {
@@ -284,7 +293,7 @@ function writeGz(name, buf) {
 
 // ---------------------------------------------------------------- 9. manifest + pointer
 const manifest = {
-  format: "sfb-pack", formatVersion: 1, version, published: srcManifest.published, built: new Date().toISOString(),
+  format: "sfb-pack", formatVersion: FORMAT_VERSION, version, snapshot, published: srcManifest.published, built: new Date().toISOString(),
   priceDate: (srcStats.built || srcManifest.published || "").slice(0, 10),
   items: N, upcs: files._upcs, equivalents: files._equivalents, tokens: files._tokens, postings: files._postings,
   fixture: Boolean(srcManifest.fixture), gatesPassed: srcManifest.gates_passed ?? null, approvedManually: srcManifest.approved_manually ?? null,
@@ -295,5 +304,5 @@ const manifest = {
 };
 manifest.totalGzBytes = Object.values(files).filter((f) => f && f.gzBytes).reduce((a, f) => a + f.gzBytes, 0);
 fs.writeFileSync(path.join(OUT, version, "manifest.json"), JSON.stringify(manifest, null, 2));
-fs.writeFileSync(path.join(OUT, "current.json"), JSON.stringify({ version, base: `${version}/`, items: N, priceDate: manifest.priceDate, fixture: manifest.fixture }, null, 2));
+fs.writeFileSync(path.join(OUT, "current.json"), JSON.stringify({ version, snapshot, base: `${version}/`, items: N, priceDate: manifest.priceDate, fixture: manifest.fixture }, null, 2));
 log(`done: ${N.toLocaleString()} items, ${(manifest.totalGzBytes / 1048576).toFixed(1)} MB over the wire -> ${path.join(OUT, version)}`);

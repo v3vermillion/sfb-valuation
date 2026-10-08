@@ -4,8 +4,17 @@ name: deploy-app
 # Data: the latest published snapshot on the data-store branch. Until the first snapshot is published
 # (or when asked), the full-size synthetic fixture is used so the app is testable at real scale.
 #
+# Every build carries a build key (dist/build.json): a hash of the app code, the build inputs from this repo, the
+# published snapshot and the equivalents table (data-store tree hashes). A pipeline run (workflow_run) only builds
+# and deploys when that key differs from the live site's; otherwise it stops within seconds. Every deploy is
+# verified by polling the live build.json for the new key, and the outcome opens or resolves a `pipeline-alert`
+# issue ([deploy-failed] when the workflow fails, [deploy-mismatch] when the site still serves the old build)
+# through .github/actions/alert. Runs queue rather than cancel each other, so a pipeline run never cancels an
+# app-code deploy that is already under way.
+#
 # Required repository secrets: CLOUDFLARE_API_TOKEN (Workers Scripts: Edit), CLOUDFLARE_ACCOUNT_ID.
-# Optional repository variable: LIVE_CHECK_URL (the pipeline Worker URL, e.g. https://sfb-valuation.<acct>.workers.dev).
+# Optional repository variables: LIVE_CHECK_URL (the pipeline Worker URL, e.g. https://sfb-valuation.<acct>.workers.dev),
+# APP_URL (where the app is served; default https://sfb-value.forgetraining.workers.dev).
 
 on:
   workflow_dispatch:
@@ -34,10 +43,15 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 concurrency:
   group: deploy-app
-  cancel-in-progress: true
+  cancel-in-progress: false
+
+env:
+  APP_URL: ${{ vars.APP_URL || 'https://sfb-value.forgetraining.workers.dev' }}
+  RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
   build-deploy:
@@ -48,10 +62,69 @@ jobs:
     defaults:
       run:
         working-directory: app
+        shell: bash
     steps:
       - uses: actions/checkout@v5
+
+      # The repo half of the build key: the app tree plus every other build input in this repo.
+      - name: Build key (code)
+        id: code
+        env:
+          LIVE_CHECK_URL: ${{ vars.LIVE_CHECK_URL }}
+        run: |
+          set -eu
+          cd "$GITHUB_WORKSPACE"
+          code="$( { git rev-parse HEAD:app HEAD:.github/workflows/deploy-app.yml HEAD:crawler/normalize.py \
+                       HEAD:crawler/identify.py HEAD:data/categories.json HEAD:data/sentinels.json HEAD:requirements.txt
+                     printf 'live=%s\n' "${LIVE_CHECK_URL:-}"; } | sha256sum | cut -c1-16)"
+          echo "code=${code}" >> "$GITHUB_OUTPUT"
+
+      # Pipeline runs happen every 30 minutes and most change nothing the app serves: compare the build key this
+      # run would produce (the data half read through the API without a checkout) with the live site's build.json,
+      # before any setup. No published snapshot yet means nothing new for the app (pushes build the fixture).
+      # Anything unreadable (site not deployed yet, an older build without build.json, API hiccup) means "build".
+      - name: Skip when the live site already serves this build
+        id: peek
+        if: github.event_name == 'workflow_run'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CODE: ${{ steps.code.outputs.code }}
+        run: |
+          set -u
+          # gh prints the error body on a failure, so exit statuses decide, never the captured text. The root listing
+          # must be readable; after that a missing build/ or identify/ simply means "not there yet".
+          readable=true
+          root="$(gh api "repos/${GITHUB_REPOSITORY}/contents?ref=data-store" --jq '.[] | "\(.name) \(.sha)"' 2>/dev/null)" || readable=false
+          identify="$(printf '%s\n' "$root" | awk '$1 == "identify" {print $2}')"
+          published=""
+          if [ "$readable" = true ] && printf '%s\n' "$root" | grep -q '^build '; then
+            published="$(gh api "repos/${GITHUB_REPOSITORY}/contents/build?ref=data-store" --jq '.[] | select(.name == "published") | .sha' 2>/dev/null)" || readable=false
+          fi
+          live_key=""; live=""
+          if body="$(curl -fsS --max-time 20 "${APP_URL}/build.json" 2>/dev/null)"; then
+            live_key="$(printf '%s' "$body" | jq -r '.key // empty' 2>/dev/null || true)"
+            live="$(printf '%s' "$body" | jq -r '.version // empty' 2>/dev/null || true)"
+          fi
+          want=""
+          [ -n "$published" ] && want="$(printf '%s\n%s\n%s\n' "$CODE" "$published" "${identify:-none}" | sha256sum | cut -c1-16)"
+          { echo "published=${published}"; echo "live=${live}"; } >> "$GITHUB_OUTPUT"
+          if [ "$readable" != true ]; then
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "data-store branch unreadable through the API — building"
+          elif [ -z "$published" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "no published snapshot yet: nothing new for the app" | tee -a "$GITHUB_STEP_SUMMARY"
+          elif [ "$want" = "$live_key" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "live site already serves build ${want} (${live}) — nothing to deploy" | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "build key ${want}; live ${live_key:-unreadable} — building"
+          fi
+
       - name: Check out the published snapshot (data-store branch, if it exists)
         id: store
+        if: steps.peek.outputs.skip != 'true'
         uses: actions/checkout@v5
         continue-on-error: true
         with:
@@ -59,22 +132,29 @@ jobs:
           path: store
           fetch-depth: 1
       - uses: actions/setup-node@v5
+        if: steps.peek.outputs.skip != 'true'
         with:
           node-version: "22"
       - uses: actions/setup-python@v6
+        if: steps.peek.outputs.skip != 'true'
         with:
           python-version: "3.12"
 
       - name: Unit tests
+        if: steps.peek.outputs.skip != 'true'
         run: node --test tests/*.test.mjs
 
       - name: Choose the data source
         id: data
+        if: steps.peek.outputs.skip != 'true'
         env:
           MODE: ${{ github.event.inputs.data || 'auto' }}
+          STORE_OUTCOME: ${{ steps.store.outcome }}
+          EVENT: ${{ github.event_name }}
         run: |
+          set -u
           STORE="$GITHUB_WORKSPACE/store"
-          if [ "${{ steps.store.outcome }}" != "success" ] && [ "$MODE" != "fixture" ]; then
+          if [ "$STORE_OUTCOME" != "success" ] && [ "$MODE" != "fixture" ]; then
             # the checkout failed: only fall back to the fixture when the branch truly does not exist
             if git ls-remote --exit-code --heads origin data-store >/dev/null 2>&1; then
               echo "::error::The data-store checkout failed although the branch exists; refusing to deploy synthetic prices over a real snapshot. Re-run the workflow."; exit 1
@@ -82,33 +162,58 @@ jobs:
           fi
           if [ "$MODE" != "fixture" ] && [ -f "$STORE/build/published/manifest.json" ]; then
             echo "source=snapshot" >> "$GITHUB_OUTPUT"; echo "store=$STORE" >> "$GITHUB_OUTPUT"
-            echo "Using published snapshot $(python3 -c "import json;print(json.load(open('$STORE/build/published/manifest.json'))['version'])")"
+            echo "Using published snapshot $(jq -r '.version // "?"' "$STORE/build/published/manifest.json")"
           elif [ "$MODE" = "snapshot" ]; then
             echo "::error::No published snapshot on data-store yet (run the pipeline to 'published' first, or choose data=fixture)"; exit 1
           else
             echo "source=fixture" >> "$GITHUB_OUTPUT"; echo "store=$GITHUB_WORKSPACE/app/build/fixture-store" >> "$GITHUB_OUTPUT"
             echo "No published snapshot: building the 760k-item synthetic fixture (the app will say 'sample data')"
-            if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            if [ "$EVENT" = "workflow_run" ]; then
               # a pipeline run that published nothing changes nothing for the app: do not redeploy the fixture
               echo "deploy=false" >> "$GITHUB_OUTPUT"; echo "Pipeline run without a published snapshot: build only, no deploy"
             fi
           fi
 
       - name: Build the fixture (only when there is no published snapshot)
-        if: steps.data.outputs.source == 'fixture'
+        if: steps.peek.outputs.skip != 'true' && steps.data.outputs.source == 'fixture'
         run: |
           pip install -q -r ../requirements.txt
           python3 tools/make_fixture.py --store build/fixture-store --items 760000
 
       - name: Build the database pack
+        if: steps.peek.outputs.skip != 'true'
         run: node --max-old-space-size=6144 tools/build-db.mjs --store "${{ steps.data.outputs.store }}" --out dist/db
 
       - name: Build the site
+        if: steps.peek.outputs.skip != 'true'
         env:
           LIVE_CHECK_URL: ${{ vars.LIVE_CHECK_URL }}
         run: node tools/build-site.mjs
 
+      # The data half of the build key comes from the checkout actually built (the same tree hashes the peek reads).
+      - name: Stamp the build key (dist/build.json)
+        if: steps.peek.outputs.skip != 'true'
+        env:
+          CODE: ${{ steps.code.outputs.code }}
+          SOURCE: ${{ steps.data.outputs.source }}
+          STORE: ${{ steps.data.outputs.store }}
+        run: |
+          set -eu
+          if [ "$SOURCE" = snapshot ]; then
+            published="$(git -C "$STORE" rev-parse HEAD:build/published)"
+            identify="$(git -C "$STORE" rev-parse HEAD:identify 2>/dev/null || echo none)"
+          else
+            published="fixture-$(jq -r '.version' dist/db/current.json)"; identify=none
+          fi
+          key="$(printf '%s\n%s\n%s\n' "$CODE" "$published" "$identify" | sha256sum | cut -c1-16)"
+          jq -n --arg key "$key" --arg version "$(jq -r '.version' dist/db/current.json)" \
+                --arg build "$(sed -n 's/.*name="sfb-build" content="\([^"]*\)".*/\1/p' dist/index.html)" \
+                --arg sha "$GITHUB_SHA" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+                '{key: $key, version: $version, shell: $build, commit: $sha, built: $at}' > dist/build.json
+          cat dist/build.json
+
       - name: Summary
+        if: steps.peek.outputs.skip != 'true'
         run: |
           {
             echo "### SFB Value build"
@@ -118,7 +223,8 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Deploy to Cloudflare Workers (static assets)
-        if: ${{ (github.event.inputs.deploy || 'true') == 'true' && steps.data.outputs.deploy != 'false' }}
+        id: deploy
+        if: ${{ steps.peek.outputs.skip != 'true' && (github.event.inputs.deploy || 'true') == 'true' && steps.data.outputs.deploy != 'false' }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -127,3 +233,72 @@ jobs:
             echo "::error::Add repository secrets CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID (Settings > Secrets and variables > Actions)"; exit 1
           fi
           npx --yes wrangler@4 deploy
+
+      # The edge can take a moment to serve the new assets: poll until build.json carries this build's key (code-only
+      # deploys included) and db/current.json the pack this build made.
+      - name: Verify the live site serves this build
+        id: verify
+        if: steps.deploy.outcome == 'success'
+        run: |
+          set -u
+          want="$(jq -r '.key // empty' dist/build.json)"; want_db="$(jq -r '.version // empty' dist/db/current.json)"
+          if [ -z "$want" ] || [ -z "$want_db" ]; then echo "::error::dist/build.json or dist/db/current.json is incomplete"; exit 1; fi
+          got=""; got_db=""
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            [ "$i" -gt 1 ] && sleep 15
+            got="$(curl -fsS --max-time 20 "${APP_URL}/build.json?check=${i}" 2>/dev/null | jq -r '.key // empty' 2>/dev/null || true)"
+            got_db="$(curl -fsS --max-time 20 "${APP_URL}/db/current.json?check=${i}" 2>/dev/null | jq -r '.version // empty' 2>/dev/null || true)"
+            if [ "$got" = "$want" ] && [ "$got_db" = "$want_db" ]; then
+              echo "live site serves build ${want} with pack ${want_db} (check ${i})"
+              echo "- verified: ${APP_URL} serves build **${want}**, pack **${want_db}**" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo "check ${i}/10: build ${got:-unreachable} (want ${want}), pack ${got_db:-unreachable} (want ${want_db})"
+          done
+          echo "mismatch=true" >> "$GITHUB_OUTPUT"
+          echo "::error::${APP_URL} still serves build ${got:-nothing} / pack ${got_db:-nothing} after 10 checks; expected ${want} / ${want_db}"
+          echo "- NOT verified: ${APP_URL} serves build **${got:-nothing}** / pack **${got_db:-nothing}**, expected **${want}** / **${want_db}**" >> "$GITHUB_STEP_SUMMARY"
+          exit 1
+
+      # Alerts (one open issue per key, label pipeline-alert); the action never fails the job.
+      - name: Alert — live site does not serve the deployed snapshot
+        if: failure() && steps.verify.outputs.mismatch == 'true'
+        uses: ./.github/actions/alert
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          key: deploy-mismatch
+          mode: open
+          title: "deploy-app: the live site still serves the old build"
+          body: |
+            The deploy finished but `${{ env.APP_URL }}` did not serve the new build (build.json key and db/current.json
+            pack) within 150 s. Live before the deploy: `${{ steps.peek.outputs.live || 'n/a' }}`.
+            Check the Cloudflare deployment (is APP_URL the Worker wrangler deployed?) and re-run the workflow.
+      - name: Alert — deploy-app failed
+        if: failure() && steps.verify.outputs.mismatch != 'true'
+        uses: ./.github/actions/alert
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          key: deploy-failed
+          mode: open
+          title: "deploy-app failed"
+          body: |
+            The deploy-app workflow failed (event: ${{ github.event_name }}, data: ${{ steps.data.outputs.source || 'n/a' }}).
+            Read the failed step in the run log (linked below); the live site keeps serving the previous build.
+      - name: Resolve deploy alerts (deploy-failed)
+        if: success() && (steps.verify.outcome == 'success' || steps.peek.outputs.skip == 'true')
+        uses: ./.github/actions/alert
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          key: deploy-failed
+          mode: resolve
+      - name: Resolve deploy alerts (deploy-mismatch)
+        if: success() && (steps.verify.outcome == 'success' || steps.peek.outputs.skip == 'true')
+        uses: ./.github/actions/alert
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          key: deploy-mismatch
+          mode: resolve
