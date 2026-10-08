@@ -157,3 +157,15 @@
   name the fix: HTTP 401 (invalid or revoked key) and 403 (no permission) open `[review-key-invalid]`; 402 `billing_error`, or
   the 400 "credit balance is too low" some accounts get, opens `[review-credits]`. Both stay transient holds re-checked every
   6 hours, so the next re-check after the fix runs the review and publishes; publishing closes them.
+- 2026-10-08 — Per-unit price outliers (David: fix the parse so the flag becomes rare, not suppress it). Rebuilt from the
+  live crawl's raw pages: Food rows flagged unit_price_suspect 7.45% → 3.10% (19,788 → 8,242); all departments 14.3% →
+  4.2%. Three root causes fixed: (a) nutrient grams read as the size ("10g Protein", "19g Protein Per Serving") are no
+  longer sizes; (b) the pack is ambiguous in the feed's own wording ("Pop-Tarts 58.6 oz, 32 Count" is one box, "KIND 1.4oz,
+  12 Count" is twelve bars; "(12 Cans) … 16 oz", "36/Carton", "15/12oz", "2016/Pallet", "(Pack of 12)" priced per unit):
+  normalize records every pack reading the name supports and process.build keeps the default unless it is more than 10x
+  off comparable items, then takes the reading that agrees with them and flags the row pack_resolved (11,435 rows; spot-
+  checked); (c) comparable items were the whole snapshot category (spices at ~$4/oz next to 5 lb flour at ~$0.04/oz); they
+  are now the most specific Walmart category path with at least 50 unit-priced rows in the same unit, falling back to its
+  parents and then the category. What stays flagged in Food is mostly not a parse: names cut before the pack count, case or
+  pallet prices, placeholder/test listings and Walmart price errors, and premium items in the catch-all "Pantry meal
+  essentials" leaf. The unit_outliers gate stays measure-only; its threshold is David's call now that the share is ~3%.

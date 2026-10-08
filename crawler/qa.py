@@ -269,29 +269,50 @@ def gate_size_parse(rows, min_rate):
                      f"the pound, {each} sold each")
 
 
-def unit_outlier_stats(rows, group_min=50):
-    """Per (category, base_unit) group with >= group_min unit-priced rows: rows whose unit_price falls
-    outside [median/10, median*10]. Returns (share of all unit-priced rows, total unit-priced rows, examples)."""
+def _path_levels(r):
+    """Comparison groups from most to least specific: the Walmart category path and each of its parents, then the
+    snapshot category. "Herbs, spices & seasoning mixes/Spices" is compared with spices, not with 5 lb bags of flour."""
+    parts = [p for p in str(r.get("path") or "").split("/") if p][2:]          # drop "Home Page/<Department>"
+    levels = ["p:" + "/".join(parts[:i]) for i in range(len(parts), 0, -1)]
+    return levels + ["c:" + str(r.get("cat"))]
+
+
+def unit_price_medians(rows, group_min=50, include=None):
+    """Median unit price per (comparison group, base unit) for groups with at least group_min unit-priced rows.
+    Returns lookup(row) -> (median, group label) using the most specific qualifying group, or (None, None).
+    include(row) limits which rows build the medians (e.g. only rows with an unambiguous pack)."""
     groups = defaultdict(list)
     for r in rows:
         up = r.get("unit_price")
-        if isinstance(up, (int, float)) and up > 0 and r.get("base_unit"):
-            groups[(r.get("cat"), r["base_unit"])].append(r)
-    total = sum(len(g) for g in groups.values())
+        if isinstance(up, (int, float)) and up > 0 and r.get("base_unit") and (include is None or include(r)):
+            for lvl in _path_levels(r):
+                groups[(lvl, r["base_unit"])].append(up)
+    med = {k: statistics.median(v) for k, v in groups.items() if len(v) >= group_min}
+
+    def lookup(r):
+        for lvl in _path_levels(r):
+            m = med.get((lvl, r.get("base_unit")))
+            if m and m > 0:
+                return m, lvl
+        return None, None
+    return lookup
+
+
+def unit_outlier_stats(rows, group_min=50):
+    """Unit-priced rows whose unit_price falls outside [median/10, median*10] of comparable items: the most specific
+    Walmart category path (or parent, or snapshot category) with at least group_min unit-priced rows in the same base
+    unit. Returns (share of all unit-priced rows, total unit-priced rows, examples)."""
+    rows = [r for r in rows if isinstance(r.get("unit_price"), (int, float)) and r["unit_price"] > 0 and r.get("base_unit")]
+    lookup = unit_price_medians(rows, group_min)
     outliers = []
-    for (cat, unit), g in groups.items():
-        if len(g) < group_min:
-            continue
-        med = statistics.median(r["unit_price"] for r in g)
-        if med <= 0:
-            continue
-        for r in g:
-            if r["unit_price"] < med / 10 or r["unit_price"] > med * 10:
-                outliers.append({"id": r["id"], "name": r.get("name"), "cat": cat, "unit": unit,
-                                 "unit_price": r["unit_price"], "median": round(med, 4),
-                                 "ratio": round(r["unit_price"] / med, 6)})
+    for r in rows:
+        med, lvl = lookup(r)
+        if med and (r["unit_price"] < med / 10 or r["unit_price"] > med * 10):
+            outliers.append({"id": r["id"], "name": r.get("name"), "cat": r.get("cat"), "group": lvl, "unit": r["base_unit"],
+                             "unit_price": r["unit_price"], "median": round(med, 4), "ratio": round(r["unit_price"] / med, 6)})
     # severity = how many times off the median in either direction; a ratio that rounds to 0 must not divide by zero
     outliers.sort(key=lambda o: -(o["ratio"] if o["ratio"] >= 1 else 1 / max(o["ratio"], 1e-9)))
+    total = len(rows)
     share = round(len(outliers) / total, 5) if total else 0.0
     return share, total, outliers
 

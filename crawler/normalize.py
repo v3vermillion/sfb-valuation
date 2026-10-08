@@ -57,11 +57,14 @@ REWRITES = [
     # "28.2ozx14" is the supplier's case count; Walmart prices one box ($3-8 measured on the live crawl): size only
     (re.compile(r"(?<![\w.])(\d+(?:\.\d+)?)\s*(oz|fl\s?oz)x\d+\b", re.I), lambda m: f"{m.group(1)} {m.group(2)}"),
     (re.compile(r"(?<![\w.])(\d+(?:\.\d+)?)\s*(?:fl\.?\s*)?drams?\b", re.I), lambda m: f"{float(m.group(1)) / 8:g} fl oz"),
+    (re.compile(r"(?<![\w.])(\d+)\s*Co(?:u|un)?\s*$", re.I), lambda m: f"{m.group(1)} Count"),   # "36 Co" cut at 40 chars
 ]
 # "11.5z" for oz is read only in the extended pass (a stated size anywhere wins) and never above 200: "Nissan 350z"
 Z_OUNCES = re.compile(r"(?<![\w.])(\d{1,3}(?:\.\d+)?)z\b", re.I)
 Z_MAX = 200
 LITRE_MAX = 10      # "1.5 Lt" is litres; "46 LT" is a hair-colour shade ("light")
+NUTRIENT_AFTER = re.compile(r"\s*(?:of\s+)?(?:plant[- ]based\s+|added\s+|total\s+|net\s+)?(?:protein|fib(?:er|re)|sugars?|carbs?|"
+                            r"carbohydrates?|fat|caffeine|collagen|whole\s+grains?|omega|bcaas?|electrolytes?)\b", re.I)
 GRAM_ABBR_MIN = 10  # "165gr", "45 GM" are grams; "7GM" is a hair-colour shade (golden mahogany)
 # sold per piece: the price is for one item and no net quantity applies (produce "each", store cakes, gifts, flowers)
 EACH_RX = re.compile(r"(?:,|-|\()\s*(?:1\s+)?(?:each|ea)\s*\)?\s*$|\bper\s+each\b|\bsold\s+(?:by\s+the\s+)?each\b", re.I)
@@ -134,6 +137,8 @@ def _plausible(q) -> bool:
         return False
     if u in ("gm", "gms", "gr", "grs") and n < GRAM_ABBR_MIN:
         return False
+    if _unit(u) == "g" and NUTRIENT_AFTER.match(q.string, q.end()):
+        return False                                    # "10g Protein", "18g of Protein", "5g Fiber": not the net weight
     return True
 
 
@@ -215,6 +220,43 @@ def parse_quantity(text: str, extended: bool = True):
                 pack = int(c.group(1)) if c and int(c.group(1)) > 0 else None
             return size, unit, pack
     return None, None, pack
+
+
+PER_CONTAINER = re.compile(r"(?<![\w.])(\d+)\s*/\s*(?:carton|case|box|bx|cs|ctn|bag|pack|pk|pallet|plt)\b", re.I)   # "36/Carton", "2016/Pallet"
+# further pack forms the feed uses, read only as candidates for process.build(): "15/12oz" (15 x 12 oz), "120pcspk",
+# "24 Case", "12/" at the end, "Pack of, 12"
+PACK_HINTS = [
+    re.compile(r"(?<![\w./])(\d+)\s*/\s*\d+(?:\.\d+)?\s*-?\s*" + _UNIT_RX + r"(?![a-z])", re.I),
+    re.compile(r"(?<![\w.])(\d+)\s*pcs?(?=[a-z])", re.I),
+    re.compile(r"(?<![\w.])(\d+)\s*(?:case|cs|ctn|carton)\b", re.I),
+    re.compile(r"(?<![\w./])(\d+)\s*/\s*$"),
+    re.compile(r"\bpack\s+of,?\s*(\d+)\b", re.I),
+]
+PACK_MAX = 5000            # "2016/Pallet" is real
+
+
+def pack_options(text: str):
+    """Every pack count the text supports beside a stated weight or volume: 1 (the size is the whole listing), a
+    "(6 pack)" wrapper, "Pack of 12", a piece count ("12 Count", "3 Packets", "(24 Cans)", "36/Carton") and the wrapper
+    times an inner count. The name alone cannot say which one Walmart's price is for ("Pop-Tarts 58.6 oz, 32 Count" is
+    one box; "KIND 1.4oz, 12 Count" is twelve bars); process.build() picks the reading that agrees with the category's
+    unambiguous rows when the default reading is more than 10x off them."""
+    t = (text or "").replace("\u00d7", "x")
+    found, wrapper = set(), None
+    w = WRAPPER.match(t)
+    if w and 0 < int(w.group(1)) <= PACK_MAX:
+        wrapper = int(w.group(1))
+    for rx in (*PACK, PACK_NOUNS, COUNT_EXT, PER_CONTAINER, TOTAL, *PACK_HINTS):
+        for m in rx.finditer(t):
+            n = int(m.group(1))
+            if 1 < n <= PACK_MAX:
+                found.add(n)
+    if DOZEN.search(t):
+        found.add(12)
+    opts = {1} | found
+    if wrapper:
+        opts |= {wrapper * n for n in found if n != wrapper and wrapper * n <= PACK_MAX}
+    return sorted(opts)
 
 
 def sold_each(name: str, size_field, path) -> bool:
@@ -309,6 +351,9 @@ def normalize(item: dict, dept: dict, cfg: dict):
     basis = "lb" if PER_LB.search(name) or PER_LB.search(item.get("size") or "") else "each"
     base, dim = to_base(size, unit)
     unit_price = round(price / (base * pack), 4) if base and pack else None
+    options = pack_options(name) if base else []
+    if pack not in options:
+        options = sorted(set(options) | {pack})
     if size is None:
         # sized by its basis instead: sold by weight (basis "lb") or sold per piece (flag "sold_each")
         if basis == "each" and sold_each(name, item.get("size"), item.get("categoryPath")):
@@ -331,4 +376,6 @@ def normalize(item: dict, dept: dict, cfg: dict):
         "stock": item.get("stock"), "online": item.get("availableOnline"),
         "offer": item.get("offerType"), "size_src": src, "flags": flags,
     }
+    if len(options) > 1:
+        row["pack_options"] = options          # resolved and removed by process.build()
     return row, None
