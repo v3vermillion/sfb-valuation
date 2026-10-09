@@ -1,5 +1,5 @@
 {
-  "calls": 18184,
+  "calls": 18284,
   "calls_base": 16806,
   "departments": [
     {
@@ -134,11 +134,11 @@
     },
     {
       "id": "1334134",
-      "items": 333600,
+      "items": 353400,
       "name": "Arts Crafts & Sewing",
-      "next": "/api-proxy/service/affil/product/v2/paginated/items?category=1334134&soldByWmt=true&count=200&lastDoc=980633890&remainingHits=43024",
-      "pages": 1668,
-      "parts": 18,
+      "next": "/api-proxy/service/affil/product/v2/paginated/items?category=1334134&soldByWmt=true&count=200&lastDoc=9674754446&remainingHits=23224",
+      "pages": 1767,
+      "parts": 19,
       "status": "crawling",
       "total_pages": 1884
     },
@@ -258,7 +258,7 @@
   "started": "2026-10-07T18:24:39+00:00",
   "status": "crawling",
   "throttle_base": 19270,
-  "throttle_wait_s": 19352,
+  "throttle_wait_s": 19358,
   "throttled_runs": 0,
-  "updated": "2026-10-09T22:22:58+00:00"
+  "updated": "2026-10-09T22:38:16+00:00"
 }
