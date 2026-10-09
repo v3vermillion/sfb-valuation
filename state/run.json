@@ -1,5 +1,5 @@
 {
-  "calls": 10563,
+  "calls": 10669,
   "calls_base": 8867,
   "departments": [
     {
@@ -104,11 +104,11 @@
     },
     {
       "id": "1072864",
-      "items": 64400,
+      "items": 85600,
       "name": "Home Improvement",
-      "next": "/api-proxy/service/affil/product/v2/paginated/items?category=1072864&soldByWmt=true&count=200&lastDoc=25360372&remainingHits=1117175",
-      "pages": 322,
-      "parts": 4,
+      "next": "/api-proxy/service/affil/product/v2/paginated/items?category=1072864&soldByWmt=true&count=200&lastDoc=32561357&remainingHits=1095975",
+      "pages": 428,
+      "parts": 5,
       "status": "crawling",
       "total_pages": 5908
     },
@@ -260,5 +260,5 @@
   "throttle_base": 18936,
   "throttle_wait_s": 18936,
   "throttled_runs": 0,
-  "updated": "2026-10-09T02:50:34+00:00"
+  "updated": "2026-10-09T03:05:42+00:00"
 }
