@@ -158,7 +158,10 @@ function setProgress(frac) {
 function readyText() {
   const m = db.manifest; if (!m) return "Ready";
   // the date is what a volunteer needs; the count can be dropped on a narrow header
-  return `${navigator.onLine ? "" : "Offline · "}<span class="n">${compact(m.items)} items · </span>${esc(fmtDate(priceDate()))}`;
+  // food and household first: until the other departments arrive the header says so (and the count is what is open)
+  const items = db.more ? db.stats?.items || m.items : m.items;
+  const more = db.more ? ` · <span class="n">other departments </span>${navigator.onLine ? "loading" : "next time online"}` : "";
+  return `${navigator.onLine ? "" : "Offline · "}<span class="n">${compact(items)} items · </span>${esc(fmtDate(priceDate()))}${more}`;
 }
 
 db.addEventListener("state", (e) => {
@@ -168,7 +171,16 @@ db.addEventListener("state", (e) => {
     case "loading": setStatus("loading", "Opening database…"); break;
     case "ready": setStatus("ready", readyText()); setProgress(null); break;
     case "offline-empty": setStatus("offline", "Offline — connect once to get prices"); setProgress(null); if (state.query.trim()) runSearch(state.query); break;
-    case "error": setStatus("error", "Database problem — tap for details"); setProgress(null); state.dbError = d.message; if (state.query.trim()) runSearch(state.query); break;
+    case "error":
+      setProgress(null); state.dbError = d.message; state.dbErrorNetwork = !!d.network;
+      if (d.network) {
+        // the connection dropped mid-download: say so, and try again on our own (also on the "online" event)
+        setStatus("offline", "No connection — prices will download when it's back");
+        clearTimeout(state.retryTimer);
+        state.retryTimer = setTimeout(() => { if (!db.version && navigator.onLine) db.start().catch(() => {}); }, 30_000);
+      } else setStatus("error", "Database problem — tap for details");
+      if (state.query.trim()) runSearch(state.query);
+      break;
   }
   renderStale();
 });
@@ -188,6 +200,15 @@ db.addEventListener("ready", () => {
   pruneRecent();
   if (state.query.trim()) runSearch(state.query);
   if (new URLSearchParams(location.search).get("scan") === "1" && !state.scanOpen) { history.replaceState(null, "", location.pathname); openScanner(); }
+});
+db.addEventListener("more", () => {
+  // the other departments joined the search: refresh the header and whatever is on screen
+  if (db.version) setStatus("ready", readyText());
+  if (state.query.trim()) runSearch(state.query);
+});
+db.addEventListener("progress", (e) => {
+  const d = e.detail;
+  if (d.phase === "download" && d.tier === "more" && db.version) setStatus("ready", `${readyText()} ${Math.round((d.doneBytes / (d.totalBytes || 1)) * 100)}%`);
 });
 db.addEventListener("update-available", () => { setProgress(null); maybeApplyPending(true); });
 /** Apply a downloaded snapshot when nothing is in progress; otherwise offer it once and retry at the next idle moment. */
@@ -294,7 +315,9 @@ async function runSearch(q) {
   state.last = null; state.codeHit = null;
   if (!db.version) {
     el.home.hidden = true; el.results.hidden = false;
-    const msg = db.state === "offline-empty" ? "Prices haven't been downloaded yet. Connect once and they stay on this phone." : db.state === "error" ? "The price database couldn't be opened. Check for new prices in Settings." : "Opening the price database…";
+    const msg = db.state === "offline-empty" ? "Prices haven't been downloaded yet. Connect once and they stay on this phone."
+      : db.state === "error" && state.dbErrorNetwork ? "The connection dropped while the prices were downloading. They will finish on their own once the phone is back online."
+      : db.state === "error" ? "The price database couldn't be opened. Check for new prices in Settings." : "Opening the price database…";
     el.list.innerHTML = `<li class="empty">${msg}</li>`;
     el.resultsMeta.textContent = "";
     return;

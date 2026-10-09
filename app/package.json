@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "fixture": "python3 tools/make_fixture.py --store build/fixture-store --items 760000",
-    "build:db": "node --max-old-space-size=4096 tools/build-db.mjs --store build/fixture-store --out dist/db",
+    "build:db": "node --max-old-space-size=6144 tools/build-db.mjs --store build/fixture-store --out dist/db",
     "build:site": "node tools/build-site.mjs",
     "build": "npm run build:db && npm run build:site",
     "serve": "node tools/serve.mjs dist 8787",

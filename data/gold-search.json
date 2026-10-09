@@ -1,5 +1,5 @@
 {
- "note": "Search gold set: how volunteers type everyday donations, and what the right item must contain (lower-case, brand + name; size within 3%). A query passes when such an item is in the top 3 results. app/tools/gold.mjs runs it against every real pack before deploy (deploy-app.yml): below 95% opens [search-gold], below 90% keeps the previous build live. A query no item in the pack satisfies (its department not crawled yet) is reported as not covered, not as a miss. 330 queries: about 1 in 20 can miss before the alert, and every miss is listed. Add a query for every wrong result a volunteer reports.",
+ "note": "Search gold set: how volunteers type everyday donations, and what the right item must contain (lower-case, brand + name; size within 3%; `cat`, when given, the item's category from data/categories.json). A query passes when such an item is in the top 3 results. app/tools/gold.mjs runs it against every real pack before deploy (deploy-app.yml): below 95% opens [search-gold], below 90% keeps the previous build live. A query no item in the pack satisfies (its department not crawled yet) is reported as not covered, not as a miss. 330 queries: about 1 in 20 can miss before the alert, and every miss is listed. Add a query for every wrong result a volunteer reports.",
  "queries": [
   {"q": "gv corn", "all": ["great value", "corn"], "size": [15.25, "oz"]},
   {"q": "great value whole kernel corn", "all": ["great value", "corn"]},
@@ -230,7 +230,7 @@
   {"q": "tortillas", "all": ["tortillas"]},
   {"q": "hot dogs", "all": ["hot dogs"]},
   {"q": "bacon", "all": ["bacon"]},
-  {"q": "bananas", "all": ["fresh", "banana"]},
+  {"q": "bananas", "all": ["banana"], "cat": 1},
   {"q": "apples", "all": ["apples"]},
   {"q": "potatoes 10 lb", "all": ["potatoes"], "size": [10, "lb"]},
   {"q": "onions", "all": ["onions"]},

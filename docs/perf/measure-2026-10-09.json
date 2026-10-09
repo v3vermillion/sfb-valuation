@@ -1,0 +1,377 @@
+{
+  "url": "http://127.0.0.1:8787/",
+  "cpuThrottle": 4,
+  "device": "Pixel 7 viewport (412x915 @2.625)",
+  "runs": 5,
+  "browser": "chromium",
+  "firstInstall": {
+    "ms": 1178,
+    "wall": 1661,
+    "downloadMs": 305,
+    "dbLoadMs": 542,
+    "workerMs": 367,
+    "note": "download 33 MB from local server + index; happens once"
+  },
+  "coldStart": {
+    "interactive": {
+      "n": 5,
+      "p50": 872,
+      "p95": 943,
+      "max": 943
+    },
+    "dbLoad": {
+      "n": 5,
+      "p50": 711,
+      "p95": 732,
+      "max": 732
+    },
+    "firstPaint": {
+      "n": 5,
+      "p50": 84,
+      "p95": 96,
+      "max": 96
+    },
+    "runs": [
+      {
+        "interactive": 943,
+        "dbLoad": 711,
+        "script": 105,
+        "fcp": 96
+      },
+      {
+        "interactive": 872,
+        "dbLoad": 717,
+        "script": 68,
+        "fcp": 64
+      },
+      {
+        "interactive": 868,
+        "dbLoad": 691,
+        "script": 63,
+        "fcp": 92
+      },
+      {
+        "interactive": 930,
+        "dbLoad": 732,
+        "script": 88,
+        "fcp": 84
+      },
+      {
+        "interactive": 835,
+        "dbLoad": 671,
+        "script": 70,
+        "fcp": 64
+      }
+    ],
+    "note": "reload with DB cached (service worker + Cache Storage); interactive = search answers"
+  },
+  "keystroke": {
+    "total": {
+      "n": 86,
+      "p50": 24.5,
+      "p95": 38.4,
+      "max": 59.7
+    },
+    "worker": {
+      "n": 86,
+      "p50": 3.4,
+      "p95": 12.8,
+      "max": 36.9
+    },
+    "samples": 86,
+    "note": "totalMs = input event -> results painted (incl. worker round-trip + DOM); frame budget 16.7 ms",
+    "worst": [
+      {
+        "q": "p",
+        "workerMs": 36.9,
+        "roundtripMs": 43.1,
+        "renderMs": 5.6,
+        "totalMs": 59.7,
+        "n": 40,
+        "query": "peanut butter"
+      },
+      {
+        "q": "p",
+        "workerMs": 4.4,
+        "roundtripMs": 6.1,
+        "renderMs": 3.3,
+        "totalMs": 52.8,
+        "n": 40,
+        "query": "pb"
+      },
+      {
+        "q": "to",
+        "workerMs": 23.7,
+        "roundtripMs": 25.2,
+        "renderMs": 6,
+        "totalMs": 43.1,
+        "n": 40,
+        "query": "toothpaste"
+      },
+      {
+        "q": "pea",
+        "workerMs": 23.6,
+        "roundtripMs": 24.5,
+        "renderMs": 3.6,
+        "totalMs": 41.1,
+        "n": 40,
+        "query": "peanut butter"
+      },
+      {
+        "q": "cheeri",
+        "workerMs": 1.7,
+        "roundtripMs": 23.8,
+        "renderMs": 11,
+        "totalMs": 38.4,
+        "n": 40,
+        "query": "cheerios 18"
+      }
+    ]
+  },
+  "longTasksDuringTyping": [
+    59
+  ],
+  "topResults": {
+    "peanut butter": {
+      "total": 3821,
+      "relaxed": false,
+      "fuzzy": false,
+      "ms": 2.8,
+      "top": [
+        "Great Value Great Value Peanut Butter - 16 oz — $1.26",
+        "Great Value Great Value Peanut Butter - 48 oz — $3.69",
+        "Great Value Great Value Peanut Butter, 48 oz Box — $3.91"
+      ]
+    },
+    "gv corn": {
+      "total": 1259,
+      "relaxed": false,
+      "fuzzy": false,
+      "ms": 3.7,
+      "top": [
+        "Great Value Great Value Muffin Mix Corn, 7 oz — $0.90",
+        "Great Value Great Value Whole Kernel Corn 29oz — $1.26",
+        "Great Value Great Value Whole Kernel Corn 8.5oz — $0.30"
+      ]
+    },
+    "diapers size 4": {
+      "total": 158,
+      "relaxed": false,
+      "fuzzy": false,
+      "ms": 1.4,
+      "top": [
+        "Parent's Choice Parent's Choice Size 4 Diapers, 32 Count — $4.64",
+        "Parent's Choice Parent's Choice Size 4 Diapers (84 Count) — $10.92",
+        "Parent's Choice Parent's Choice Size 4 Diapers, 164 Count — $16.00"
+      ]
+    },
+    "cheerios": {
+      "total": 105,
+      "relaxed": false,
+      "fuzzy": false,
+      "ms": 1,
+      "top": [
+        "Cheerios Cheerios with Almonds Cereal 18oz — $3.28",
+        "Cheerios Cheerios with Almonds Cereal, 24 oz Tray — $3.04",
+        "Cheerios Cheerios with Almonds Cereal, 12 oz Bar, Pack of 2 — $4.62"
+      ]
+    },
+    "2% milk": {
+      "total": 943,
+      "relaxed": false,
+      "fuzzy": false,
+      "ms": 2.7,
+      "top": [
+        "Marketside Marketside Lactose Free 2% Milk, 96 fl oz Bottle — $3.89",
+        "Great Value Great Value Lactose Free 2% Milk, 52 fl oz — $1.97",
+        "Great Value Great Value Lactose Free 2% Milk - 64 fl oz — $1.46"
+      ]
+    },
+    "tide pods": {
+      "total": 237,
+      "relaxed": false,
+      "fuzzy": false,
+      "ms": 1.3,
+      "top": [
+        "Tide Tide Pods Lavender Laundry Pods, 16 ct — $2.64",
+        "Tide Tide Pods Lavender Laundry Pods, 104 ct — $15.24",
+        "Tide Tide Pods Original Laundry Pods, 45 Count — $8.98"
+      ]
+    },
+    "pb": {
+      "total": 3821,
+      "relaxed": false,
+      "fuzzy": false,
+      "ms": 2.7,
+      "top": [
+        "Great Value Great Value Peanut Butter - 16 oz — $1.26",
+        "Great Value Great Value Peanut Butter - 48 oz — $3.69",
+        "Great Value Great Value Peanut Butter, 48 oz Box — $3.91"
+      ]
+    },
+    "chese": {
+      "total": 18333,
+      "relaxed": false,
+      "fuzzy": true,
+      "ms": 15.1,
+      "top": [
+        "Marketside Marketside Pimento Cheese 12oz — $3.79",
+        "Marketside Marketside Pimento Cheese, 12 oz — $1.91",
+        "Marketside Marketside Pimento Cheese - 12 oz — $1.89"
+      ]
+    }
+  },
+  "lookup": {
+    "resolve": {
+      "n": 5,
+      "p50": 3.2,
+      "p95": 12.3,
+      "max": 12.3
+    },
+    "toSheet": {
+      "n": 5,
+      "p50": 42.8,
+      "p95": 53.3,
+      "max": 53.3
+    },
+    "presented": {
+      "n": 5,
+      "p50": 42.9,
+      "p95": 53.4,
+      "max": 53.4
+    },
+    "runs": [
+      {
+        "code": "078742054261",
+        "kind": "exact",
+        "resolveMs": 3.2,
+        "openMs": 36.4,
+        "toSheetMs": 51.4,
+        "presentedMs": 51.4
+      },
+      {
+        "code": "4011",
+        "kind": "plu",
+        "resolveMs": 12.3,
+        "openMs": 38.8,
+        "toSheetMs": 53.3,
+        "presentedMs": 53.4
+      },
+      {
+        "code": "201234928751",
+        "kind": "store-label",
+        "resolveMs": 0.5,
+        "openMs": 26.2,
+        "toSheetMs": 40.4,
+        "presentedMs": 40.4
+      },
+      {
+        "code": "012345678905",
+        "kind": "unknown",
+        "resolveMs": 7.2,
+        "openMs": 26.6,
+        "toSheetMs": 33.4,
+        "presentedMs": 38.6
+      },
+      {
+        "code": "078742054261",
+        "kind": "exact",
+        "resolveMs": 2.1,
+        "openMs": 27.1,
+        "toSheetMs": 42.8,
+        "presentedMs": 42.9
+      }
+    ],
+    "note": "toSheetMs = typed code -> resolved -> sheet open -> first frame showing it rendered by the main thread (same definition in every engine); presentedMs = two frames after the sheet opened (engine-dependent: includes WebKit's compositing; diagnosis only)",
+    "withoutBackdropFilter": {
+      "toSheet": {
+        "n": 5,
+        "p50": 39.1,
+        "p95": 47,
+        "max": 47
+      },
+      "presented": {
+        "n": 5,
+        "p50": 39.3,
+        "p95": 47,
+        "max": 47
+      },
+      "note": "the same lookups with every backdrop-filter switched off (diagnosis only; the app keeps its blur)"
+    }
+  },
+  "memory": {
+    "pageHeapMB": 2.6,
+    "workerHeapMB": 6.6,
+    "workerBuffersMB": 99.6,
+    "workers": [
+      {
+        "url": "db-worker.js",
+        "heapMB": 6.6,
+        "buffersMB": 99.6
+      }
+    ],
+    "note": "after a forced GC, once the searches and lookups above have run; pageHeapMB = main thread JS heap, workerHeapMB = dedicated workers' JS heap (the search worker), workerBuffersMB = their ArrayBuffers (the opened pack)"
+  },
+  "scanTyped": {
+    "toSheet": {
+      "n": 5,
+      "p50": 78.7,
+      "p95": 100.3,
+      "max": 100.3
+    },
+    "presented": {
+      "n": 5,
+      "p50": 78.9,
+      "p95": 101,
+      "max": 101
+    },
+    "runs": [
+      {
+        "code": "078742054261",
+        "openMs": 68.7,
+        "toSheetMs": 100.3,
+        "presentedMs": 101,
+        "kind": "Exact item",
+        "title": "Great Value Golden Sweet Whole Kernel Corn, Canned Corn, 15.25 oz Can",
+        "camera": "live (zxing)"
+      },
+      {
+        "code": "078742054261",
+        "openMs": 56.1,
+        "toSheetMs": 78.7,
+        "presentedMs": 78.9,
+        "kind": "Exact item",
+        "title": "Great Value Golden Sweet Whole Kernel Corn, Canned Corn, 15.25 oz Can",
+        "camera": "live (zxing)"
+      },
+      {
+        "code": "078742054261",
+        "openMs": 42.7,
+        "toSheetMs": 66.3,
+        "presentedMs": 66.8,
+        "kind": "Exact item",
+        "title": "Great Value Golden Sweet Whole Kernel Corn, Canned Corn, 15.25 oz Can",
+        "camera": "live (zxing)"
+      },
+      {
+        "code": "078742054261",
+        "openMs": 48.2,
+        "toSheetMs": 79,
+        "presentedMs": 83.8,
+        "kind": "Exact item",
+        "title": "Great Value Golden Sweet Whole Kernel Corn, Canned Corn, 15.25 oz Can",
+        "camera": "live (zxing)"
+      },
+      {
+        "code": "078742054261",
+        "openMs": 48,
+        "toSheetMs": 68,
+        "presentedMs": 68.2,
+        "kind": "Exact item",
+        "title": "Great Value Golden Sweet Whole Kernel Corn, Canned Corn, 15.25 oz Can",
+        "camera": "live (zxing)"
+      }
+    ],
+    "note": "scanner open -> 'Type the barcode instead' -> digits submitted -> sheet painted (in-page clock: the first frame showing the sheet rendered by the main thread); presentedMs = two frames after it opened (engine-dependent, diagnosis only); camera = what the camera did when the scanner opened"
+  }
+}

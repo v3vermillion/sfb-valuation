@@ -63,6 +63,9 @@ Dated, current decisions; this file wins on conflict. A later entry that replace
 - 2026-10-07 — Price date always shown; staleness banner at 14 days (amber) and 45 days (red) with "Update now"; persistent storage requested.
 - 2026-10-07 — The app is live at `sfb-value.forgetraining.workers.dev` (sample data until the first snapshot publishes). Target: `value.strongsvillefoodbank.org` on the food bank's Cloudflare account; volunteers install only from there, because offline data does not follow an origin change.
 - 2026-10-08 — Performance and screenshots are measured in WebKit as well as Chromium (iPhones run WebKit); manual `app-browsers` workflow.
+- 2026-10-09 — Pack format 3 (Phase 2 alternative, chosen over one larger pack): one shard per department, files content-addressed under `/db/files/` and shared across versions. The app opens on the consumable (core) shards and adds the durable ones in the background; a weekly update downloads only the files that changed; the real crawl (2.1M items) is 114 MB, 63 MB core. Cold start rose from 623 to 872 ms p50 (budget 2 s). An app shell from before format 3 cannot read a format 3 manifest: its background update fails and it keeps answering from its installed pack until the new shell loads (shell and pack ship in the same deploy); the new shell still opens an installed format 2 pack while format 3 downloads.
+- 2026-10-09 — Downloads on the phone: three files at a time, three retries with back-off; a network failure stops the queue, says "No connection — prices will download when it's back" and retries every 30 s. Updates apply one at a time; unused files are pruned after a swap.
+- 2026-10-09 — Search scores one candidate budget (about 400) shared by the shards in proportion to their matches, at least 40 each; head-noun matches fill up to half of a shard's share. Keystroke p95 12.8 ms at 4× CPU throttle; gold set 328/330.
 
 ## Open
 

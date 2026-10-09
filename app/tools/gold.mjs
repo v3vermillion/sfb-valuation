@@ -3,7 +3,7 @@
 //
 //   node --max-old-space-size=6144 app/tools/gold.mjs --db dist/db [--json gold.json] [--min 0.95] [--block 0.90]
 //
-// A query passes when an item containing every expected word (brand + name, lower-case; size within 3% when given)
+// A query passes when an item containing every expected word (brand + name, lower-case; size within 3% and category when given)
 // is among the top 3 results. A query whose expected item is in no row of the pack (its department not crawled yet)
 // is "not covered" and left out of the rate. Prints a markdown report (append it to $GITHUB_STEP_SUMMARY); exit 0,
 // or 3 when the rate is below --block (the deploy keeps the previous build), with the outcome in $GITHUB_OUTPUT
@@ -26,13 +26,13 @@ export function sizeOk(want, it) {
   if (!it.size || !a || !b || a[0] !== b[0]) return false;
   return Math.abs(it.size * a[1] - want[0] * b[1]) / (want[0] * b[1]) <= 0.03;
 }
-export const satisfies = (g, it) => { const t = `${it.brand} ${it.name}`.toLowerCase(); return g.all.every((w) => t.includes(w)) && sizeOk(g.size, it); };
+export const satisfies = (g, it) => { const t = `${it.brand} ${it.name}`.toLowerCase(); return g.all.every((w) => t.includes(w)) && sizeOk(g.size, it) && (g.cat == null || it.cat === g.cat); };
 
 const gold = JSON.parse(fs.readFileSync(goldFile, "utf8")).queries;
 const db = await openPack(dbDir);
 // coverage: one pass over the pack's names
 const covered = new Array(gold.length).fill(false);
-for (let r = 0; r < db.stats.items; r++) {
+for (const r of db.ids()) {
   const it = db.item(r);
   if (it.placeholder) continue;
   for (let i = 0; i < gold.length; i++) if (!covered[i] && satisfies(gold[i], it)) covered[i] = true;
