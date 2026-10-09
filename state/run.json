@@ -94,23 +94,127 @@
     },
     {
       "id": "4044",
-      "items": 365988,
+      "items": 0,
       "name": "Home",
       "next": null,
-      "pages": 1830,
-      "parts": 19,
-      "status": "done",
-      "total_pages": 31781
+      "pages": 0,
+      "parts": 0,
+      "status": "pending",
+      "total_pages": null,
+      "units": [
+        {
+          "id": "4044_623679",
+          "items": 0,
+          "name": "Kitchen & Dining",
+          "next": null,
+          "pages": 0,
+          "parts": 0,
+          "status": "pending",
+          "total_pages": null
+        },
+        {
+          "id": "4044_539103",
+          "items": 0,
+          "name": "Bedding",
+          "next": null,
+          "pages": 0,
+          "parts": 0,
+          "status": "pending",
+          "total_pages": null
+        },
+        {
+          "id": "4044_539095",
+          "items": 0,
+          "name": "Bath",
+          "next": null,
+          "pages": 0,
+          "parts": 0,
+          "status": "pending",
+          "total_pages": null
+        },
+        {
+          "id": "4044_90828",
+          "items": 0,
+          "name": "Storage & Organization",
+          "next": null,
+          "pages": 0,
+          "parts": 0,
+          "status": "pending",
+          "total_pages": null
+        },
+        {
+          "id": "4044_90548",
+          "items": 0,
+          "name": "Appliances",
+          "next": null,
+          "pages": 0,
+          "parts": 0,
+          "status": "pending",
+          "total_pages": null
+        }
+      ]
     },
     {
       "id": "1072864",
-      "items": 98983,
+      "items": 0,
       "name": "Home Improvement",
       "next": null,
-      "pages": 495,
-      "parts": 6,
-      "status": "done",
-      "total_pages": 5909
+      "pages": 0,
+      "parts": 0,
+      "status": "pending",
+      "total_pages": null,
+      "units": [
+        {
+          "id": "1072864_1031899",
+          "items": 0,
+          "name": "Tools",
+          "next": null,
+          "pages": 0,
+          "parts": 0,
+          "status": "pending",
+          "total_pages": null
+        },
+        {
+          "id": "1072864_1067619",
+          "items": 0,
+          "name": "Electrical",
+          "next": null,
+          "pages": 0,
+          "parts": 0,
+          "status": "pending",
+          "total_pages": null
+        },
+        {
+          "id": "1072864_133032",
+          "items": 0,
+          "name": "Heating, Cooling & Air Quality",
+          "next": null,
+          "pages": 0,
+          "parts": 0,
+          "status": "pending",
+          "total_pages": null
+        },
+        {
+          "id": "1072864_8036850",
+          "items": 0,
+          "name": "Emergency Prep",
+          "next": null,
+          "pages": 0,
+          "parts": 0,
+          "status": "pending",
+          "total_pages": null
+        },
+        {
+          "id": "1072864_6610571",
+          "items": 0,
+          "name": "Water Purification",
+          "next": null,
+          "pages": 0,
+          "parts": 0,
+          "status": "pending",
+          "total_pages": null
+        }
+      ]
     },
     {
       "id": "5428",
@@ -159,7 +263,7 @@
       "next": null,
       "pages": 0,
       "parts": 0,
-      "status": "pending",
+      "status": "dropped",
       "total_pages": null
     },
     {
@@ -189,7 +293,7 @@
       "next": null,
       "pages": 0,
       "parts": 0,
-      "status": "pending",
+      "status": "dropped",
       "total_pages": null
     },
     {
