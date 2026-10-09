@@ -1,160 +1,230 @@
 {
   "1005862": {
-    "checked": "2026-10-08T15:50:00+00:00",
+    "checked": "2026-10-09T23:52:32+00:00",
     "est_items": 83400,
     "first_page_items": 200,
     "name": "Personal Care",
     "total_pages": 417
   },
   "1072864": {
-    "checked": "2026-10-08T15:50:00+00:00",
-    "est_items": 1180600,
-    "first_page_items": 200,
+    "checked": "2026-10-09T23:52:32+00:00",
+    "est_items": 340800,
+    "first_page_items": 1000,
     "name": "Home Improvement",
-    "total_pages": 5903
+    "total_pages": 1704,
+    "units": [
+      "1072864_1031899",
+      "1072864_1067619",
+      "1072864_133032",
+      "1072864_8036850",
+      "1072864_6610571"
+    ]
+  },
+  "1072864_1031899": {
+    "checked": "2026-10-09T23:52:32+00:00",
+    "est_items": 137400,
+    "first_page_items": 200,
+    "name": "Tools",
+    "total_pages": 687
+  },
+  "1072864_1067619": {
+    "checked": "2026-10-09T23:52:32+00:00",
+    "est_items": 104000,
+    "first_page_items": 200,
+    "name": "Electrical",
+    "total_pages": 520
+  },
+  "1072864_133032": {
+    "checked": "2026-10-09T23:52:32+00:00",
+    "est_items": 85200,
+    "first_page_items": 200,
+    "name": "Heating, Cooling & Air Quality",
+    "total_pages": 426
+  },
+  "1072864_6610571": {
+    "checked": "2026-10-09T23:52:32+00:00",
+    "est_items": 5400,
+    "first_page_items": 200,
+    "name": "Water Purification",
+    "total_pages": 27
+  },
+  "1072864_8036850": {
+    "checked": "2026-10-09T23:52:32+00:00",
+    "est_items": 8800,
+    "first_page_items": 200,
+    "name": "Emergency Prep",
+    "total_pages": 44
   },
   "1085632": {
-    "checked": "2026-10-08T15:50:00+00:00",
+    "checked": "2026-10-09T23:52:32+00:00",
     "est_items": 6400,
     "first_page_items": 200,
     "name": "Seasonal",
     "total_pages": 32
   },
   "1085666": {
-    "checked": "2026-10-08T15:50:00+00:00",
-    "est_items": 204800,
+    "checked": "2026-10-09T23:52:32+00:00",
+    "est_items": 205000,
     "first_page_items": 200,
     "name": "Beauty",
-    "total_pages": 1024
+    "total_pages": 1025
   },
   "1105910": {
-    "checked": "2026-10-08T15:50:00+00:00",
+    "checked": "2026-10-09T23:52:32+00:00",
     "est_items": 331000,
     "first_page_items": 200,
     "name": "Cell Phones",
     "total_pages": 1655
   },
   "1115193": {
-    "checked": "2026-10-08T15:50:00+00:00",
+    "checked": "2026-10-09T23:52:32+00:00",
     "est_items": 76200,
     "first_page_items": 200,
     "name": "Household Essentials",
     "total_pages": 381
   },
   "1229749": {
-    "checked": "2026-10-08T15:50:00+00:00",
-    "est_items": 666600,
+    "checked": "2026-10-09T23:52:32+00:00",
+    "est_items": 667400,
     "first_page_items": 200,
     "name": "Office Supplies",
-    "total_pages": 3333
+    "total_pages": 3337
   },
   "1334134": {
-    "checked": "2026-10-08T15:50:00+00:00",
-    "est_items": 376200,
+    "checked": "2026-10-09T23:52:32+00:00",
+    "est_items": 376800,
     "first_page_items": 200,
     "name": "Arts Crafts & Sewing",
-    "total_pages": 1881
+    "total_pages": 1884
   },
   "2637": {
-    "checked": "2026-10-08T15:50:00+00:00",
+    "checked": "2026-10-09T23:52:32+00:00",
     "est_items": 242200,
     "first_page_items": 200,
     "name": "Party & Occasions",
     "total_pages": 1211
   },
   "3891": {
-    "checked": "2026-10-08T15:50:00+00:00",
+    "checked": "2026-10-09T23:52:32+00:00",
     "est_items": 788600,
     "first_page_items": 200,
     "name": "Jewelry",
     "total_pages": 3943
   },
-  "3920": {
-    "checked": "2026-10-08T15:50:00+00:00",
-    "est_items": 20230200,
-    "first_page_items": 200,
-    "name": "Books",
-    "total_pages": 101151
-  },
   "3944": {
-    "checked": "2026-10-08T15:50:00+00:00",
-    "est_items": 729600,
+    "checked": "2026-10-09T23:52:32+00:00",
+    "est_items": 732800,
     "first_page_items": 200,
     "name": "Electronics",
-    "total_pages": 3648
+    "total_pages": 3664
   },
   "4044": {
-    "checked": "2026-10-08T15:50:00+00:00",
-    "est_items": 6355200,
-    "first_page_items": 200,
+    "checked": "2026-10-09T23:52:32+00:00",
+    "est_items": 972600,
+    "first_page_items": 1000,
     "name": "Home",
-    "total_pages": 31776
+    "total_pages": 4863,
+    "units": [
+      "4044_623679",
+      "4044_539103",
+      "4044_539095",
+      "4044_90828",
+      "4044_90548"
+    ]
+  },
+  "4044_539095": {
+    "checked": "2026-10-09T23:52:32+00:00",
+    "est_items": 124000,
+    "first_page_items": 200,
+    "name": "Bath",
+    "total_pages": 620
+  },
+  "4044_539103": {
+    "checked": "2026-10-09T23:52:32+00:00",
+    "est_items": 231200,
+    "first_page_items": 200,
+    "name": "Bedding",
+    "total_pages": 1156
+  },
+  "4044_623679": {
+    "checked": "2026-10-09T23:52:32+00:00",
+    "est_items": 445000,
+    "first_page_items": 200,
+    "name": "Kitchen & Dining",
+    "total_pages": 2225
+  },
+  "4044_90548": {
+    "checked": "2026-10-09T23:52:32+00:00",
+    "est_items": 77600,
+    "first_page_items": 200,
+    "name": "Appliances",
+    "total_pages": 388
+  },
+  "4044_90828": {
+    "checked": "2026-10-09T23:52:32+00:00",
+    "est_items": 94800,
+    "first_page_items": 200,
+    "name": "Storage & Organization",
+    "total_pages": 474
   },
   "4125": {
-    "checked": "2026-10-08T15:50:00+00:00",
-    "est_items": 1247000,
+    "checked": "2026-10-09T23:52:32+00:00",
+    "est_items": 1246200,
     "first_page_items": 185,
     "name": "Sports & Outdoors",
-    "total_pages": 6235
+    "total_pages": 6231
   },
   "4171": {
-    "checked": "2026-10-08T15:50:00+00:00",
+    "checked": "2026-10-09T23:52:32+00:00",
     "est_items": 512800,
     "first_page_items": 200,
     "name": "Toys",
     "total_pages": 2564
   },
   "5427": {
-    "checked": "2026-10-08T15:50:00+00:00",
-    "est_items": 180200,
+    "checked": "2026-10-09T23:52:32+00:00",
+    "est_items": 180000,
     "first_page_items": 200,
     "name": "Baby",
-    "total_pages": 901
+    "total_pages": 900
   },
   "5428": {
-    "checked": "2026-10-08T15:50:00+00:00",
-    "est_items": 473800,
+    "checked": "2026-10-09T23:52:32+00:00",
+    "est_items": 474200,
     "first_page_items": 200,
     "name": "Patio & Garden",
-    "total_pages": 2369
+    "total_pages": 2371
   },
   "5431": {
-    "checked": "2026-10-08T15:50:00+00:00",
+    "checked": "2026-10-09T23:52:32+00:00",
     "est_items": 200,
     "first_page_items": 11,
     "name": "Pharmacy",
     "total_pages": 1
   },
   "5440": {
-    "checked": "2026-10-08T15:50:00+00:00",
-    "est_items": 236600,
+    "checked": "2026-10-09T23:52:32+00:00",
+    "est_items": 236800,
     "first_page_items": 200,
     "name": "Pets",
-    "total_pages": 1183
+    "total_pages": 1184
   },
   "7924299": {
-    "checked": "2026-10-08T15:50:00+00:00",
+    "checked": "2026-10-09T23:52:32+00:00",
     "est_items": 54800,
     "first_page_items": 200,
     "name": "Premium Beauty",
     "total_pages": 274
   },
-  "91083": {
-    "checked": "2026-10-08T15:50:00+00:00",
-    "est_items": 3110600,
-    "first_page_items": 200,
-    "name": "Auto & Tires",
-    "total_pages": 15553
-  },
   "976759": {
-    "checked": "2026-10-08T15:50:00+00:00",
-    "est_items": 316200,
+    "checked": "2026-10-09T23:52:32+00:00",
+    "est_items": 316400,
     "first_page_items": 200,
     "name": "Food",
-    "total_pages": 1581
+    "total_pages": 1582
   },
   "976760": {
-    "checked": "2026-10-08T15:50:00+00:00",
+    "checked": "2026-10-09T23:52:32+00:00",
     "est_items": 174000,
     "first_page_items": 200,
     "name": "Health and Medicine",
