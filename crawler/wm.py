@@ -184,14 +184,16 @@ class Walmart:
 
     ITEMS_CHUNK = 20   # the /items endpoint accepts up to 20 ids per request
 
-    def get_items(self, ids) -> list:
+    def get_items(self, ids, store_id=None) -> list:
         """Fetch items by Walmart item id: `/items?ids=<comma list>`, at most ITEMS_CHUNK ids per
         request, every request through `get` (so the pacing, 429 back-off and retries apply).
-        Returns the concatenated item dicts; ids Walmart no longer knows are simply absent."""
+        store_id: that store's own price and stock (`&storeId=`). Returns the concatenated item dicts;
+        ids Walmart no longer knows are simply absent."""
         ids = [str(i).strip() for i in (ids or []) if str(i).strip()]
+        extra = f"&storeId={store_id}" if store_id else ""
         out = []
         for i in range(0, len(ids), self.ITEMS_CHUNK):
-            page = self.get(f"/items?ids={','.join(ids[i:i + self.ITEMS_CHUNK])}")
+            page = self.get(f"/items?ids={','.join(ids[i:i + self.ITEMS_CHUNK])}{extra}")
             items = page.get("items") if isinstance(page, dict) else page
             out.extend(it for it in (items or []) if isinstance(it, dict))
         return out

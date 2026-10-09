@@ -1,0 +1,8 @@
+{
+ "note": "The store whose shelf prices the app shows (crawler/storeprice.py). Walmart's Product Lookup returns a store's own price and stock with storeId; the category listing ignores it, so store prices are fetched 20 items per call after the crawl, consumable departments first. A row with a store price checked within max_age_days shows it (labelled with the store); otherwise Walmart.com's price. Probe of 2026-10-09: store prices differed for 3 of 12 sampled items, all lower (Cheerios GF 8.9 oz $5.00 online, $2.97 in store).",
+ "store_id": "2266",
+ "name": "Strongsville Supercenter",
+ "address": "8585 Pearl Rd, Strongsville, OH 44136",
+ "refresh_every_days": 7,
+ "max_age_days": 21
+}

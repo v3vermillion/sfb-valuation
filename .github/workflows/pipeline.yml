@@ -11,11 +11,11 @@ on:
   workflow_dispatch:
     inputs:
       plan:
-        description: "continue | full | core | approve | identify | audit | size | status | rollback"
+        description: "continue | full | core | approve | identify | audit | size | status | rollback | store"
         required: true
         default: continue
         type: choice
-        options: [continue, full, core, approve, identify, audit, size, status, rollback]
+        options: [continue, full, core, approve, identify, audit, size, status, rollback, store]
       rollback_to:
         description: "plan=rollback only: previous, or a kept snapshot version (see the repo's snapshot-* releases)"
         required: false
@@ -75,7 +75,7 @@ jobs:
             fi
           }
           for p in state/run.json build/published/manifest.json sizing.json audit/latest.json \
-                   build/candidate/gates.json identify/latest.json; do
+                   build/candidate/gates.json identify/latest.json store_prices/latest.json; do
             fetch "$p"
           done
           SFB_STORE=store-peek python -m crawler.ci --plan peek

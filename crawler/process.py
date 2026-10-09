@@ -40,7 +40,7 @@ def build():
         for r in store.iter_jsonl_gz(prev_path):
             prev_rows[r["id"]] = r
 
-    rows, seen = {}, set()
+    rows, rejected = {}, set()        # item ids kept (rows) or rejected: a second listing of either is a duplicate
     rejects = defaultdict(Counter)
     raw_counts = Counter()
     for dept_id in crawled_depts:
@@ -51,19 +51,26 @@ def build():
             for item in store.iter_jsonl_gz(part):
                 raw_counts[dept["name"]] += 1
                 iid = item.get("itemId")
-                if iid in seen:
+                if iid in rows or iid in rejected:
                     rejects[dept["name"]]["duplicate"] += 1
                     continue
-                seen.add(iid)
                 row, why = normalize(item, dept, cfg)
                 if why:
+                    rejected.add(iid)
                     rejects[dept["name"]][why] += 1
                     continue
                 prev = prev_rows.get(iid)
-                if "promo_price" in row["flags"] and prev and "promo_price" not in prev.get("flags", []):
+                # a promo keeps the last normal price, also when the promo already ran at the last publish (that row
+                # carries the normal price it kept, flagged kept_normal_price); without a normal price on record the
+                # promo price stands, flagged
+                prev_online = prev.get("online_price", prev.get("price")) if prev else None   # Walmart.com's, not the store's
+                if "promo_price" in row["flags"] and prev and isinstance(prev_online, (int, float)) and (
+                        "promo_price" not in prev.get("flags", []) or "kept_normal_price" in prev.get("flags", [])):
                     row["promo"] = row["price"]
-                    row["price"] = prev["price"]
-                    row["unit_price"] = prev.get("unit_price")
+                    row["price"] = prev_online
+                    pu = prev.get("unit_price")
+                    row["unit_price"] = (round(pu * prev_online / prev["price"], 4)
+                                         if pu and prev_online != prev.get("price") and prev.get("price") else pu)
                     row["flags"].append("kept_normal_price")
                 if prev and prev.get("price"):
                     row["prev_price"] = prev["price"]
@@ -75,6 +82,11 @@ def build():
         if iid not in rows and r.get("dept") not in crawled_names:
             r = dict(r); r.setdefault("flags", []).append("carried_over")
             rows[iid] = r; carried += 1
+
+    # the store's own shelf price where Walmart gave one recently (data/store.json, crawler/storeprice.py); before price
+    # sanity, so a store price is judged like any other
+    from . import storeprice
+    store_priced = storeprice.apply(rows)
 
     names_filled = fill_placeholder_names(rows)
 
@@ -152,6 +164,7 @@ def build():
         "upc_price_conflicts": len(conflicts), "upc_price_conflict_examples": conflicts[:25],
         "unit_outliers_raw": unit_outliers_raw,
         "price_bounds": price_bounds, "price_withheld": withheld,
+        "store_prices": {"rows": store_priced, "store": (storeprice.config() or {}).get("name")},
         "placeholders": {"count": sum(1 for r in rows.values() if "placeholder" in r["flags"]), "names_filled": names_filled,
                          "examples": [{"id": r["id"], "upc": r.get("upc"), "name": r["name"], "listed_name": r.get("listed_name"),
                                        "name_src": r.get("name_src"), "dept": r["dept"],

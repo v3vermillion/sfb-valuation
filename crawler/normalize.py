@@ -416,6 +416,9 @@ def normalize(item: dict, dept: dict, cfg: dict):
         "stock": item.get("stock"), "online": item.get("availableOnline"),
         "offer": item.get("offerType"), "size_src": src, "flags": flags,
     }
+    reviews = item.get("numReviews")
+    if isinstance(reviews, int) and not isinstance(reviews, bool) and reviews > 0:
+        row["reviews"] = reviews               # popularity, for search ranking in the app (absent on older crawls)
     if len(options) > 1:
         row["pack_options"] = options          # resolved and removed by process.build()
     if nn:

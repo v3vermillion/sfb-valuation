@@ -133,7 +133,8 @@ async function livePrice(req, env, ctx, gtinRaw) {
   // Edge cache keyed by GTIN only (never by client), so one Walmart call serves every volunteer for 6 hours.
   // Hits are answered before any rate limit is charged, and are never cached again by the phone.
   const cache = caches.default;
-  const cacheKey = new Request(`https://cache.sfb-valuation.internal/v1/price/${gtin}`, { method: "GET" });
+  // v2: answers carry the store's own price (STORE_ID); v1 entries held Walmart.com's and are never read again
+  const cacheKey = new Request(`https://cache.sfb-valuation.internal/v2/price/${gtin}`, { method: "GET" });
   const hit = await cache.match(cacheKey);
   if (hit) {
     const h = new Headers(hit.headers);
@@ -152,7 +153,11 @@ async function livePrice(req, env, ctx, gtinRaw) {
     // UPC-A (12 digits, also when scanned as a 0-prefixed EAN-13) uses the upc parameter; everything else the 14-digit gtin.
     const raw = String(gtinRaw).replace(/\D/g, "");
     const upcA = gtin.replace(/^0+(?=\d{12}$)/, "");
-    const path = upcA.length === 12 && (raw.length === 12 || raw.length === 13) ? `/items?upc=${upcA}` : `/items?gtin=${gtin}`;
+    // STORE_ID (wrangler.toml): Walmart answers with that store's own shelf price and stock (the app's offline prices
+    // are the same store's, data/store.json)
+    const store = /^\d{1,6}$/.test(String(env.STORE_ID || "")) ? String(env.STORE_ID) : null;
+    const path = (upcA.length === 12 && (raw.length === 12 || raw.length === 13) ? `/items?upc=${upcA}` : `/items?gtin=${gtin}`)
+      + (store ? `&storeId=${store}` : "");
     const r = await walmartGet(env, path);
     if (r.status === 404) payload = { ok: false, reason: "not found", gtin };
     else if (r.status === 429 || r.status >= 500) { status = 503; ttl = THROTTLE_TTL_SECONDS; payload = { ok: false, reason: "walmart unavailable", gtin }; }
@@ -166,6 +171,7 @@ async function livePrice(req, env, ctx, gtinRaw) {
         payload = {
           ok: true, gtin, itemId: it.itemId, upc: it.upc || null, name: it.name || null, brand: it.brandName || null, size: it.size || null,
           price: it.salePrice, offer: it.offerType || null, stock: it.stock || null, online: it.availableOnline ?? null,
+          storeId: store, priceSource: store ? "store" : "online",
           // every Walmart-sold listing for the barcode, so the app can compare with the listing it is showing
           listings: items.map((l) => ({ itemId: l.itemId, price: l.salePrice, name: l.name || null, size: l.size || null, stock: l.stock || null })),
           checkedAt: new Date().toISOString(),

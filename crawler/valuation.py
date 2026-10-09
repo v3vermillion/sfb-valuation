@@ -71,7 +71,10 @@ def _confidence(score):
 class Valuer:
     """Equivalent values for withheld rows, from the rows whose prices are trusted."""
 
-    def __init__(self, rows, group_min=50):
+    def __init__(self, rows, group_min=50, cats=None):
+        """cats: the categories that hold rows to value. Only their trusted rows get a token index (a comparable item
+        is always looked up within the row's own category); medians cover every trusted row. On the real crawl the
+        index over every row was the build's largest allocation (4.2 -> 6.8 GB) for ~2k withheld rows."""
         from .qa import unit_price_medians
         self.trusted = [r for r in rows if not r.get("price_withheld") and "placeholder" not in r.get("flags", [])
                         and "unit_price_suspect" not in r.get("flags", []) and isinstance(r.get("price"), (int, float))]
@@ -80,11 +83,13 @@ class Valuer:
         self.toks = {}
         by_cat = defaultdict(list)
         for i, r in enumerate(self.trusted):
+            by_cat[(r["dept"], r["cat"])].append(r["price"])
+            if cats is not None and r["cat"] not in cats:
+                continue
             t = name_tokens(r["name"], r.get("brand"))
             self.toks[i] = t
             for w in t:
                 self.index[(r["cat"], w)].append(i)
-            by_cat[(r["dept"], r["cat"])].append(r["price"])
         self.df = Counter({k: len(v) for k, v in self.index.items()})
         self.cat_median = {k: statistics.median(v) for k, v in by_cat.items() if v}
         self.kind_median = kind_medians(self.trusted)
@@ -225,10 +230,11 @@ def attach_values(rows, b, group_min=50):
     """Value every withheld row at an equivalent (Valuer), once per-unit prices are final. Returns the withheld list
     for the report, sorted by department and raw price."""
     withheld = []
-    valuer = Valuer(rows.values(), group_min)
-    for r in rows.values():
-        if not r.get("price_withheld"):
-            continue
+    todo = [r for r in rows.values() if r.get("price_withheld")]
+    if not todo:
+        return withheld
+    valuer = Valuer(rows.values(), group_min, cats={r["cat"] for r in todo})
+    for r in todo:
         lo, hi, _ = b.get(r["dept"], (0.10, 5000, None))
         r["equiv"] = valuer.value(r, lo, hi)
         why = "above range" if r["price"] > hi else "below range" if r["price"] < lo else "far below comparable items"

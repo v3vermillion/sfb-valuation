@@ -10,7 +10,7 @@ const F = { RETIRED: 1, NO_SIZE: 2, PROMO: 4, CARRIED: 8, STORE_BRAND: 16, PRIMA
 const UNIT_NAME = [null, "oz", "fl oz", "lb", "ct", "g", "kg", "ml", "l", "gal", "qt", "pt"];
 // category names come from the pack manifest (data/categories.json); this table only covers a pack built before that
 const CAT_NAME = { 1: "Produce", 2: "Dairy & Eggs", 3: "Meat & Seafood", 4: "Deli & Prepared Foods", 5: "Frozen Foods", 6: "Canned & Jarred Foods", 7: "Pasta, Rice & Dry Goods", 8: "Bread & Bakery", 9: "Snacks & Candy", 10: "Beverages", 11: "Condiments, Sauces & Spreads", 12: "International Foods", 13: "Baby", 14: "Health & Medicine", 15: "Personal Care", 16: "Household Supplies", 17: "Kitchen & Dining", 18: "Home", 19: "Pet Food & Supplies", 20: "School, Office & Crafts", 21: "Toys, Books & Games", 22: "Seasonal & Party", 23: "Other", 24: "Auto", 25: "Electronics", 26: "Jewelry & Accessories", 27: "Sports & Outdoors", 28: "Baking, Spices & Oils", 29: "Breakfast & Cereal", 30: "Beauty", 31: "Hardware & Tools", 32: "Lawn, Garden & Floral" };
-const F2 = { PLACEHOLDER: 1, PRICE_WITHHELD: 2, DISCONTINUED: 4 };
+const F2 = { PLACEHOLDER: 1, PRICE_WITHHELD: 2, DISCONTINUED: 4, STORE_PRICE: 32 };
 const VALUE_CONF = ["rough", "low", "medium", "high"];
 const NO_RANK = 0xFFFFFFFF;
 
@@ -146,7 +146,7 @@ function item(rank, withBasis = true) {
     rank, id: db.id[rank], brand: txt.slice(0, sep), name: txt.slice(sep + 1), priceCents: db.price[rank],
     size: db.size[rank] || null, unit: UNIT_NAME[db.unit[rank]], pack: db.pack[rank], basis: db.basis[rank] ? "lb" : "each",
     cat: db.cat[rank], catName: (db.catNames && db.catNames[db.cat[rank]]) || CAT_NAME[db.cat[rank]] || "Other", upc: upc ? String(upc).padStart(14, "0") : null,
-    placeholder: !!(flags2 & F2.PLACEHOLDER), discontinued: !!(flags2 & F2.DISCONTINUED),
+    placeholder: !!(flags2 & F2.PLACEHOLDER), discontinued: !!(flags2 & F2.DISCONTINUED), storePrice: !!(flags2 & F2.STORE_PRICE),
     priceWithheld: withheld, rawPriceCents: withheld ? db.rawPrice[rank] : null, valueConfidence: withheld ? VALUE_CONF[(flags2 >> 3) & 3] : null,
     valueBasis: withheld && withBasis && basisRank !== NO_RANK && basisRank !== rank ? item(basisRank, false) : null,
     retired: !!(flags & F.RETIRED), noSize: !!(flags & F.NO_SIZE), promo: !!(flags & F.PROMO), carried: !!(flags & F.CARRIED),
@@ -279,6 +279,15 @@ function collect(bitsets, limit) {
 
 const UNIT_WORDS = new Set(["oz", "ounce", "ounces", "fl", "fluid", "lb", "lbs", "pound", "pounds", "ct", "cnt", "count", "pack", "pk", "pc", "pcs", "piece", "pieces", "g", "gram", "grams", "kg", "mg", "mcg", "ml", "l", "liter", "liters", "litre", "litres", "gal", "gallon", "gallons", "qt", "quart", "quarts", "pt", "pint", "pints", "each", "ea", "x", "of", "the", "and", "with", "in", "a", "can", "bag", "box", "bottle", "jar", "cup", "tub", "pouch", "package", "carton", "case", "sq", "ft", "inch", "inches", "mm", "cm"]);
 function numberTokens(tokens) { return tokens.filter((t) => /^\d/.test(t)).map(Number); }
+// The item a listing is: the last content word of the name before its first comma or dash ("Huggies Little Movers
+// Baby Diapers, Size 4" -> diapers; "Huggies Diaper Bag Backpack" -> backpack). Colours and sizes after the comma
+// are not the item.
+const HEAD_SKIP = new Set(["size", "pack", "count", "value", "family", "original", "classic", "new", "assorted", "variety"]);
+function headNoun(name) {
+  const head = String(name).split(/,| - | \| /)[0];
+  const toks = tokenize(head).filter((t) => !/^\d/.test(t) && !UNIT_WORDS.has(t) && !HEAD_SKIP.has(t));
+  return toks.length ? toks[toks.length - 1] : null;
+}
 
 function homeCategories(groups) {
   // for every group: the dominant category of the first matching dictionary token, 0 if unclear
@@ -326,6 +335,8 @@ function scoreCandidates(ranks, qTokens, groups) {
     for (const g of groups) { const pos = toks.findIndex((t) => g.some((a) => t.startsWith(a))); if (pos >= 0) { if (first < 0 || pos < first) first = pos; if (pos > last) last = pos; } }
     if (first >= 0 && groups.length > 1) s += 1.2 * groups.length / Math.max(groups.length, last - first + 1);
     for (const h of homes) if (h && h === it.cat) s += 0.8;
+    const head = headNoun(it.name);
+    if (head && groups.some((g) => g.some((a) => head === a || (a.length >= 4 && head.startsWith(a))))) s += 1.6;
     if (it.storeBrand) s += 0.3;
     if (it.retired) s -= 1.5;
     if (it.unavailable) s -= 0.4;
@@ -369,12 +380,20 @@ function search(q, limit = 40) {
   if (!live.length) return { query: q, items: [], relaxed: false, dropped, fuzzy, ms: performance.now() - t0, total: 0 };
   const CAND = Math.max(limit * 10, 400);   // candidates scored per query; long Walmart names rank low globally, so the pool must be deep enough to include them
   let ranks = collect(live.map((x) => x.b), CAND);
-  // never blank: relax by dropping the most restrictive group until something matches
+  // never blank: relax one word at a time. The word dropped is the least informative one (the most common) among those
+  // whose removal leaves something to show: "great value dry pinto beans" drops "dry" and keeps "pinto"; dropping the
+  // rarest word, as before, threw away exactly the word that says what the item is.
   while (!ranks.length && live.length > 1) {
-    let worst = 0, worstCount = Infinity;
-    live.forEach((x, i) => { const c = popcount(x.b); if (c < worstCount) { worstCount = c; worst = i; } });
-    if (!dropped.includes(live[worst].src)) dropped.push(live[worst].src);
-    live.splice(worst, 1);
+    const counts = live.map((x) => popcount(x.b));
+    let pick = -1;
+    for (let i = 0; i < live.length; i++) {
+      if (pick >= 0 && counts[i] <= counts[pick]) continue;
+      const rest = live.filter((_, j) => j !== i).map((x) => x.b);
+      if (collect(rest, 1).length) pick = i;
+    }
+    if (pick < 0) pick = counts.indexOf(Math.max(...counts));   // no single word frees a result: drop the most common, go on
+    if (!dropped.includes(live[pick].src)) dropped.push(live[pick].src);
+    live.splice(pick, 1);
     relaxed = true;
     ranks = collect(live.map((x) => x.b), CAND);
   }
@@ -399,3 +418,6 @@ self.onmessage = async (e) => {
     postMessage({ type: "error", id: m.id, error: String(err && err.stack || err) });
   }
 };
+
+// for tools/search-harness.mjs (Node: tests and the gold search set); a module worker ignores exports
+export { load, search, lookupUpc, lookupEquivalent, lookupPlu, item };

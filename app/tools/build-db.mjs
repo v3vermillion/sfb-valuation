@@ -13,7 +13,8 @@
 //                (the three trailing arrays were added in format 2; a format-1 reader stops before them)
 //                price is what the app shows: Walmart's price, or for a withheld price (flags2 PRICE_WITHHELD) its
 //                equivalent value, with Walmart's own price in rawPrice; flags2 bits: 1 placeholder (barcode lookup only,
-//                never in the token index), 2 price withheld, 4 discontinued, bits 3-4 value confidence (0 rough .. 3 high)
+//                never in the token index), 2 price withheld, 4 discontinued, bits 3-4 value confidence (0 rough .. 3 high),
+//                32 the price is the store's own shelf price (manifest.store names the store), not Walmart.com's
 //   strings-K    "SFBS" u32 count u32 firstRank | offsets u32[count+1] | utf8 bytes of "brand\x1Fname" per item
 //   upc.bin      "SFBU" u32 M | keys f64[M] sorted (GTIN-14 as a number; primary row first within a key) | ranks u32[M]
 //   tokens.bin   "SFBT" u32 T u32 postingBytes | dictOff u32[T+1] | dict utf8 (tokens in byte order) | postOff u32[T+1] | postings (varint deltas of ascending ranks) | tokCat u8[T] (dominant category, 0 = none)
@@ -37,7 +38,7 @@ const TO_FLOZ = { "fl oz": 1, ml: 0.033814, l: 33.814, gal: 128, qt: 32, pt: 16 
 const F = { RETIRED: 1, NO_SIZE: 2, PROMO: 4, CARRIED: 8, STORE_BRAND: 16, PRIMARY: 32, SIZE_CONFLICT: 64, UNAVAILABLE: 128 };
 const CORE_DEPTS = new Set(["Food", "Health and Medicine", "Pharmacy", "Personal Care", "Beauty", "Baby", "Pets", "Household Essentials"]);
 const CONF = { low: 0, medium: 1, high: 2 };
-const F2 = { PLACEHOLDER: 1, PRICE_WITHHELD: 2, DISCONTINUED: 4 };
+const F2 = { PLACEHOLDER: 1, PRICE_WITHHELD: 2, DISCONTINUED: 4, STORE_PRICE: 32 };
 const VALUE_CONF = { rough: 0, low: 1, medium: 2, high: 3 };
 const NO_RANK = 0xFFFFFFFF;
 
@@ -87,7 +88,8 @@ const snapshot = String(srcManifest.version);
 const FORMAT_VERSION = 2;
 const packHash = crypto.createHash("sha256").update(`sfb-pack/${FORMAT_VERSION}\n`);
 const CATEGORIES_FILE = path.join(APP, "..", "data", "categories.json");
-for (const f of [fileURLToPath(import.meta.url), path.join(APP, "public", "js", "tokenize.js"), path.join(STORE, "identify", "equivalents.jsonl.gz"), CATEGORIES_FILE]) {
+const STORE_FILE = path.join(APP, "..", "data", "store.json");
+for (const f of [fileURLToPath(import.meta.url), path.join(APP, "public", "js", "tokenize.js"), path.join(STORE, "identify", "equivalents.jsonl.gz"), CATEGORIES_FILE, STORE_FILE]) {
   const parts = jsonlFiles(f);
   packHash.update(parts.length ? Buffer.concat(parts.map((p) => fs.readFileSync(p))) : Buffer.from("none")).update("\n");
 }
@@ -106,10 +108,12 @@ for await (const r of jsonlGz(path.join(pubDir, srcManifest.file || "items.jsonl
   if (flags.includes("size_conflict")) bits |= F.SIZE_CONFLICT;
   if (r.store_brand) bits |= F.STORE_BRAND;
   if (r.primary) bits |= F.PRIMARY;
-  if (r.stock && r.stock !== "Available") bits |= F.UNAVAILABLE;
+  const stock = flags.includes("store_price") && r.store_stock ? r.store_stock : r.stock;   // the store's shelf when known
+  if (stock && stock !== "Available") bits |= F.UNAVAILABLE;
   let bits2 = 0;
   if (flags.includes("placeholder")) bits2 |= F2.PLACEHOLDER;
   if (flags.includes("discontinued")) bits2 |= F2.DISCONTINUED;
+  if (flags.includes("store_price")) bits2 |= F2.STORE_PRICE;
   const withheld = Boolean(r.price_withheld && r.equiv && r.equiv.price > 0);
   if (withheld) bits2 |= F2.PRICE_WITHHELD | ((VALUE_CONF[r.equiv.confidence] ?? 0) << 3);
   const name = String(r.name || "").trim();
@@ -122,6 +126,7 @@ for await (const r of jsonlGz(path.join(pubDir, srcManifest.file || "items.jsonl
   if (!(bits & F.UNAVAILABLE)) score += 1.5;
   if (CORE_DEPTS.has(r.dept)) score += 1;
   if (r.online) score += 0.3;
+  if (r.reviews > 0) score += Math.min(1.5, Math.log10(1 + r.reviews) * 0.5);   // well-known items before obscure listings
   if (bits & F.CARRIED) score -= 1;
   if (bits & F.RETIRED) score -= 3;
   if (bits & F.NO_SIZE) score -= 0.5;
@@ -337,6 +342,8 @@ const manifest = {
   items: N, upcs: files._upcs, equivalents: files._equivalents, tokens: files._tokens, postings: files._postings,
   fixture: Boolean(srcManifest.fixture), gatesPassed: srcManifest.gates_passed ?? null, approvedManually: srcManifest.approved_manually ?? null,
   categories: fs.existsSync(CATEGORIES_FILE) ? JSON.parse(fs.readFileSync(CATEGORIES_FILE, "utf8")).categories : null,
+  store: (() => { try { const s = JSON.parse(fs.readFileSync(STORE_FILE, "utf8")); return { id: s.store_id, name: s.name, address: s.address, label: s.label || "Strongsville Walmart" }; } catch { return null; } })(),
+  storePriced: items.filter((it) => it.flags2 & F2.STORE_PRICE).length,
   files: {
     cols: files["cols.bin"], strings: files._stringShards.map((s) => ({ ...s, ...files[s.file.replace(/\.gz$/, "")] })),
     upc: files["upc.bin"], tokens: files["tokens.bin"], equiv: files["equiv.bin"], plu: files["plu.json"],

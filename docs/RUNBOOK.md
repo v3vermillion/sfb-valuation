@@ -20,8 +20,9 @@ Public key format accepted by the portal: base64 body only (no BEGIN/END lines).
 4. Redeploy (or push any commit) so secrets apply.
 
 ## Endpoints
-- GET /v1/price/<gtin> — PUBLIC (no token): live Walmart price for the app. Rate limited 30/min per IP and
-  60 Walmart calls/min in total (`[[ratelimits]]` bindings PRICE_LIMITER and PRICE_GLOBAL_LIMITER in
+- GET /v1/price/<gtin> — PUBLIC (no token): live Walmart price for the app, the Strongsville store's own price
+  (`STORE_ID` in wrangler.toml; `priceSource` "store"). Rate limited 30/min per IP and
+  20 Walmart calls/min in total (`[[ratelimits]]` bindings PRICE_LIMITER and PRICE_GLOBAL_LIMITER in
   wrangler.toml; charged only on a cache miss), 6 h edge cache per GTIN, CORS GET only.
   Returns `{ok:true, price, name, brand, upc, stock, listings[], checkedAt}` or `{ok:false, reason}`;
   429 when limited, 503 (`retry-after`) when Walmart throttles/fails or the bindings are missing.
@@ -94,6 +95,17 @@ scheduled run that arrives while a crawl is running waits in the `pipeline` conc
 chained run takes its place (cancelled runs with 0 jobs in the Actions tab): by design. If a run ends with nothing chained and
 no scheduled run follows within a few hours, start `plan=continue` from the Actions tab.
 
+### Store prices (Strongsville, store #2266)
+`data/store.json` names the store. After a publish, when no crawl, build, audit or identify is due, `decide()` runs the
+`store` job: `crawler/storeprice.py refresh` asks Walmart for the store's own price and stock of every barcode row of the
+snapshot, 20 per call, consumable departments first and the oldest check first, within the crawl budget, and chains the
+next run while rows remain (`store_prices/2266.jsonl.gz`, `store_prices/latest.json`). The next build shows the store
+price of every row checked within `max_age_days` (21), keeps Walmart.com's in `online_price`, and flags it `store_price`;
+the app labels it "Strongsville Walmart shelf price". The live_match gate and the weekly audit compare store-priced rows
+with the store's live price. Manual: Actions → pipeline → plan `store`. At about 8 calls a minute a pass over a million
+rows takes several days of pipeline time; consumable departments come first so food and household items are covered
+soonest. `store-price-probe.yml` (manual, read-only) re-checks which store id the API returns near a ZIP code.
+
 ### Crawl scope edits, split departments, early ends
 An edit of `data/categories.json` applies to the crawl in progress (`crawl.sync`, printed as `scope:` lines in the run log):
 a department removed from `departments` is `dropped`; one given a `split` (a list of Walmart child node ids) is re-crawled
@@ -113,7 +125,7 @@ at page 1,830 of 31,781): an end with many hits left is retried from the next cu
 - Merge rule while a crawl runs: `tests/fixtures/run-live.json` (the live state) must resume through `decide()` and `continue`
   in the suite, and the scratch dry run must replay a copy of the real data-store through the new code without an exception.
 
-Run manually: Actions tab → pipeline → Run workflow → plan (continue | core | full | approve | identify | audit | size | status | rollback).
+Run manually: Actions tab → pipeline → Run workflow → plan (continue | core | full | approve | identify | audit | size | status | rollback | store).
 Working data: branch `data-store` (state/, raw/, build/, identify/, history/, audit/, sizing.json). Report for the latest build:
 `data-store:build/candidate/report.md`. Published snapshot: `data-store:build/published/`.
 
