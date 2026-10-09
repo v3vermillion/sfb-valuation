@@ -41,8 +41,9 @@ def state(status, run_id="run-1", **extra):
 
 
 def live_state():
-    """A copy of the real data-store state taken mid-crawl on 2026-10-07 (Food at page 649 with a saved cursor,
-    22 departments pending, no pace or sizing fields): what a merge must resume from."""
+    """A copy of the real data-store state taken mid-crawl (refreshed 2026-10-09: Arts Crafts & Sewing at page 1279 with
+    a saved lastDoc cursor, Home and Home Improvement cut short by Walmart and marked done, Books and Auto & Tires
+    still pending): what a merge must resume from."""
     return json.loads((REPO / "tests" / "fixtures" / "run-live.json").read_text())
 
 
@@ -215,7 +216,7 @@ class Decide(unittest.TestCase):
     def test_the_live_mid_crawl_state_sizes_first_then_crawls(self):
         live = live_state()
         depts = [d["id"] for d in live["departments"]]
-        self.assertEqual(live["status"], "crawling"); self.assertNotIn("throttled_runs", live)
+        self.assertEqual(live["status"], "crawling"); self.assertEqual(live.get("throttled_runs", 0), 0)
         self.assertEqual(ci.decide(live, None, None, None, None, CFG, NOW), "size")                 # no sizing.json
         self.assertEqual(ci.decide(live, None, None, None, None, None, NOW), "size")                # not even a schedule
         self.assertEqual(dec(live, siz=sizing(1, depts=depts), depts=depts), "crawl")              # with it
@@ -310,6 +311,8 @@ class PlanBase(unittest.TestCase):
         self.fetched = []                     # the Open Facts download is never made by a test
         p = mock.patch.object(ci.identify, "fetch", lambda: self.fetched.append(True)); p.start(); self.addCleanup(p.stop)
         self.depts = [str(d["id"]) for d in self.store.config()["departments"]]
+        self.sized = ci._departments()          # what sizing.json covers: departments and the child nodes of split ones
+        self.size_calls = len(self.sized) - sum(1 for d in self.store.config()["departments"] if d.get("split"))
 
     def tearDown(self):
         self.env.stop()
@@ -360,9 +363,9 @@ class Peek(PlanBase):
 
     def test_crawling_with_fresh_sizing_peeks_crawl(self):
         self.write("state/run.json", state("crawling"))
-        self.write("sizing.json", sizing(1, depts=self.depts))
+        self.write("sizing.json", sizing(1, depts=self.sized))
         self.assertEqual(self.run_plan("--plan", "peek")[0]["work"], "crawl")
-        self.write("sizing.json", sizing(1, depts=self.depts[1:]))      # a department missing
+        self.write("sizing.json", sizing(1, depts=self.sized[1:]))      # a department missing
         self.assertEqual(self.run_plan("--plan", "peek")[0]["work"], "size")
 
     def test_stale_prices_alert(self):
@@ -379,7 +382,7 @@ class Peek(PlanBase):
     def test_no_stale_alert_while_a_crawl_runs_or_when_fresh(self):
         self.write("build/published/manifest.json", manifest(20))
         self.write("state/run.json", state("crawling"))
-        self.write("sizing.json", sizing(1, depts=self.depts))
+        self.write("sizing.json", sizing(1, depts=self.sized))
         with mock.patch.object(ci, "utcnow", lambda: NOW):
             self.assertEqual(self.run_plan("--plan", "peek")[0]["alert"], "none")
             self.write("state/run.json", state("published"))
@@ -431,7 +434,7 @@ class Continue(PlanBase):
 
     def test_throttled_counter_alerts_on_the_third_run_and_clears_on_progress(self):
         self.write("state/run.json", state("crawling", calls=12, throttle_wait_s=2700))
-        self.write("sizing.json", sizing(1, depts=self.depts))
+        self.write("sizing.json", sizing(1, depts=self.sized))
         with mock.patch.object(self.crawl, "run", lambda budget, wm=None: "throttled"):
             for n in (1, 2):
                 o, _ = self.run_plan("--plan", "continue")
@@ -450,9 +453,22 @@ class Continue(PlanBase):
         self.assertIn("throttled", o["resolve"].split(","))
         self.assertEqual(self.read("state/run.json")["throttled_runs"], 0)
 
+    def test_a_truncated_crawl_alerts_and_clears_when_fixed(self):
+        st = state("crawling", departments=[{"id": "4044", "name": "Home", "status": "truncated", "pages": 1830,
+                                             "total_pages": 31781, "items": 1, "parts": 1, "next": None}])
+        self.write("state/run.json", st)
+        self.write("sizing.json", sizing(1, depts=self.sized))
+        with mock.patch.object(self.crawl, "run", lambda budget, wm=None: "done"):
+            o, _ = self.run_plan("--plan", "continue")
+        self.assertEqual(o["alert"], "crawl-truncated"); self.assertIn("Home: 1830 of 31781 pages", self.body(o))
+        st["departments"][0]["status"] = "done"; self.write("state/run.json", st)
+        with mock.patch.object(self.crawl, "run", lambda budget, wm=None: "done"):
+            o, _ = self.run_plan("--plan", "continue")
+        self.assertEqual(o["alert"], "none"); self.assertIn("crawl-truncated", o["resolve"].split(","))
+
     def test_finished_crawl_chains_a_build_run(self):
         self.write("state/run.json", state("crawling"))
-        self.write("sizing.json", sizing(1, depts=self.depts))
+        self.write("sizing.json", sizing(1, depts=self.sized))
         with mock.patch.object(self.crawl, "run", lambda budget, wm=None: "done"):
             o, _ = self.run_plan("--plan", "continue")
         self.assertEqual(o["next"], "continue")
@@ -466,18 +482,18 @@ class Continue(PlanBase):
             o, _ = self.run_plan("--plan", "continue", "--budget-min", "42")
         self.assertEqual(o["work"], "size")
         self.assertEqual(seen["budget"], 42.0); self.assertIs(seen["wm"], self.wm)
-        self.assertEqual(self.wm.calls, len(self.depts))
+        self.assertEqual(self.wm.calls, self.size_calls)
         siz = self.read("sizing.json")
-        self.assertEqual(set(siz), set(self.depts)); self.assertEqual(siz[self.depts[0]]["est_items"], 800)
+        self.assertEqual(set(siz), set(self.sized)); self.assertEqual(siz[self.depts[0]]["est_items"], 800)
         self.assertEqual(o["next"], "continue")
         # the next run has fresh sizing and goes straight to the crawl
         with mock.patch.object(self.crawl, "run", fake_run):
             o, _ = self.run_plan("--plan", "continue")
-        self.assertEqual(o["work"], "crawl"); self.assertEqual(self.wm.calls, len(self.depts))
+        self.assertEqual(o["work"], "crawl"); self.assertEqual(self.wm.calls, self.size_calls)
 
     def test_budget_defaults_to_the_schedule(self):
         self.write("state/run.json", state("crawling"))
-        self.write("sizing.json", sizing(1, depts=self.depts))
+        self.write("sizing.json", sizing(1, depts=self.sized))
         seen = {}
         def fake_run(budget, wm=None):
             seen["budget"] = budget; return "budget"
@@ -710,11 +726,12 @@ class Continue(PlanBase):
 
 class LiveWM:
     """Walmart as the resumed live crawl sees it: the saved cursor of the department in progress gets one final page of
-    200 items, every other request (sizing or an unstarted department's first page) one page and no next page."""
+    200 items (Walmart's page count then matches the pages crawled), every other request (sizing or an unstarted
+    department's or child node's first page) one page and no next page."""
 
-    def __init__(self, cursor, total_pages=1579):
-        self.cursor, self.total_pages = cursor, total_pages
-        self.calls = 0; self.throttle_waited = 0; self.paths = []
+    def __init__(self, cursor, last_page):
+        self.cursor, self.last_page = cursor, last_page
+        self.calls = 0; self.throttle_waited = 0; self.paths = []; self.continuations = []
 
     def get(self, path):
         self.calls += 1; self.paths.append(path)
@@ -722,33 +739,48 @@ class LiveWM:
         if path == self.cursor:
             items = [{"itemId": 9_000_000 + i, "upc": f"0{i:011d}", "name": f"Food item {i}, 10 oz", "salePrice": 1.0,
                       "marketplace": False, "stock": "Available", "categoryPath": "Home Page/Food/Pantry"} for i in range(200)]
-            return {"items": items, "totalPages": self.total_pages, "nextPage": None, "nextPageExist": False}
+            return {"items": items, "totalPages": self.last_page, "nextPage": None, "nextPageExist": False}
+        if "lastDoc=9000199&" in path:
+            # the saved cursor still promised hits, so the crawler asks once more from the last item: nothing follows
+            self.continuations.append(path)
+            return {"items": [], "totalPages": self.last_page, "nextPage": None, "nextPageExist": False}
         if "lastDoc" in path or "maxId" in path:
             raise AssertionError(f"unexpected cursor request {path}")
-        return {"items": [{"itemId": int(cat) * 10, "name": f"Item in {cat}, 10 oz", "salePrice": 3.0}],
+        return {"items": [{"itemId": int(cat.replace("_", "")) * 10, "name": f"Item in {cat}, 10 oz", "salePrice": 3.0}],
                 "totalPages": 1, "nextPage": None, "nextPageExist": False}
 
 
 class LiveState(PlanBase):
     """Resuming from the real state/run.json of the crawl in progress (tests/fixtures/run-live.json, refreshed from the
-    data-store branch before each merge): whichever department it is in, the crawl resumes at its saved cursor."""
+    data-store branch before each merge): whichever department it is in, the crawl resumes at its saved cursor, and the
+    scope in data/categories.json applies to it: departments no longer listed are dropped, split ones restart as their
+    child nodes, every other finished department is untouched."""
 
     def setUp(self):
         super().setUp()
         self.live = live_state()
         self.dept = next(d for d in self.live["departments"] if d["status"] == "crawling")
-        self.pending = [d for d in self.live["departments"] if d["status"] == "pending"]
+        cfg = {d["id"]: d for d in self.store.config()["departments"]}
+        self.dropped = [d for d in self.live["departments"] if d["id"] not in cfg and d["status"] != "done"]
+        self.split = [d for d in self.live["departments"] if cfg.get(d["id"], {}).get("split") and not d.get("units")]
+        self.units = [u["id"] for d in self.split for u in cfg[d["id"]]["split"]]
+        self.pending = [d for d in self.live["departments"] if d["status"] == "pending" and d["id"] in cfg
+                        and not cfg[d["id"]].get("split")]
         self.cursor = self.dept["next"]
         self.write("state/run.json", self.live)
-        self.wm = LiveWM(self.cursor, self.dept["total_pages"])
-        self.first_pages = {f"/paginated/items?category={d}&soldByWmt=true" for d in self.depts}
+        for d in self.split:   # raw pages of the cut-short crawl, discarded when the department restarts split
+            self.store.write_jsonl_gz(self.root / "raw" / self.live["run_id"] / d["id"] / "part-0001.jsonl.gz", [{"itemId": 1}])
+        self.wm = LiveWM(self.cursor, self.dept["pages"] + 1)
+        self.first_pages = {f"/paginated/items?category={d}&soldByWmt=true" for d in self.sized
+                            if not cfg.get(d, {}).get("split")}
 
     def assert_resumed(self, o):
         st = self.read("state/run.json")
         self.assertEqual(st["status"], "crawled"); self.assertEqual(st["run_id"], self.live["run_id"])
         before = {d["id"]: d for d in self.live["departments"]}
+        split = {d["id"] for d in self.split}
         for d in st["departments"]:
-            if before[d["id"]]["status"] == "done":
+            if before[d["id"]]["status"] == "done" and d["id"] not in split:
                 self.assertEqual(d, before[d["id"]], f"{d['name']} was finished and must be untouched")
         cur = next(d for d in st["departments"] if d["id"] == self.dept["id"])
         self.assertEqual(cur["status"], "done"); self.assertIsNone(cur["next"])
@@ -757,40 +789,58 @@ class LiveState(PlanBase):
         part = self.root / "raw" / self.live["run_id"] / self.dept["id"] / f"part-{self.dept['parts'] + 1:04d}.jsonl.gz"
         rows = list(self.store.iter_jsonl_gz(part))
         self.assertEqual(len(rows), 200); self.assertEqual(rows[0]["itemId"], 9_000_000)
-        self.assertTrue(all(d["status"] == "done" for d in st["departments"]))
+        for d in st["departments"]:
+            if d["id"] in {x["id"] for x in self.dropped}:
+                self.assertEqual((d["status"], d["pages"]), ("dropped", 0), d["name"])
+            elif d["id"] in split:
+                self.assertEqual([u["id"] for u in d["units"]], [u for u in self.units if u.startswith(d["id"] + "_")])
+                self.assertTrue(all(u["status"] == "done" and u["pages"] == 1 for u in d["units"]), d["name"])
+                self.assertEqual((d["status"], d["pages"], d["total_pages"]), ("done", len(d["units"]), len(d["units"])))
+                raw = self.root / "raw" / self.live["run_id"] / d["id"]
+                self.assertFalse((raw / "part-0001.jsonl.gz").exists(), "the cut-short pages are gone")
+                self.assertEqual(sorted(p.parent.name for p in raw.rglob("part-*.jsonl.gz")), sorted(u["id"] for u in d["units"]))
+            else:
+                self.assertEqual(d["status"], "done", d["name"])
         self.assertEqual(st["calls"], self.live["calls"] + self.wm.calls); self.assertEqual(st.get("throttled_runs", 0), 0)
         self.assertEqual(o["next"], "continue"); self.assertEqual(o["alert"], "none")
-        self.assertIn("throttled", o["resolve"].split(","))
+        self.assertIn("throttled", o["resolve"].split(",")); self.assertIn("crawl-truncated", o["resolve"].split(","))
+        self.assertNotIn("category=3920&", " ".join(self.wm.paths))       # Books is never requested
+        self.assertEqual(len(self.wm.continuations), 1)                    # one check that the early end is real
+
+    def test_live_state_matches_the_case_this_change_was_made_for(self):
+        self.assertEqual({d["name"] for d in self.dropped}, {"Books", "Auto & Tires"})
+        self.assertEqual({d["name"] for d in self.split}, {"Home", "Home Improvement"})
 
     def test_continue_without_sizing_sizes_then_resumes_at_the_saved_cursor(self):
         o, _ = self.run_plan("--plan", "continue", "--budget-min", "5")
         self.assertEqual(o["work"], "size")
-        n = len(self.depts)
-        self.assertEqual(set(self.wm.paths[:n]), self.first_pages)             # one sizing call per department first
+        n = self.size_calls
+        self.assertEqual(set(self.wm.paths[:n]), self.first_pages)             # one sizing call per department or node first
         self.assertEqual(self.wm.paths[n], self.cursor)                        # then the crawl resumes exactly where it stopped
         siz = self.read("sizing.json")
-        self.assertEqual(siz[self.dept["id"]]["total_pages"], 1); self.assertEqual(set(siz), set(self.depts))
+        self.assertEqual(siz[self.dept["id"]]["total_pages"], 1); self.assertEqual(set(siz), set(self.sized))
+        self.assertEqual(siz["4044"]["total_pages"], 5); self.assertEqual(len(siz["4044"]["units"]), 5)
         self.assert_resumed(o)
-        self.assertEqual(self.wm.calls, n + 1 + len(self.pending))    # sizing + the last page + each unstarted first page
+        self.assertEqual(self.wm.calls, n + 2 + len(self.pending) + len(self.units))
 
     def test_continue_with_sizing_resumes_at_the_saved_cursor_first(self):
-        self.write("sizing.json", sizing(1, depts=self.depts))
+        self.write("sizing.json", sizing(1, depts=self.sized))
         o, _ = self.run_plan("--plan", "continue", "--budget-min", "5")
         self.assertEqual(o["work"], "crawl")
         self.assertEqual(self.wm.paths[0], self.cursor)
-        self.assertEqual(self.read("sizing.json"), sizing(1, depts=self.depts))  # untouched
+        self.assertEqual(self.read("sizing.json"), sizing(1, depts=self.sized))  # untouched
         self.assert_resumed(o)
-        self.assertEqual(self.wm.calls, 1 + len(self.pending))
+        self.assertEqual(self.wm.calls, 2 + len(self.pending) + len(self.units))
 
     def test_peek_on_the_live_state(self):
         self.assertEqual(self.run_plan("--plan", "peek")[0]["work"], "size")
-        self.write("sizing.json", sizing(1, depts=self.depts))
+        self.write("sizing.json", sizing(1, depts=self.sized))
         o, text = self.run_plan("--plan", "peek")
         self.assertEqual(o["work"], "crawl"); self.assertIn("work=crawl", text); self.assertEqual(o["alert"], "none")
         self.assertEqual(self.wm.calls, 0)
 
     def test_manual_full_plan_resumes_the_live_crawl_instead_of_restarting(self):
-        self.write("sizing.json", sizing(1, depts=self.depts))
+        self.write("sizing.json", sizing(1, depts=self.sized))
         o, _ = self.run_plan("--plan", "full", "--budget-min", "5")
         self.assertEqual(self.wm.paths[0], self.cursor)
         self.assert_resumed(o)
@@ -861,8 +911,8 @@ class OtherPlans(PlanBase):
 
     def test_size_plan(self):
         o, text = self.run_plan("--plan", "size")
-        self.assertEqual(o["work"], "size"); self.assertEqual(self.wm.calls, len(self.depts))
-        self.assertEqual(set(self.read("sizing.json")), set(self.depts))
+        self.assertEqual(o["work"], "size"); self.assertEqual(self.wm.calls, self.size_calls)
+        self.assertEqual(set(self.read("sizing.json")), set(self.sized))
         self.assertIn("estimated total", text)
 
     def test_full_and_core_plans_start_or_resume(self):

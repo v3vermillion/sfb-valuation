@@ -31,7 +31,8 @@ def build():
     state = latest_run()
     depts = {d["id"]: d for d in cfg["departments"]}
     run_dir = store.ROOT / "raw" / state["run_id"]
-    crawled_depts = {d["id"] for d in state["departments"] if d["status"] == "done"}
+    # state order, not a set: an item listed in two departments always lands in the same one
+    crawled_depts = [d["id"] for d in state["departments"] if d["status"] == "done"]
 
     prev_rows = {}
     prev_path = BUILD / "published" / "items.jsonl.gz"
@@ -46,7 +47,7 @@ def build():
         dept = depts.get(dept_id)
         if not dept:
             continue
-        for part in sorted((run_dir / dept_id).glob("part-*.jsonl.gz")):
+        for part in sorted((run_dir / dept_id).rglob("part-*.jsonl.gz")):   # split departments: one folder per node
             for item in store.iter_jsonl_gz(part):
                 raw_counts[dept["name"]] += 1
                 iid = item.get("itemId")

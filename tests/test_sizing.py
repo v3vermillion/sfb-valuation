@@ -84,9 +84,11 @@ class Sizing(unittest.TestCase):
     def test_default_now_and_config_are_used(self):
         wm = FakeWM()
         res = self.sizing.run(wm)
-        depts = {str(d["id"]) for d in self.store.config()["departments"]}
-        self.assertEqual(set(res), depts)
-        self.assertEqual(len(wm.paths), len(depts))
+        cfg = self.store.config()["departments"]
+        depts = {str(d["id"]) for d in cfg}
+        units = {str(u["id"]) for d in cfg for u in d.get("split") or []}
+        self.assertEqual(set(res), depts | units)
+        self.assertEqual(len(wm.paths), len(depts) + len(units) - sum(1 for d in cfg if d.get("split")))
         stamp = datetime.fromisoformat(next(iter(res.values()))["checked"])
         self.assertLess(abs((datetime.now(timezone.utc) - stamp).total_seconds()), 120)
 
@@ -101,3 +103,25 @@ class Sizing(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SplitSizing(unittest.TestCase):
+    setUp, tearDown = Sizing.setUp, Sizing.tearDown
+
+    def test_a_split_department_is_sized_per_child_node_and_as_their_sum(self):
+        cfg = {"departments": [{"id": "976759", "name": "Food"},
+                               {"id": "4044", "name": "Home", "split": [{"id": "4044_1", "name": "Kitchen"},
+                                                                        {"id": "4044_2", "name": "Bath"}]}]}
+        wm = FakeWM(pages={"4044_1": 40, "4044_2": 7})
+        res = self.sizing.run(wm, cfg=cfg, now=NOW)
+        self.assertEqual([p.split("category=")[1].split("&")[0] for p in wm.paths], ["976759", "4044_1", "4044_2"])
+        self.assertEqual(res["4044"]["total_pages"], 47); self.assertEqual(res["4044"]["units"], ["4044_1", "4044_2"])
+        self.assertEqual(res["4044_1"]["total_pages"], 40); self.assertNotIn("error", res["4044"])
+        self.assertIn("estimated total", self.sizing.table(res))
+        self.assertIn(str((3 + 47) * 200), self.sizing.table(res))       # child nodes counted once
+
+    def test_a_failed_child_node_leaves_the_department_unsized_with_the_reason(self):
+        cfg = {"departments": [{"id": "4044", "name": "Home", "split": [{"id": "4044_1", "name": "Kitchen"},
+                                                                       {"id": "4044_2", "name": "Bath"}]}]}
+        res = self.sizing.run(FakeWM(fail={"4044_2"}), cfg=cfg, now=NOW)
+        self.assertIsNone(res["4044"]["total_pages"]); self.assertIn("Bath: RuntimeError", res["4044"]["error"])

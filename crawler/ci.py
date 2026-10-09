@@ -195,8 +195,13 @@ def _load(path):
 
 
 def _departments():
+    """Ids sizing.json must cover: every department, and every child node of a split one."""
     try:
-        return [str(d["id"]) for d in store.config()["departments"]]
+        out = []
+        for d in store.config()["departments"]:
+            out.append(str(d["id"]))
+            out.extend(str(u["id"]) for u in d.get("split") or [])
+        return out
     except (OSError, ValueError, KeyError, TypeError):
         return None
 
@@ -460,6 +465,18 @@ def _crawl(budget_min, inp, start_plan=None, wm=None):
         print(f"paused during sizing: {e}")
         outcome = "throttled"
     state = _read_state() or state
+    cut = crawl.truncated(state)
+    if cut:
+        alert("crawl-truncated", f"{len(cut)} department crawl(s) ended early or were refused",
+              f"The crawl `{state.get('run_id')}` could not complete these: Walmart ended them well short of the page count "
+              "it reports itself (even after retrying from the next cursor), or refused the category id:\n\n"
+              + "\n".join(f"- {c}" for c in cut) + "\n\n"
+              "They are marked `truncated` or `failed`, so the snapshot holds at the departments_complete gate instead of "
+              "publishing a gap. Fix in data/categories.json: give a cut-short department a `split` (child nodes, each "
+              "crawled on its own), or correct or remove a refused child node id; the running crawl picks the edit up and "
+              "re-crawls just that department.")
+    else:
+        resolve("crawl-truncated")
     before = int(state.get("throttled_runs") or 0)
     if outcome == "throttled":
         state["throttled_runs"] = before + 1

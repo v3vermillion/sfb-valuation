@@ -1,6 +1,6 @@
 {
-  "calls": 5052,
-  "calls_base": 4037,
+  "calls": 17791,
+  "calls_base": 16806,
   "departments": [
     {
       "id": "976759",
@@ -44,103 +44,103 @@
     },
     {
       "id": "1085666",
-      "items": 186000,
+      "items": 204670,
       "name": "Beauty",
-      "next": "/api-proxy/service/affil/product/v2/paginated/items?category=1085666&soldByWmt=true&count=200&lastDoc=15519150049&remainingHits=18670",
-      "pages": 930,
-      "parts": 11,
-      "status": "crawling",
+      "next": null,
+      "pages": 1024,
+      "parts": 12,
+      "status": "done",
       "total_pages": 1024
     },
     {
       "id": "7924299",
-      "items": 0,
+      "items": 54797,
       "name": "Premium Beauty",
       "next": null,
-      "pages": 0,
-      "parts": 0,
-      "status": "pending",
-      "total_pages": null
+      "pages": 274,
+      "parts": 4,
+      "status": "done",
+      "total_pages": 274
     },
     {
       "id": "5427",
-      "items": 0,
+      "items": 180009,
       "name": "Baby",
       "next": null,
-      "pages": 0,
-      "parts": 0,
-      "status": "pending",
-      "total_pages": null
+      "pages": 901,
+      "parts": 10,
+      "status": "done",
+      "total_pages": 901
     },
     {
       "id": "5440",
-      "items": 0,
+      "items": 236558,
       "name": "Pets",
       "next": null,
-      "pages": 0,
-      "parts": 0,
-      "status": "pending",
-      "total_pages": null
+      "pages": 1183,
+      "parts": 14,
+      "status": "done",
+      "total_pages": 1183
     },
     {
       "id": "1115193",
-      "items": 0,
+      "items": 76111,
       "name": "Household Essentials",
       "next": null,
-      "pages": 0,
-      "parts": 0,
-      "status": "pending",
-      "total_pages": null
+      "pages": 381,
+      "parts": 5,
+      "status": "done",
+      "total_pages": 381
     },
     {
       "id": "4044",
-      "items": 0,
+      "items": 365988,
       "name": "Home",
       "next": null,
-      "pages": 0,
-      "parts": 0,
-      "status": "pending",
-      "total_pages": null
+      "pages": 1830,
+      "parts": 19,
+      "status": "done",
+      "total_pages": 31781
     },
     {
       "id": "1072864",
-      "items": 0,
+      "items": 98983,
       "name": "Home Improvement",
       "next": null,
-      "pages": 0,
-      "parts": 0,
-      "status": "pending",
-      "total_pages": null
+      "pages": 495,
+      "parts": 6,
+      "status": "done",
+      "total_pages": 5909
     },
     {
       "id": "5428",
-      "items": 0,
+      "items": 474069,
       "name": "Patio & Garden",
       "next": null,
-      "pages": 0,
-      "parts": 0,
-      "status": "pending",
-      "total_pages": null
+      "pages": 2371,
+      "parts": 26,
+      "status": "done",
+      "total_pages": 2371
     },
     {
       "id": "1229749",
-      "items": 0,
+      "items": 667366,
       "name": "Office Supplies",
       "next": null,
-      "pages": 0,
-      "parts": 0,
-      "status": "pending",
-      "total_pages": null
+      "pages": 3337,
+      "parts": 35,
+      "status": "done",
+      "total_pages": 3337
     },
     {
       "id": "1334134",
-      "items": 0,
+      "items": 255800,
       "name": "Arts Crafts & Sewing",
-      "next": null,
-      "pages": 0,
-      "parts": 0,
-      "status": "pending",
-      "total_pages": null
+      "next": "/api-proxy/service/affil/product/v2/paginated/items?category=1334134&soldByWmt=true&count=200&lastDoc=580107255&remainingHits=120824",
+      "pages": 1279,
+      "parts": 14,
+      "status": "crawling",
+      "total_pages": 1884
     },
     {
       "id": "4171",
@@ -233,11 +233,32 @@
       "total_pages": null
     }
   ],
+  "pace": {
+    "inferred": {
+      "consistent": false,
+      "limit_from_429s": 6,
+      "limit_per_min": 8,
+      "limit_per_min_median": 7.0,
+      "ok": 1925,
+      "ok_per_min": 6.41,
+      "pattern": "per-minute",
+      "reason": "20 x 429 cost 0.7% of the run: incidental",
+      "requests": 1945,
+      "safe_per_min": 8,
+      "sleep_s": 118.3,
+      "span_s": 18028.2,
+      "status_429": 20
+    },
+    "per_min": 8,
+    "run_id": "20261007-182439-full",
+    "updated": "2026-10-09T18:50:53+00:00"
+  },
   "plan": "full",
   "run_id": "20261007-182439-full",
   "started": "2026-10-07T18:24:39+00:00",
   "status": "crawling",
-  "throttle_base": 10814,
-  "throttle_wait_s": 13523,
-  "updated": "2026-10-08T08:15:43+00:00"
+  "throttle_base": 19270,
+  "throttle_wait_s": 19330,
+  "throttled_runs": 0,
+  "updated": "2026-10-09T21:22:44+00:00"
 }
