@@ -1,6 +1,6 @@
 {
-  "calls": 10968,
-  "calls_base": 8867,
+  "calls": 11065,
+  "calls_base": 10968,
   "departments": [
     {
       "id": "976759",
@@ -114,11 +114,11 @@
     },
     {
       "id": "5428",
-      "items": 46400,
+      "items": 65600,
       "name": "Patio & Garden",
-      "next": "/api-proxy/service/affil/product/v2/paginated/items?category=5428&soldByWmt=true&count=200&lastDoc=38280047&remainingHits=427668",
-      "pages": 232,
-      "parts": 3,
+      "next": "/api-proxy/service/affil/product/v2/paginated/items?category=5428&soldByWmt=true&count=200&lastDoc=48003838&remainingHits=408468",
+      "pages": 328,
+      "parts": 4,
       "status": "crawling",
       "total_pages": 2371
     },
@@ -258,7 +258,7 @@
   "started": "2026-10-07T18:24:39+00:00",
   "status": "crawling",
   "throttle_base": 18936,
-  "throttle_wait_s": 18936,
+  "throttle_wait_s": 18941,
   "throttled_runs": 0,
-  "updated": "2026-10-09T03:48:27+00:00"
+  "updated": "2026-10-09T04:03:52+00:00"
 }
