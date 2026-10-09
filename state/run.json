@@ -1,5 +1,5 @@
 {
-  "calls": 10241,
+  "calls": 10245,
   "calls_base": 8867,
   "departments": [
     {
@@ -104,13 +104,13 @@
     },
     {
       "id": "1072864",
-      "items": 0,
+      "items": 800,
       "name": "Home Improvement",
-      "next": null,
-      "pages": 0,
-      "parts": 0,
-      "status": "pending",
-      "total_pages": null
+      "next": "/api-proxy/service/affil/product/v2/paginated/items?category=1072864&soldByWmt=true&count=200&lastDoc=8343132&remainingHits=1180775",
+      "pages": 4,
+      "parts": 1,
+      "status": "crawling",
+      "total_pages": 5908
     },
     {
       "id": "5428",
@@ -260,5 +260,5 @@
   "throttle_base": 18936,
   "throttle_wait_s": 18936,
   "throttled_runs": 0,
-  "updated": "2026-10-09T02:04:35+00:00"
+  "updated": "2026-10-09T02:05:01+00:00"
 }
