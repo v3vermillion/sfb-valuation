@@ -132,7 +132,7 @@ Each step lists the change, how it is proven, and its exit condition. Steps in t
 
 ### Phase 6 — Acceptance: go/no-go with evidence
 
-28. First real publish with every gate passing (live match ≥ 97%, review passed, sentinels 117/117 on the reduced scope).
+28. First real publish with every gate passing (live match ≥ 97%, review passed, all 116 sentinels on the reduced scope).
 29. **Shelf spot-check** at Walmart Strongsville (#2266): 50 items from a real donation table; ≥ 90% within 10% of shelf.
 30. **Device matrix:** iPhone SE (iOS 16.4+), a current iPhone, a mid-range Android; installed to Home Screen; scan 30 real
     items each, airplane mode for a day, an update arriving, 7 days without opening (iOS eviction).

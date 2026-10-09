@@ -121,6 +121,5 @@ SENTINEL_ITEMS = [
     ("Duracell Coppertop AA Alkaline Batteries, 24 Count", "Duracell", 17.97, "041333002033", "Home Page/Household Essentials/Batteries"),
     ("Great Value LED Light Bulb, 60W Equivalent, Soft White, 4 Pack", "Great Value", 5.97, "681131217361", "Home Page/Household Essentials/Light Bulbs"),
     ("Rain-X Original Glass Water Repellent, 16 fl oz", "Rain-X", 6.97, "079118008000", "Home Page/Auto & Tires/Car Care/Car Wash & Wax"),
-    ("Pennzoil Conventional 5W-30 Motor Oil, 5 Quart", "Pennzoil", 22.98, "071611904285", "Home Page/Auto & Tires/Oils & Fluids/Motor Oil"),
     ("onn. 6 ft USB-C to USB-A Charging Cable, Black", "onn.", 7.88, "681131103022", "Home Page/Electronics/Cell Phone Accessories/Cables"),
 ]
