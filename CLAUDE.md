@@ -36,7 +36,7 @@ A snapshot publishes only when every gate passes; otherwise it holds and an issu
 
 ## Commands (also runnable locally with WM_CONSUMER_ID / WM_PRIVATE_KEY set and SFB_STORE pointing at a data-store checkout)
 - `python -m crawler.ci --plan continue|core|full|approve|identify|audit|size|status|peek|finish|rollback`
-- `python -m unittest discover tests` (307 tests; `tests/fixtures/run-live.json` is the live crawl state the pipeline must resume from)
+- `python -m unittest discover tests` (309 tests; `tests/fixtures/run-live.json` is the live crawl state the pipeline must resume from)
 - `cd app && node --test tests/*.test.mjs`
 
 ## Layout

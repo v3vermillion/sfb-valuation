@@ -1,0 +1,59 @@
+name: store-price-probe
+
+# Manual, read-only: does Walmart's API give this key store-level prices (Strongsville, OH) and from which endpoints?
+# About a dozen calls (crawler/storeprice.py probe): stores near the zip code, the same 20 items without a location,
+# with zipCode and with storeId, and one Food page with and without storeId. Results go to the run summary only;
+# nothing is written to the data-store. Its own concurrency group, so it never queues behind (or cancels) a crawl run.
+
+on:
+  workflow_dispatch:
+    inputs:
+      zip:
+        description: "ZIP code of the store area"
+        default: "44136"
+        type: string
+      store_id:
+        description: "Walmart store number (blank: the first store the API lists near the ZIP code)"
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: store-price-probe
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      WM_CONSUMER_ID: ${{ secrets.WM_CONSUMER_ID }}
+      WM_PRIVATE_KEY: ${{ secrets.WM_PRIVATE_KEY }}
+      WM_KEY_VERSION: ${{ vars.WM_KEY_VERSION || '1' }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install -q -r requirements.txt
+      - name: One raw Food page set from the current crawl (sample item ids)
+        run: |
+          set -u
+          run_id="$(gh api -H 'Accept: application/vnd.github.raw' "repos/${GITHUB_REPOSITORY}/contents/state/run.json?ref=data-store" \
+            | python -c 'import json,sys; print(json.load(sys.stdin)["run_id"])')"
+          gh api -H 'Accept: application/vnd.github.raw' \
+            "repos/${GITHUB_REPOSITORY}/contents/raw/${run_id}/976759/part-0001.jsonl.gz?ref=data-store" > sample.jsonl.gz \
+            || rm -f sample.jsonl.gz
+          ls -l sample.jsonl.gz || echo "no sample part; the probe checks stores and the category page only"
+      - name: Probe
+        env:
+          ZIP: ${{ inputs.zip }}
+          STORE_ID: ${{ inputs.store_id }}
+        run: |
+          args=(--zip "$ZIP")
+          [ -n "$STORE_ID" ] && args+=(--store-id "$STORE_ID")
+          [ -f sample.jsonl.gz ] && args+=(--sample sample.jsonl.gz)
+          python -m crawler.storeprice probe "${args[@]}"
