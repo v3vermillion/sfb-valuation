@@ -64,7 +64,8 @@ Editing `data/gates.json`, `data/sentinels.json` or `data/categories.json` makes
 ### Alerts (GitHub issues, label `pipeline-alert`)
 One open issue per kind, updated in place, closed automatically when the condition clears: `[pipeline-failed]`, `[gates-hold]`,
 `[review-key-missing]`, `[audit-regression]`, `[audit-failed]` (the audit could not reach Walmart: a 401/403 means the WM_* secrets no longer match), `[data-store-size]` (the files on the data-store branch passed 1 GB; the issue carries the breakdown and the proposal to move raw pages to Cloudflare R2), `[snapshot-archive]` (a publish could not be kept as a GitHub Release; the publish itself stands and the next one retries), `[stale-prices]` (no publish for stale_days while idle), `[throttled]`
-(three consecutive runs ended on Walmart throttling), `[deploy-failed]`, `[deploy-mismatch]`, `[tests-failed]`.
+(three consecutive runs ended on Walmart throttling), `[crawl-truncated]` (a department or child node ended far short of
+Walmart's page count or its id was refused; see "Crawl scope edits" below), `[deploy-failed]`, `[deploy-mismatch]`, `[tests-failed]`.
 Watch the repository (or just the issues) on the GitHub app for phone notifications.
 
 ### Pacing (`state.pace`, data-store `throttle/`)
@@ -87,11 +88,20 @@ remembered in `audit/latest.json` and waits a full period; an audit that errored
 Rows whose per-unit price is more than 10× off their category+unit median keep their item price but lose the per-unit price
 and carry the flag `unit_price_suspect`; the `unit_outliers` gate reports the raw share (measure-only until parsing improves).
 
-### Schedule not firing
-The 30-minute schedule has not produced a `schedule` run since it was introduced on 2026-10-08 (see DECISIONS.md). Ruled out:
-cron syntax, workflow state, and the committer of the `cron:` line. Until it is fixed, chained runs keep the crawl moving; if a
-run ends with nothing chained, start `plan=continue` from the Actions tab. Check after any change: a `schedule` run appears
-in the Actions tab within the hour.
+### Schedule
+The schedule fires, though GitHub delays and drops scheduled runs, so they come hours apart rather than every 30 minutes. A
+scheduled run that arrives while a crawl is running waits in the `pipeline` concurrency group and is cancelled when the crawl's
+chained run takes its place (cancelled runs with 0 jobs in the Actions tab): by design. If a run ends with nothing chained and
+no scheduled run follows within a few hours, start `plan=continue` from the Actions tab.
+
+### Crawl scope edits, split departments, early ends
+An edit of `data/categories.json` applies to the crawl in progress (`crawl.sync`, printed as `scope:` lines in the run log):
+a department removed from `departments` is `dropped`; one given a `split` (a list of Walmart child node ids) is re-crawled
+as those nodes, each with its own cursor, under `raw/<run>/<dept>/<node>/`; other finished departments are untouched.
+Sizing covers each node and records the department as their sum. Walmart has ended department listings early (Home stopped
+at page 1,830 of 31,781): an end with many hits left is retried from the next cursor, and a crawl that still ends short of
+(1 − `dept_size_tolerance`) of Walmart's page count is `truncated`; a category id Walmart refuses is `failed`. Both open
+`[crawl-truncated]` and hold the snapshot at the departments_complete gate; fix the scope in `data/categories.json`.
 
 ### Other automation
 - `keepalive.yml` (weekly): re-enables the scheduled workflows through the API and touches `.github/keepalive` when main has

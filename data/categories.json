@@ -1,5 +1,5 @@
 {
- "note": "Crawl scope and category ids. Category = what the item is, as a store labels it (docs/CATEGORIES.md); crawler/classify.py decides it from the product noun first and Walmart's path second, so path_rules are hints: the most specific (longest) matching fragment of the lower-cased path wins. Crawl unit = whole Walmart department (every page, soldByWmt=true).",
+ "note": "Crawl scope and category ids. Category = what the item is, as a store labels it (docs/CATEGORIES.md); crawler/classify.py decides it from the product noun first and Walmart's path second, so path_rules are hints: the most specific (longest) matching fragment of the lower-cased path wins. Crawl unit = whole Walmart department (every page, soldByWmt=true), or its listed child nodes when it has `split`.",
  "categories": {
   "1": "Produce",
   "2": "Dairy & Eggs",
@@ -102,14 +102,28 @@
    "name": "Home",
    "core": false,
    "default_category": "18",
-   "consumable": false
+   "consumable": false,
+   "split": [
+    {"id": "4044_623679", "name": "Kitchen & Dining"},
+    {"id": "4044_539103", "name": "Bedding"},
+    {"id": "4044_539095", "name": "Bath"},
+    {"id": "4044_90828", "name": "Storage & Organization"},
+    {"id": "4044_90548", "name": "Appliances"}
+   ]
   },
   {
    "id": "1072864",
    "name": "Home Improvement",
    "core": false,
    "default_category": "31",
-   "consumable": false
+   "consumable": false,
+   "split": [
+    {"id": "1072864_1031899", "name": "Tools"},
+    {"id": "1072864_1067619", "name": "Electrical"},
+    {"id": "1072864_133032", "name": "Heating, Cooling & Air Quality"},
+    {"id": "1072864_8036850", "name": "Emergency Prep"},
+    {"id": "1072864_6610571", "name": "Water Purification"}
+   ]
   },
   {
    "id": "5428",
@@ -140,13 +154,6 @@
    "consumable": false
   },
   {
-   "id": "3920",
-   "name": "Books",
-   "core": false,
-   "default_category": "21",
-   "consumable": false
-  },
-  {
    "id": "1085632",
    "name": "Seasonal",
    "core": false,
@@ -158,13 +165,6 @@
    "name": "Party & Occasions",
    "core": false,
    "default_category": "22",
-   "consumable": false
-  },
-  {
-   "id": "91083",
-   "name": "Auto & Tires",
-   "core": false,
-   "default_category": "24",
    "consumable": false
   },
   {
@@ -204,8 +204,11 @@
   "6197502": "Industrial & Scientific",
   "7796869": "Musical Instruments",
   "5967908": "Collectibles",
-  "note": "Promo/meta departments (Shop by Brand, Feature, Ideas, Services, MoneyCenter, Subscriptions, Gift Registry, Photo Center, etc.) are skipped. Add a department here by moving it into departments."
+  "3920": "Books",
+  "91083": "Auto & Tires",
+  "note": "Promo/meta departments (Shop by Brand, Feature, Ideas, Services, MoneyCenter, Subscriptions, Gift Registry, Photo Center, etc.) are skipped. Add a department here by moving it into departments. Books and Auto & Tires left the crawl on 2026-10-09 (owner): Books is media, which is never carried, and the two were 85% of the pages left to crawl."
  },
+ "split_note": "A department with `split` is crawled as those Walmart child nodes only, each with its own cursor, sized and gated together as the department. Walmart's paginated listing stopped Home at 6% and Home Improvement at 8% of their pages (2026-10-09), and most of both is furniture, rugs, wall decor and renovation material a food bank does not receive. Left out: Home's Decor, Furniture, Kids' and Teens' Rooms, Holiday Decor, Personalized Gifts, Luggage, Featured Shops, Shop by Brand and Funeral nodes; Home Improvement's renovation, plumbing, building materials, hardware, paint, flooring, doors, wallpaper, garage, metal working, renewable energy and shop-by-brand nodes.",
  "exclude_path_keywords": [
   "/tobacco"
  ],

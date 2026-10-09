@@ -13,7 +13,7 @@ exact item and its current price. Prices come from the Walmart I/O Affiliate API
 - The owner works from a phone. Anything that must run goes through GitHub Actions or Cloudflare.
 
 ## How the pipeline runs itself (since 2026-10-07)
-Nothing waits for a human. `.github/workflows/pipeline.yml` is scheduled every 30 minutes (17 and 47 past the hour; not firing yet, see RUNBOOK) and chains its own next run:
+Nothing waits for a human. `.github/workflows/pipeline.yml` is scheduled every 30 minutes (17 and 47 past the hour; GitHub fires it irregularly, see RUNBOOK) and chains its own next run:
 a cheap peek reads `state/run.json`, the published manifest, `sizing.json`, `audit/latest.json` and the candidate `gates.json`
 through the GitHub API and stops when nothing is due. Otherwise `crawler/ci.py` picks ONE Walmart job per run, in priority order:
 sizing pass (once per 30 days) > crawl resume > build + gates + publish > weekly live audit > identify refresh. Cadence lives in
@@ -25,7 +25,7 @@ A snapshot publishes only when every gate passes; otherwise it holds and an issu
   or run `plan=approve` to override), `[review-key-missing]` (add the `ANTHROPIC_API_KEY` secret or set
   `sample_review.required=false` in data/gates.json), `[review-key-invalid]` (replace the key: 401/403), `[review-credits]`
   (add Anthropic credits; auto-reload is off), `[pipeline-failed]`, `[deploy-failed]`, `[deploy-mismatch]`,
-  `[audit-regression]`, `[audit-failed]`, `[data-store-size]` (branch past 1 GB: decide where raw pages move), `[snapshot-archive]`, `[stale-prices]`, `[throttled]`, `[tests-failed]`. Issues close themselves when the condition clears.
+  `[audit-regression]`, `[audit-failed]`, `[data-store-size]` (branch past 1 GB: decide where raw pages move), `[snapshot-archive]`, `[stale-prices]`, `[throttled]`, `[crawl-truncated]` (a department ended far short of Walmart's page count or its id was refused: give it a `split` or fix the node id), `[tests-failed]`. Issues close themselves when the condition clears.
 - Changing scope or rules: edit `data/categories.json`, `data/sentinels.json`, `data/gates.json`, `data/schedule.json`;
   the next run re-evaluates a held candidate automatically when those files change.
 - When Claude Code is asked to look: read the open alert issues and `data-store:build/candidate/report.md`, diagnose, propose fixes
@@ -36,7 +36,7 @@ A snapshot publishes only when every gate passes; otherwise it holds and an issu
 
 ## Commands (also runnable locally with WM_CONSUMER_ID / WM_PRIVATE_KEY set and SFB_STORE pointing at a data-store checkout)
 - `python -m crawler.ci --plan continue|core|full|approve|identify|audit|size|status|peek|finish|rollback`
-- `python -m unittest discover tests` (278 tests; `tests/fixtures/run-live.json` is the live crawl state the pipeline must resume from)
+- `python -m unittest discover tests` (309 tests; `tests/fixtures/run-live.json` is the live crawl state the pipeline must resume from)
 - `cd app && node --test tests/*.test.mjs`
 
 ## Layout
@@ -44,7 +44,7 @@ A snapshot publishes only when every gate passes; otherwise it holds and an issu
   qa.py (gates/publish), releases.py (kept snapshots, rollback), classify.py (store categories, exclusions, placeholders),
   valuation.py (price sanity, equivalent values), audit.py (weekly live audit), history.py (price history), review.py (sample review),
   sizing.py (department sizes), throttle.py (429 analysis, pace cap), identify.py (non-Walmart barcodes → equivalents), ci.py (orchestrator + decide())
-- data/categories.json — scope (departments, consumable or not), category ids and path hints; docs/CATEGORIES.md — how every item is labelled
+- data/categories.json — scope (departments, consumable or not, `split` child nodes for Home and Home Improvement; edits apply to the crawl in progress), category ids and path hints; docs/CATEGORIES.md — how every item is labelled
 - data/sentinels.json — items that must always be found and priced
 - data/gates.json — acceptance thresholds (null = measure only); data/schedule.json — cadence; data/review-criteria.md — sample review rules
 - .github/workflows/ — pipeline.yml (30-min continue, manual plans), deploy-app.yml, tests.yml, keepalive.yml,
