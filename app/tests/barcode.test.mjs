@@ -47,15 +47,15 @@ test("store-printed label decodes item ref and price, and only counts as verifie
   assert.equal(r.verified, true); assert.equal(r.checkOk, true);
   const ean = decodeStoreLabel("0" + code);
   assert.equal(ean.priceCents, 2875);
-  const typed = decodeStoreLabel(body);                   // 11 digits typed without the check digit
-  assert.equal(typed.priceCents, 2875); assert.equal(typed.verified, true);
-  // a mistyped digit outside the price field breaks the check digit -> not verified
+  const typed = decodeStoreLabel(body);                   // 11 digits typed without the check digit: the verifier vouches
+  assert.equal(typed.priceCents, 2875); assert.equal(typed.verified, true); assert.equal(typed.checkOk, null);
+  // a mistyped digit outside the price field breaks the check digit; the price digits still check out
   const typo = decodeStoreLabel(code.slice(0, -1) + ((Number(code.at(-1)) + 1) % 10));
   assert.equal(typo.priceCents, 2875); assert.equal(typo.checkOk, false); assert.equal(typo.verified, false);
-  // wrong verifier -> falls back to the 5-digit reading, flagged
+  // wrong verifier with a good check digit -> a plain 5-digit price label, read but flagged for the volunteer to confirm
   const bad = "2" + "01234" + "0" + "2875";
   const r2 = decodeStoreLabel(bad + checkDigit(bad));
-  assert.equal(r2.verified, false);
+  assert.equal(r2.verified, false); assert.equal(r2.needsConfirm, true); assert.equal(r2.priceCents, 2875);
   assert.equal(decodeStoreLabel("078742054261"), null);
 });
 
@@ -81,4 +81,29 @@ test("classifyCode routes typed input: PLU, store label, GTIN, else text", () =>
 test("formatGtin shows the familiar grouping", () => {
   assert.equal(formatGtin("00078742054261"), "0 78742 05426 1");
   assert.equal(formatGtin("05000112637922"), "5 000112 637922");
+});
+
+test("a mistyped price digit on a store label never yields a price (the $5.99 -> $206.99 case)", () => {
+  const body = "212345" + priceVerifier4("0599") + "0599";
+  const code = body + checkDigit(body);
+  assert.equal(decodeStoreLabel(code).priceCents, 599);
+  const typo = code.slice(0, 7) + "2" + code.slice(8);       // 0599 -> 2599 typed: verifier and check digit both fail
+  const r = decodeStoreLabel(typo);
+  assert.equal(r.priceCents, null); assert.equal(r.verified, false);
+  const short = decodeStoreLabel(typo.slice(0, 11));           // the same typo, typed as 11 digits
+  assert.equal(short.priceCents, null);
+  for (let pos = 7; pos < 11; pos++) {                          // every single-digit error in the price field is caught
+    for (let dgt = 0; dgt < 10; dgt++) {
+      if (String(dgt) === body[pos]) continue;
+      const b = body.slice(0, pos) + dgt + body.slice(pos + 1);
+      const x = decodeStoreLabel(b);
+      assert.ok(x.priceCents === null || x.priceCents === 599 || x.needsConfirm === true, `${b}: ${x.priceCents}`);
+      assert.notEqual(x.verified && x.priceCents !== 599, true, b);
+    }
+  }
+});
+
+test("an 11-digit product code typed without its check digit is marked unverifiable", () => {
+  const g = toGtin14("07874205426");
+  assert.equal(g.checkOk, null); assert.equal(g.digits, "078742054261");
 });

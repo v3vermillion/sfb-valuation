@@ -184,6 +184,13 @@ jobs:
         if: steps.peek.outputs.skip != 'true'
         run: node --max-old-space-size=6144 tools/build-db.mjs --store "${{ steps.data.outputs.store }}" --out dist/db
 
+      # Search quality on the real pack (data/gold-search.json, 330 everyday donations): below 95% opens [search-gold],
+      # below 90% fails here so the live site keeps the previous build. Not run on the synthetic fixture.
+      - name: Search gold set
+        id: gold
+        if: steps.peek.outputs.skip != 'true' && steps.data.outputs.source == 'snapshot'
+        run: node --max-old-space-size=6144 tools/gold.mjs --db dist/db | tee -a "$GITHUB_STEP_SUMMARY"
+
       - name: Build the site
         if: steps.peek.outputs.skip != 'true'
         env:
@@ -286,6 +293,28 @@ jobs:
           body: |
             The deploy-app workflow failed (event: ${{ github.event_name }}, data: ${{ steps.data.outputs.source || 'n/a' }}).
             Read the failed step in the run log (linked below); the live site keeps serving the previous build.
+      - name: Alert — search gold set below 95%
+        if: always() && steps.gold.outputs.below_min == 'true'
+        uses: ./.github/actions/alert
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          key: search-gold
+          mode: open
+          title: "search: ${{ steps.gold.outputs.passed }}/${{ steps.gold.outputs.total }} gold queries find the right item"
+          body: |
+            The search gold set (data/gold-search.json) found the right item in the top 3 for ${{ steps.gold.outputs.passed }}
+            of ${{ steps.gold.outputs.total }} queries (rate ${{ steps.gold.outputs.rate }}). The run summary lists every miss.
+            ${{ steps.gold.outputs.below_block == 'true' && 'Below 90%: this build was NOT deployed; the previous one stays live.' || 'The build was deployed.' }}
+            Fix the ranking (app/public/js/db-worker.js) or a wrong expectation in the gold set, then re-run deploy-app.
+      - name: Resolve search-gold
+        if: success() && steps.gold.outputs.below_min == 'false'
+        uses: ./.github/actions/alert
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          key: search-gold
+          mode: resolve
       - name: Resolve deploy alerts (deploy-failed)
         if: success() && (steps.verify.outcome == 'success' || steps.peek.outputs.skip == 'true')
         uses: ./.github/actions/alert

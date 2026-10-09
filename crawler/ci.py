@@ -50,19 +50,19 @@ audit ok -> audit-regression, audit-failed; a successful run -> pipeline-failed 
 
 Local use: WM_CONSUMER_ID / WM_PRIVATE_KEY set and SFB_STORE pointing at a data-store checkout.
 """
-import argparse, shutil, hashlib, inspect, json, os, subprocess, tempfile
+import argparse, shutil, hashlib, inspect, json, os, subprocess, tempfile, time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import crawl, process, qa, identify, store
+from . import crawl, process, qa, identify, store, storeprice
 
 DATA = Path(__file__).resolve().parent.parent / "data"
 SCHEDULE = DATA / "schedule.json"
 CONFIG_FILES = (DATA / "gates.json", DATA / "sentinels.json", DATA / "categories.json")
 SCHEDULE_DEFAULTS = {"full_every_days": 30, "core_every_days": 7, "audit_every_days": 7, "identify_every_days": 30,
                      "sizing_every_days": 30, "stale_days": 14, "budget_min": 300}
-KINDS = ("size", "crawl", "build", "recheck", "start-full", "start-core", "audit", "identify", "none")
-PLANS = ("continue", "full", "core", "approve", "identify", "audit", "size", "status", "peek", "finish", "rollback")
+KINDS = ("size", "crawl", "build", "recheck", "start-full", "start-core", "audit", "identify", "store", "none")
+PLANS = ("continue", "full", "core", "approve", "identify", "audit", "size", "status", "peek", "finish", "rollback", "store")
 # gates.json statuses that mean "held, waiting for a decision" (new qa: hold; old qa: needs_review / awaiting_approval)
 HOLD_STATUSES = ("hold", "needs_review", "awaiting_approval")
 CANDIDATE_STATES = ("built", "needs_review", "awaiting_approval")
@@ -82,6 +82,7 @@ _verdict_path = lambda: store.ROOT / "build" / "candidate" / "review-verdict.jso
 _sizing_path = lambda: store.ROOT / "sizing.json"
 _audit_path = lambda: store.ROOT / "audit" / "latest.json"
 _identify_path = lambda: store.ROOT / "identify" / "latest.json"
+_store_prices_path = lambda: store.ROOT / "store_prices" / "latest.json"
 
 
 # ----------------------------------------------------------------------------- outputs
@@ -209,7 +210,7 @@ def _departments():
 def inputs():
     """Everything decide() needs, read from the store (missing or unreadable files become None)."""
     files = {"state": _state_path(), "manifest": _manifest_path(), "sizing": _sizing_path(), "audit": _audit_path(),
-             "gates": _gates_path(), "identify": _identify_path()}
+             "gates": _gates_path(), "identify": _identify_path(), "store_prices": _store_prices_path()}
     objs, status = {}, {}
     for k, p in files.items():
         objs[k], status[k] = _load(p)
@@ -290,7 +291,7 @@ def sizing_stale(sizing, cfg, now, departments=None):
 # ----------------------------------------------------------------------------- the decision
 
 def decide(state, manifest, sizing, audit_latest, gates, cfg, now, *, current_hash=None, identify_latest=None,
-           departments=None):
+           departments=None, store_latest=None):
     """Pure: pick the one kind of work the next run should do.
 
     Inputs are the parsed JSON files (or None when missing/unreadable): state/run.json, build/published/manifest.json,
@@ -313,7 +314,9 @@ def decide(state, manifest, sizing, audit_latest, gates, cfg, now, *, current_ha
      5. "audit" when a manifest exists and audit/latest.json is missing or older than audit_every_days
         (TRANSIENT_RETRY_HOURS after a failed attempt)
      6. "identify" when a manifest exists and identify/latest.json is missing or older than identify_every_days
-     7. "none"
+     7. "store" when a manifest exists and store prices are due (crawler/storeprice.due: rows left from the last pass,
+        or the oldest store price older than data/store.json refresh_every_days); data/store.json absent: never
+     8. "none"
     """
     cfg = {**SCHEDULE_DEFAULTS, **(cfg or {})}
     state = state if isinstance(state, dict) else None
@@ -357,12 +360,15 @@ def decide(state, manifest, sizing, audit_latest, gates, cfg, now, *, current_ha
         return "audit"
     if _stale(identify_latest, ("refreshed", "checked", "date", "updated"), cfg["identify_every_days"], now):
         return "identify"
+    if manifest is not None and storeprice.due(store_latest, now):
+        return "store"
     return "none"
 
 
 def decide_from(inp, now=None):
     return decide(inp["state"], inp["manifest"], inp["sizing"], inp["audit"], inp["gates"], inp["cfg"], now or utcnow(),
-                  current_hash=inp["config_hash"], identify_latest=inp["identify"], departments=inp["departments"])
+                  current_hash=inp["config_hash"], identify_latest=inp["identify"], departments=inp["departments"],
+                  store_latest=inp.get("store_prices"))
 
 
 def _describe(inp, now):
@@ -550,13 +556,28 @@ def _build(recheck=False):
         # they still exist (deterministic, no Walmart calls); only a candidate whose raw pages are gone
         # is re-evaluated as it stands
         _ensure_identify_data()
+        t0 = time.time()
         process.build()
+        summary(f"- build: {(time.time() - t0) / 60:.1f} min, peak memory {_peak_rss_gb():.2f} GB "
+                f"(runner {_total_ram_gb():.0f} GB)")
     wm = _wm() if _has_wm_credentials() else None
     status = _qa_check(wm)
     store.checkpoint(f"{state['run_id']} {'rechecked' if recheck else 'built'}: {status}")
     summary(_read_text(_report_path(), "(no report written)"))
     _after_check(status, state)
     return status
+
+
+def _peak_rss_gb():
+    import resource
+    return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024 ** 2      # ru_maxrss is KiB on Linux
+
+
+def _total_ram_gb():
+    try:
+        return os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES") / 1024 ** 3
+    except (ValueError, OSError, AttributeError):
+        return 0.0
 
 
 def _has_wm_credentials():
@@ -815,6 +836,25 @@ def _peek(inp, now):
     return work
 
 
+def _store(budget_min, wm=None):
+    """Store prices for the snapshot's barcode rows (crawler/storeprice.py), within the crawl budget; chains the next run
+    while rows remain. The next build shows them."""
+    from .wm import Throttled
+    wm = wm or _wm()
+    try:
+        res = storeprice.refresh(wm, budget_min)
+    except Throttled as e:
+        summary(f"Store prices paused by Walmart rate limiting ({e}); chaining the next run.")
+        set_out("next", "continue")
+        return "throttled"
+    summary(f"- store prices ({res.get('store_id')}): {res.get('checked', 0)} of {res.get('due', 0)} due rows checked, "
+            f"{res.get('priced', 0)} priced, {res.get('gone', 0)} no longer listed, {res.get('calls', 0)} calls; "
+            f"{res.get('remaining', 0)} still due")
+    if res.get("remaining"):
+        set_out("next", "continue")
+    return res.get("status")
+
+
 def _continue(budget_min):
     inp = inputs()
     now = utcnow()
@@ -834,6 +874,8 @@ def _continue(budget_min):
         _audit()
     elif work == "identify":
         _identify()
+    elif work == "store":
+        _store(budget_min)
     else:
         summary("Nothing to do.")
     return work
@@ -872,6 +914,8 @@ def main(argv=None):
             _finish()
         elif a.plan == "rollback":
             _rollback(a.rollback_to)
+        elif a.plan == "store":
+            _store(budget)
         if a.plan not in ("peek", "status"):
             _size_watch()
     finally:

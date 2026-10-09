@@ -14,7 +14,9 @@ CONFIG = Path(__file__).resolve().parent.parent / "data" / "categories.json"
 
 KEEP_FIELDS = ("itemId", "parentItemId", "upc", "name", "brandName", "size", "salePrice", "msrp",
                "categoryPath", "categoryNode", "marketplace", "stock", "availableOnline", "offerType",
-               "sellerInfo", "clearance", "flashDeal", "limitedTimeDeal", "bundle", "preOrder")
+               "sellerInfo", "clearance", "flashDeal", "limitedTimeDeal", "bundle", "preOrder",
+               # popularity: how many shoppers reviewed it (search ranks a well-known item above an obscure listing)
+               "numReviews", "customerRating")
 
 
 def config():

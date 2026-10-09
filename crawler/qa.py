@@ -177,7 +177,8 @@ def live_sample_rows(rows, n, seed, include_carried=False):
     The acceptance gate leaves out carried-over rows (not crawled in this run, so a price difference
     says nothing about the crawl); the weekly audit passes include_carried=True because stale
     carried-over prices are exactly what it looks for. Deterministic for a given seed."""
-    pool = [r for r in rows if r.get("primary") and r.get("upc") and r.get("stock") == "Available"
+    pool = [r for r in rows if r.get("primary") and r.get("upc")
+            and (r.get("store_stock") if "store_price" in (r.get("flags") or []) else r.get("stock")) == "Available"
             and "promo_price" not in (r.get("flags") or []) and not r.get("price_withheld")
             and "placeholder" not in (r.get("flags") or [])
             and (include_carried or "carried_over" not in (r.get("flags") or []))]
@@ -191,13 +192,18 @@ def live_check(wm, sample):
     """Compare snapshot prices with Walmart right now, LIVE_CHUNK ids per call. Stops at the first
     transport/throttle error and reports what it managed to check (error recorded, never raised)."""
     by_id = {str(r["id"]): r for r in sample}
-    ids = list(by_id)
-    res = {"sample": len(ids), "checked": 0, "exact": 0, "within_5pct": 0, "missing": 0, "calls": 0,
+    # a row showing the store's price is compared with the store's price now, every other row with Walmart.com's
+    from . import storeprice
+    sid = (storeprice.config() or {}).get("store_id")
+    chunks = []
+    for store_rows in (False, True):
+        ids = [i for i, r in by_id.items() if ("store_price" in (r.get("flags") or [])) == store_rows]
+        chunks += [(ids[i:i + LIVE_CHUNK], sid if store_rows else None) for i in range(0, len(ids), LIVE_CHUNK)]
+    res = {"sample": len(by_id), "checked": 0, "exact": 0, "within_5pct": 0, "missing": 0, "calls": 0,
            "examples": [], "error": None}
-    for i in range(0, len(ids), LIVE_CHUNK):
-        chunk = ids[i:i + LIVE_CHUNK]
+    for chunk, store_id in chunks:
         try:
-            items = wm.get_items(chunk)
+            items = wm.get_items(chunk, store_id=store_id) if store_id else wm.get_items(chunk)
         except TRANSIENT_ERRORS as e:
             res["error"] = f"{type(e).__name__}: {str(e)[:200]}"
             break

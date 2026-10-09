@@ -70,39 +70,50 @@ on the sheet; `prefers-reduced-motion` turns it off and `prefers-contrast: more`
 
 ## Data: loading and indexing
 
-**Pack format (sfb-pack v2)** — built once per snapshot by `tools/build-db.mjs`, served as static files under
-`/db/<version>/` with immutable caching, ~32 MB over the wire for 760k items:
+**Pack format (sfb-pack v3)** — built once per snapshot by `tools/build-db.mjs`. The pack is cut into *shards*, one
+per department (Pharmacy rides with Health and Medicine, Premium Beauty with Beauty; a department past 600k items
+is split into interleaved parts). Each shard is a small v2-style pack with its own rank order, and every file is
+**content-addressed**: `/db/files/<sha20>.bin.gz`, immutable, shared by every version that has the same bytes. A weekly
+snapshot that only changed Food prices therefore downloads one file (Food's columns), not the whole pack. The real
+crawl of 2026-10-09 (2.1M items) is 114 MB over the wire, 63 MB of it in the *core* tier.
 
 | file | contents |
 |---|---|
-| `cols.bin.gz` | per-item columns in rank order: price (u32 cents: what the app shows), size (f32), pack (u16), unit, basis, flags, category (u8), Walmart id (f64), GTIN-14 (f64); v2 appends flags2 (u8: placeholder, price withheld, discontinued, value confidence), value basis (u32 rank) and Walmart's own price of a withheld item (u32 cents). A v1 reader stops before the v2 arrays. Placeholders are in the UPC index but never in the token index |
-| `strings-N.bin.gz` | `brand\x1Fname` blobs with offset tables, sharded so no file exceeds Cloudflare's 25 MiB limit |
-| `upc.bin.gz` | sorted GTIN-14 keys → rank, primary listing first for each barcode |
-| `tokens.bin.gz` | sorted dictionary + varint-delta posting lists + each token's home category |
-| `equiv.bin.gz` | equivalents: GTIN → estimated price, confidence, basis rank, name/quantity |
-| `plu.json` | PLU → produce name, unit, price (from the snapshot's produce rows, else a typical price) |
+| `<version>/manifest.json` | snapshot facts + `shards[]`: id, name, tier (`core` = consumable departments, `more` = durables), departments, item and token counts, and the path, size and gzip size of each shard file |
+| shard `cols` | per-item columns in the shard's rank order: price (u32 cents: what the app shows), size (f32), pack (u16), unit, basis, flags, category (u8), Walmart id (f64), GTIN-14 (f64), flags2 (u8: placeholder, price withheld, discontinued, value confidence, store price, unit suspect), value basis and Walmart's own price of a withheld item. Placeholders are in the UPC index but never in the token index |
+| shard `strings` | `brand\x1Fname` blobs with offset tables, split so no file exceeds Cloudflare's 25 MiB limit |
+| shard `upc` | sorted GTIN-14 keys → rank, primary listing first for each barcode |
+| shard `tokens` | sorted dictionary + varint-delta posting lists + each token's home category, then *head postings*: the items whose head noun (what the listing is: "Bananas", not "Banana Pudding") is exactly that word |
+| `<version>/equiv.bin.gz` | equivalents: GTIN → estimated price, confidence, basis item (`shard << 24 \| rank`), name/quantity |
+| `<version>/plu.json` | PLU → produce name, unit, price and the matching produce item (`{shard, rank}`) |
 
-Items are stored in *rank order* (primary listing, store brand, in stock, core department, short name first),
-so a search that scans the AND of two bitsets from rank 0 upward meets the best candidates first and can stop
-early. Each posting list decodes into a `Uint32Array` bitset (one bit per item, 95 KB); single-letter prefixes
-are warmed after load and the rest live in a small LRU.
+An item's id in the app is `shard × 2^24 + rank`. Items inside a shard are in *rank order* (primary listing, store
+brand, in stock, short name first), so a search that scans the AND of two bitsets from rank 0 upward meets the best
+candidates first and can stop early. Each posting list decodes into a `Uint32Array` bitset per shard; single-letter
+prefixes are warmed after load and the rest live in a small LRU.
 
-**On the device** — `db-client.js` downloads the pack into a Cache Storage bucket named after the snapshot
-version, remembers the version in localStorage and asks the worker to open it. Opening means: read each file
-from Cache Storage, inflate with `DecompressionStream`, wrap typed arrays over the buffers (no parsing, no copy),
-decode the dictionary. On every launch the app fetches `db/current.json` (network-first, 1 KB); a newer
-snapshot downloads in the background into its own bucket while the current one keeps answering, and is swapped in
-when nothing is open (or on tap, or at the next launch). The swap is committed only after the new pack opens; a pack
-that fails to open is deleted and the previous one restored.
+**On the device** — `db-client.js` downloads the *core* shards first and opens the app on them (ready in under a
+second on the fixture), then fetches the *more* shards in the background and adds them to the open database
+("more" event). Shard files go into one Cache Storage bucket, `sfb-db-files`, shared across versions; each version's
+manifest and per-version files go into `sfb-db-<version>`. Downloads run three at a time with three retries and
+back-off; a network failure stops the queue and the app says "No connection — prices will download when it's back"
+and retries every 30 s. Opening a shard means: read its files from Cache Storage, inflate with `DecompressionStream`,
+wrap typed arrays over the buffers (no parsing, no copy), decode the dictionary. On every launch the app fetches
+`db/current.json` (network-first, 1 KB); a newer snapshot downloads only the files it does not already have while the
+current one keeps answering, and is swapped in when nothing is open (or on tap, or at the next launch). Updates are
+applied one at a time; the swap is committed only after the new pack opens; a pack that fails to open is deleted and
+the previous one restored; files no version uses any more are pruned afterwards.
 The service worker precaches only the app shell (HTML, CSS, JS, fonts, wasm, icons: ~1.2 MB).
 
 **Search** (`db-worker.js`) — tokenize the query (shared tokenizer), expand abbreviations (gv, pb, oz, pk…),
 plural stems and synonyms, prefix-match every word against the dictionary, OR the postings of each word's
-expansions, AND the words, collect the first 400 candidates by rank, score them (exact word > prefix, brand
-match, size/pack number match, words adjacent in the name, the word's home department, repeated word, coverage
-of the item's content words, store brand; retired or out-of-stock pushed down) and return 40. A word that
-matches nothing gets one-edit alternatives; if the AND is empty the most restrictive word is dropped and the
-result is flagged. The main thread renders 12 rows synchronously and the rest on the next idle slice;
+expansions, AND the words in every shard, then collect about 400 candidates in all, shared between the shards in
+proportion to their matches (at least 40 each), head-noun matches first for up to half of each shard's share. Score
+them (exact word > prefix, the whole brand named, size/pack number match, words adjacent in the name, the word's
+home department, the item's head noun named, the plain item, coverage of the item's content words, store brand;
+retired, out-of-stock and multipacks pushed down) and return 40. A word that matches nothing gets one-edit
+alternatives; if the AND is empty the most common word whose removal leaves results is dropped and the result is
+flagged. The main thread renders 12 rows synchronously and the rest on the next idle slice;
 off-screen rows skip layout via `content-visibility`.
 
 **Barcodes** (`barcode.js`) — GS1 check digits, UPC-E → UPC-A expansion, 11-digit typed codes completed, EAN-13

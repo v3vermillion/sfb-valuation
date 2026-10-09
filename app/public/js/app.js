@@ -3,7 +3,7 @@
 
 import { DbClient } from "./db-client.js";
 import { classifyCode, formatGtin } from "./barcode.js";
-import { resolveCode, fromItem, kindLabel, titleOf, splitTitle, sizeText, fmtNum, notesFor } from "./resolve.js";
+import { resolveCode, fromItem, kindLabel, titleOf, splitTitle, sizeText, fmtNum, notesFor, livePlausible } from "./resolve.js";
 import { tokenize } from "./tokenize.js";
 import { stalenessLevel, stalenessText, daysSince } from "./staleness.js";
 
@@ -47,6 +47,7 @@ const fmtTime = (iso) => { const d = new Date(iso); return Number.isNaN(d.getTim
 const icon = (name, cls = "ico") => `<svg class="${cls}" aria-hidden="true"><use href="#i-${name}"/></svg>`;
 const haptic = (ms = 12) => { if (prefs.haptics && navigator.vibrate) { try { navigator.vibrate(ms); } catch { /* ignore */ } } };
 const priceDate = () => db.manifest?.priceDate || db.manifest?.published?.slice(0, 10) || "";
+const storeLabel = () => db.manifest?.store?.label || "Strongsville Walmart";
 const anyModalOpen = () => el.sheet.open || el.tallySheet.open || el.settings.open;
 
 function highlight(text, toks) {
@@ -157,7 +158,10 @@ function setProgress(frac) {
 function readyText() {
   const m = db.manifest; if (!m) return "Ready";
   // the date is what a volunteer needs; the count can be dropped on a narrow header
-  return `${navigator.onLine ? "" : "Offline · "}<span class="n">${compact(m.items)} items · </span>${esc(fmtDate(priceDate()))}`;
+  // food and household first: until the other departments arrive the header says so (and the count is what is open)
+  const items = db.more ? db.stats?.items || m.items : m.items;
+  const more = db.more ? ` · <span class="n">other departments </span>${navigator.onLine ? "loading" : "next time online"}` : "";
+  return `${navigator.onLine ? "" : "Offline · "}<span class="n">${compact(items)} items · </span>${esc(fmtDate(priceDate()))}${more}`;
 }
 
 db.addEventListener("state", (e) => {
@@ -167,7 +171,16 @@ db.addEventListener("state", (e) => {
     case "loading": setStatus("loading", "Opening database…"); break;
     case "ready": setStatus("ready", readyText()); setProgress(null); break;
     case "offline-empty": setStatus("offline", "Offline — connect once to get prices"); setProgress(null); if (state.query.trim()) runSearch(state.query); break;
-    case "error": setStatus("error", "Database problem — tap for details"); setProgress(null); state.dbError = d.message; if (state.query.trim()) runSearch(state.query); break;
+    case "error":
+      setProgress(null); state.dbError = d.message; state.dbErrorNetwork = !!d.network;
+      if (d.network) {
+        // the connection dropped mid-download: say so, and try again on our own (also on the "online" event)
+        setStatus("offline", "No connection — prices will download when it's back");
+        clearTimeout(state.retryTimer);
+        state.retryTimer = setTimeout(() => { if (!db.version && navigator.onLine) db.start().catch(() => {}); }, 30_000);
+      } else setStatus("error", "Database problem — tap for details");
+      if (state.query.trim()) runSearch(state.query);
+      break;
   }
   renderStale();
 });
@@ -187,6 +200,15 @@ db.addEventListener("ready", () => {
   pruneRecent();
   if (state.query.trim()) runSearch(state.query);
   if (new URLSearchParams(location.search).get("scan") === "1" && !state.scanOpen) { history.replaceState(null, "", location.pathname); openScanner(); }
+});
+db.addEventListener("more", () => {
+  // the other departments joined the search: refresh the header and whatever is on screen
+  if (db.version) setStatus("ready", readyText());
+  if (state.query.trim()) runSearch(state.query);
+});
+db.addEventListener("progress", (e) => {
+  const d = e.detail;
+  if (d.phase === "download" && d.tier === "more" && db.version) setStatus("ready", `${readyText()} ${Math.round((d.doneBytes / (d.totalBytes || 1)) * 100)}%`);
 });
 db.addEventListener("update-available", () => { setProgress(null); maybeApplyPending(true); });
 /** Apply a downloaded snapshot when nothing is in progress; otherwise offer it once and retry at the next idle moment. */
@@ -293,7 +315,9 @@ async function runSearch(q) {
   state.last = null; state.codeHit = null;
   if (!db.version) {
     el.home.hidden = true; el.results.hidden = false;
-    const msg = db.state === "offline-empty" ? "Prices haven't been downloaded yet. Connect once and they stay on this phone." : db.state === "error" ? "The price database couldn't be opened. Check for new prices in Settings." : "Opening the price database…";
+    const msg = db.state === "offline-empty" ? "Prices haven't been downloaded yet. Connect once and they stay on this phone."
+      : db.state === "error" && state.dbErrorNetwork ? "The connection dropped while the prices were downloading. They will finish on their own once the phone is back online."
+      : db.state === "error" ? "The price database couldn't be opened. Check for new prices in Settings." : "Opening the price database…";
     el.list.innerHTML = `<li class="empty">${msg}</li>`;
     el.resultsMeta.textContent = "";
     return;
@@ -388,16 +412,18 @@ function sheetHtml(res) {
   }
   if (res.kind === "plu") { chips.push(`PLU ${res.code}`); chips.push(res.unit === "lb" ? "Sold by weight" : "Sold each"); }
   if (res.kind === "equivalent") { const e = res.equiv; if (e.quantity) chips.push(e.quantity); chips.push(e.confidence === "high" ? "Close match" : e.confidence === "medium" ? "Fair match" : e.confidence === "rough" ? "Rough estimate" : "Rough match"); }
-  if (res.kind === "store-label") chips.push(res.label.verified ? "Price read from the label" : "Price not verified");
+  if (res.kind === "store-label") chips.push(res.label.verified ? "Price read from the label" : res.label.needsConfirm ? "Check against the label" : "Price digits checked");
   if (res.gtin && res.kind !== "plu" && res.kind !== "unknown" && res.kind !== "not-ready") chips.push(`<span class="mono">${esc(formatGtin(res.gtin))}</span>`);
   const notes = notesFor(res, { priceDateLong: fmtDate(priceDate(), true) });
   const title = res.kind === "exact" || res.kind === "closest" ? boldTitle(it) : res.kind === "live" ? boldTitle({ brand: res.brand, name: res.name }) : esc(res.title);
-  const checked = res.kind === "live" ? `Walmart.com price, checked ${res.live?.checkedAt ? `at ${fmtTime(res.live.checkedAt)}` : "today"}`
+  const checked = res.kind === "live" ? `${liveSource(res.live)} price, checked ${res.live?.checkedAt ? `at ${fmtTime(res.live.checkedAt)}` : "today"}`
     : res.kind === "store-label" ? "Read from the scale label, not a Walmart catalog price"
     : res.kind === "plu" && res.entry.source === "typical" ? "Typical Walmart price"
     : res.kind === "not-ready" ? "The price database is still opening"
     : res.priceCents == null ? "No saved price for this barcode"
-    : res.livePrice != null ? `Walmart.com price, checked ${res.live?.checkedAt ? `at ${fmtTime(res.live.checkedAt)}` : "today"}` : `Walmart price, checked ${fmtDate(priceDate(), true)}`;
+    : res.livePrice != null ? `${liveSource(res.live)} price, checked ${res.live?.checkedAt ? `at ${fmtTime(res.live.checkedAt)}` : "today"}`
+    : it?.storePrice ? `${storeLabel()} shelf price, as of ${fmtDate(priceDate(), true)}`
+    : `Walmart.com price, checked ${fmtDate(priceDate(), true)}`;
 
   // a loose single from a multipack is an exact item too: let the volunteer price one of the pack
   const packSeg = it && it.pack > 1 && res.unit !== "lb" && res.priceCents != null
@@ -413,7 +439,9 @@ function sheetHtml(res) {
     ? `<button class="btn btn--accent btn--block" type="button" data-act="close">Try again in a moment</button>`
     : res.priceCents == null
       ? `<button class="btn btn--accent btn--block" type="button" data-act="find">${icon("search")} Find it by name</button>`
-      : `<button class="btn btn--accent btn--block" type="button" data-act="add">${icon("receipt")} Add <span id="addTotal" class="counting">${money(lineTotal(res))}</span> to tally</button>`;
+      : res.kind === "store-label" && res.label.needsConfirm
+        ? `<button class="btn btn--accent btn--block" type="button" data-act="add">${icon("check")} Label says <span id="addTotal" class="counting">${money(lineTotal(res))}</span>: add to tally</button>`
+        : `<button class="btn btn--accent btn--block" type="button" data-act="add">${icon("receipt")} Add <span id="addTotal" class="counting">${money(lineTotal(res))}</span> to tally</button>`;
   const secondary = state.source === "scan"
     ? `<button class="btn btn--ghost" type="button" data-act="scan">${icon("scan")} Scan next</button><button class="btn btn--ghost" type="button" data-act="close">Done scanning</button>`
     : `<button class="btn btn--ghost" type="button" data-act="scan">${icon("scan")} Scan</button><button class="btn btn--ghost" type="button" data-act="close">Back to search</button>`;
@@ -520,6 +548,7 @@ el.tallySheet.addEventListener("closed", () => maybeApplyPending());
 el.settings.addEventListener("closed", () => maybeApplyPending());
 
 // ------------------------------------------------------------------ live Walmart check (public, rate-limited Worker route; no token in the client)
+const liveSource = (j) => (j?.priceSource === "store" ? storeLabel() : "Walmart.com");
 async function liveCheck(res) {
   const row = el.sheet.querySelector(".live-row");
   if (!row || !LIVE_URL || !prefs.live || !res.gtin) return;
@@ -545,26 +574,34 @@ async function liveCheck(res) {
     const live = Math.round(Number(listing.price) * 100);
     if (!Number.isFinite(live)) throw new Error("bad price");
     const when = j.checkedAt ? `at ${fmtTime(j.checkedAt)}` : "today";
+    const src = liveSource(j);
+    // the same sanity the pipeline applies to saved prices: a feed error never reaches a tally
+    const verdict = livePlausible(live, res.kind === "unknown" ? null : res.priceCents);
+    if (verdict !== "ok") {
+      row.dataset.state = "none";
+      row.innerHTML = `${icon("info")}<span>${esc(src)} lists <b>${money(live)}</b> right now, which ${verdict === "far" ? "is far from the saved price" : "is not a believable price"}. ${res.kind === "unknown" ? "Find it by name instead." : "The saved price is kept."}</span>`;
+      return;
+    }
     if (res.kind === "unknown") {
       // the saved database didn't know it, Walmart does: show the live listing as the result
       const lr = { ...res, kind: "live", priceCents: live, name: j.name || "Walmart item", brand: j.brand || "", title: [j.brand, j.name].filter(Boolean).join(" "), live: j, key: `v:${res.gtin}` };
       state.qty = 1;
       rerenderSheet(lr);
-      const r2 = el.sheet.querySelector(".live-row"); if (r2) { r2.hidden = false; r2.dataset.state = "ok"; r2.innerHTML = `${icon("bolt")}<span>Found on Walmart.com, checked ${when}${j.stock ? ` · ${esc(j.stock)}` : ""}</span>`; }
+      const r2 = el.sheet.querySelector(".live-row"); if (r2) { r2.hidden = false; r2.dataset.state = "ok"; r2.innerHTML = `${icon("bolt")}<span>Found at ${esc(src)}, checked ${when}${j.stock ? ` · ${esc(j.stock)}` : ""}</span>`; }
       pushRecent(lr); haptic(8);
       return;
     }
     const diff = live - res.priceCents;
     row.dataset.state = "ok";
-    if (diff === 0) row.innerHTML = `${icon("bolt")}<span>Walmart.com ${when}: <b>${money(live)}</b> — same as saved</span>`;
+    if (diff === 0) row.innerHTML = `${icon("bolt")}<span>${esc(src)} ${when}: <b>${money(live)}</b> — same as saved</span>`;
     else {
-      row.innerHTML = `${icon("bolt")}<span>Walmart.com ${when}: <b>${money(live)}</b></span><span class="delta ${diff > 0 ? "up" : "down"}">${diff > 0 ? "+" : "−"}${money(Math.abs(diff))}</span><button class="btn btn--ghost btn--sm" type="button">Use it</button>`;
+      row.innerHTML = `${icon("bolt")}<span>${esc(src)} ${when}: <b>${money(live)}</b></span><span class="delta ${diff > 0 ? "up" : "down"}">${diff > 0 ? "+" : "−"}${money(Math.abs(diff))}</span><button class="btn btn--ghost btn--sm" type="button">Use it</button>`;
       row.querySelector("button").addEventListener("click", () => {
         res.priceCents = live; res.livePrice = live; res.live = j;
         if (res.packOne && res.item?.pack > 1) res.unitCents = Math.round(live / res.item.pack); else res.unitCents = live;
         refreshPrice(el.sheet, res);
-        const pn = el.sheet.querySelector(".price-note"); if (pn) pn.textContent = `Walmart.com price, checked ${when}`;
-        row.innerHTML = `${icon("check")}<span>Using Walmart.com's price <b>${money(live)}</b></span>`;
+        const pn = el.sheet.querySelector(".price-note"); if (pn) pn.textContent = `${src} price, checked ${when}`;
+        row.innerHTML = `${icon("check")}<span>Using ${esc(src)}'s price <b>${money(live)}</b></span>`;
       });
     }
   } catch {
@@ -684,7 +721,7 @@ function settingsHtml() {
     ${db.pendingUpdate ? `<p class="note">Newer prices (${esc(fmtDate(db.pendingUpdate.manifest?.priceDate, true))}) are downloaded and will be used as soon as nothing is open.</p>` : ""}
     ${m?.fixture ? `<p class="note note--warn">Sample data. This snapshot is a synthetic, full-size stand-in built in the shape of the real crawl so speed and behaviour can be proven before the first published crawl. Prices are plausible, not real.</p>` : ""}
     <div class="actions"><button class="btn btn--ghost" type="button" data-act="update">${icon("refresh")} Check for new prices</button><button class="btn btn--danger" type="button" data-act="reset">${icon("trash")} Reset app data</button></div>
-    <p class="fine">Prices are Walmart.com prices for the Strongsville area captured by the food bank's price pipeline. “Equivalent value” items aren't sold at Walmart; they take the price of the closest Walmart item by type and size. Everything works offline once the database is on the phone. Non-Walmart barcodes are identified with data from Open Food Facts, Open Beauty Facts and Open Products Facts (ODbL). Barcode decoding by zxing-cpp (Apache-2.0).</p>
+    <p class="fine">Prices are the Strongsville Walmart's own shelf prices (8585 Pearl Rd) where Walmart reports one, otherwise Walmart.com's online price; the price note on each item says which. The food bank's price pipeline refreshes them every week. “Equivalent value” items aren't sold at Walmart; they take the price of the closest Walmart item by type and size. Everything works offline once the database is on the phone. Non-Walmart barcodes are identified with data from Open Food Facts, Open Beauty Facts and Open Products Facts (ODbL). Barcode decoding by zxing-cpp (Apache-2.0).</p>
   </div>`;
 }
 /** "Persistent" means the browser promised not to evict the pack; "best-effort" means it may, under storage pressure. */

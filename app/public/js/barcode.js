@@ -75,7 +75,7 @@ export function toGtin14(raw, format, { scanned = false } = {}) {
   } else if (d.length === 12) { type = "UPC-A"; checkOk = hasValidCheckDigit(d); }
   else if (d.length === 13) { type = d.startsWith("0") ? "UPC-A" : "EAN-13"; checkOk = hasValidCheckDigit(d); }
   else if (d.length === 14) { type = "GTIN-14"; checkOk = hasValidCheckDigit(d); }
-  else if (d.length === 11 && !scanned) { d = d + checkDigit(d); type = "UPC-A"; checkOk = true; }   // typed without its check digit
+  else if (d.length === 11 && !scanned) { d = d + checkDigit(d); type = "UPC-A"; checkOk = null; }   // typed without its check digit: unverifiable
   else return null;                                                                            // 9/10 digits etc. are not product codes
   const gtin14 = d.padStart(14, "0");
   return { gtin14, key: Number(gtin14), altKey, type, checkOk, digits: d };
@@ -106,24 +106,34 @@ export function priceVerifier5(p) {
 /**
  * Decode a store-printed price barcode (meat, deli, bakery scale labels).
  * Accepts UPC-A "2IIIIIVPPPPC", its EAN-13 form "02IIIIIVPPPPC", or the 11 digits typed without the check
- * digit. Other 20–29 prefixes (non-US layouts) are decoded as a 5-digit price without a verifier and
- * flagged unverified. `verified` requires both the price verifier digit and the GS1 check digit to agree.
- * @returns {null | { itemRef: string, priceCents: number, verified: boolean, checkOk: boolean, layout: string, digits: string }}
+ * digit. Other 20–29 prefixes (non-US layouts) are decoded as a 5-digit price without a verifier.
+ * A price is only read when the digits can be trusted: the price verifier digit protects the 4-digit price (one
+ * mistyped price digit always breaks it), the GS1 check digit the whole code. When the verifier does not match,
+ * the code is read as a plain 5-digit price only if its check digit is good, and then `needsConfirm` asks the
+ * volunteer to compare it with the printed price; otherwise priceCents is null ("check the digits"), so a typo
+ * can never turn $5.99 into $206.99. An 11-digit code typed without its check digit is never completed: only the
+ * verifier can vouch for it.
+ * @returns {null | { itemRef: string, priceCents: number|null, verified: boolean, checkOk: boolean|null, needsConfirm: boolean, layout: string, digits: string }}
  */
 export function decodeStoreLabel(raw) {
   let d = digitsOnly(raw);
   if (d.length === 13 && d[0] === "0") d = d.slice(1);
-  if (d.length === 11 && d[0] === "2") d = d + checkDigit(d);   // typed without the check digit
-  if (d.length === 12 && d[0] === "2") {
-    const checkOk = hasValidCheckDigit(d);
+  if ((d.length === 12 || d.length === 11) && d[0] === "2") {
+    const checkOk = d.length === 12 ? hasValidCheckDigit(d) : null;       // 11 digits: no check digit to test
     const itemRef = d.slice(1, 6), v = Number(d[6]), price4 = d.slice(7, 11);
-    if (priceVerifier4(price4) === v) return { itemRef, priceCents: Number(price4), verified: checkOk, checkOk, layout: "GS1 US · 4-digit price + verifier", digits: d };
-    // some scales print a plain 5-digit price (no verifier digit)
-    return { itemRef, priceCents: Number(d.slice(6, 11)), verified: false, checkOk, layout: "5-digit price, no verifier", digits: d };
+    if (priceVerifier4(price4) === v) {
+      return { itemRef, priceCents: Number(price4), verified: checkOk !== false, checkOk, needsConfirm: false, layout: "GS1 US · 4-digit price + verifier", digits: d };
+    }
+    if (checkOk) {
+      // some scales print a plain 5-digit price (no verifier digit): readable, but only the label can confirm it
+      return { itemRef, priceCents: Number(d.slice(6, 11)), verified: false, checkOk, needsConfirm: true, layout: "5-digit price, no verifier", digits: d };
+    }
+    return { itemRef, priceCents: null, verified: false, checkOk, needsConfirm: false, layout: "unreadable: a digit is wrong", digits: d };
   }
   if (d.length === 13 && d[0] === "2") {
     // GS1 recommended 20–29 layouts vary by country; use the common "5-digit item · 5-digit value" reading
-    return { itemRef: d.slice(2, 7), priceCents: Number(d.slice(7, 12)), verified: false, checkOk: hasValidCheckDigit(d), layout: "RCN-13 · 5-digit value, no verifier", digits: d };
+    const checkOk = hasValidCheckDigit(d);
+    return { itemRef: d.slice(2, 7), priceCents: checkOk ? Number(d.slice(7, 12)) : null, verified: false, checkOk, needsConfirm: checkOk, layout: "RCN-13 · 5-digit value, no verifier", digits: d };
   }
   return null;
 }

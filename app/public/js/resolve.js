@@ -103,6 +103,10 @@ export async function resolveCode(db, raw, format, { scanned = false, preferId =
   }
 
   if (cls.kind === "store-label") {
+    if (cls.priceCents == null) {
+      // a digit does not check out: no price is better than a wrong one
+      return { kind: "unknown", code: cls.digits, codeType: "store-label", badDigits: true, noPrice: true, title: `Label ${formatGtin(cls.digits)}`, priceCents: null, unit: "each", key: `u:${cls.digits}` };
+    }
     if (cls.priceCents > 0) {
       return {
         kind: "store-label", code: cls.digits, label: cls, priceCents: cls.priceCents, unit: "each",
@@ -131,7 +135,7 @@ export async function resolveCode(db, raw, format, { scanned = false, preferId =
   }
   if (r?.equivalent) {
     const e = r.equivalent;
-    const title = [e.brand, e.name].filter(Boolean).join(" ") + (e.quantity ? `, ${e.quantity}` : "");
+    const title = titleOf({ brand: e.brand, name: e.name }) + (e.quantity ? `, ${e.quantity}` : "");   // the brand once
     return { kind: "equivalent", code: cls.digits, gtin, equiv: e, priceCents: e.estCents, unit: "each", title, key: `e:${gtin}`, scanned: cls };
   }
   return {
@@ -158,8 +162,8 @@ export function notesFor(res, ctx = {}) {
   }
   if (res.kind === "store-label") {
     notes.push({ tone: "", text: "This barcode was printed by a store scale and carries the price itself. It isn't a catalog item, so the price is read straight from the label." });
-    if (res.label.checkOk === false) notes.push({ tone: "warn", text: "The barcode's check digit doesn't match, so a digit may have been mistyped. Compare with the printed price on the label." });
-    else if (!res.label.verified) notes.push({ tone: "warn", text: "The price digits couldn't be verified. Compare with the printed price on the label." });
+    if (res.label.needsConfirm) notes.push({ tone: "warn", text: "This label's price has no check digit of its own. Compare it with the price printed on the label before adding." });
+    else if (res.label.checkOk === false) notes.push({ tone: "warn", text: "The barcode's check digit doesn't match, but the price digits check out. Compare with the printed price on the label." });
   }
   if (res.kind === "plu") {
     if (res.entry.source === "typical") notes.push({ tone: "warn", text: "No produce listing matched this code in the latest snapshot, so this is the typical Walmart price kept with the app." });
@@ -170,20 +174,33 @@ export function notesFor(res, ctx = {}) {
   }
   if (res.kind === "unknown") {
     if (res.codeType === "PLU") notes.push({ tone: "warn", text: "This produce code isn't in the app's list. Type the produce name to value it." });
+    else if (res.badDigits) notes.push({ tone: "warn", text: "A digit of this label doesn't check out, so no price is read from it. Re-enter the number under the barcode, or type the name to find the closest item." });
     else if (res.noPrice) notes.push({ tone: "warn", text: "This label carries no price and isn't in the catalog. Read the printed price from the label, or type the name to find the closest item." });
     else {
       notes.push({ tone: "warn", text: "This barcode isn't in the saved database and has no equivalent on file. Type the name and size from the label to find the closest item." });
       if (res.checkOk === false) notes.push({ tone: "warn", text: "The check digit doesn't match, so a digit may have been mistyped." });
     }
   }
+  if (res.scanned?.checkOk === null && (res.kind === "exact" || res.kind === "equivalent" || res.kind === "unknown")) {
+    notes.push({ tone: "warn", text: "Typed without its last digit, so the barcode can't be checked. Make sure the name matches the package." });
+  }
   if (it) {
     if (it.retired) notes.push({ tone: "", text: "This is an older barcode for the item. Walmart has since reissued it; the price shown is the current one." });
     if (it.carried) notes.push({ tone: "", text: `Walmart didn't list a price when checked on ${ctx.priceDateLong || "the last check"}, so the previous price was carried over.` });
     if (it.promo) notes.push({ tone: "", text: "This was a Rollback or sale price when checked." });
-    if (it.unavailable) notes.push({ tone: "", text: "Out of stock online when checked. The price is the last one listed." });
+    if (it.unavailable) notes.push({ tone: "", text: it.storePrice ? "Not on the store's shelf when checked. The price is the store's last one." : "Out of stock online when checked. The price is the last one listed." });
+    if (it.unitSuspect) notes.push({ tone: "warn", text: "This price is far from similar items of the same size, so the listing may be a case or multipack. Compare the size and count with the item in your hand." });
     if (it.sizeConflict) notes.push({ tone: "", text: "Walmart's listing shows two sizes. The one in the title is used." });
     if (it.discontinued) notes.push({ tone: "", text: "Walmart marks this item as discontinued. The price is the last one listed." });
     if (!it.primary && (res.kind === "exact" || res.kind === "closest")) notes.push({ tone: "", text: "Walmart lists this barcode more than once; this is one of the other listings." });
   }
   return notes;
+}
+
+// A live price goes through the same believability check as a saved one (crawler/valuation.py): between $0.10 and
+// $10,000, and within 20x of the saved price when there is one. "ok" | "implausible" | "far".
+export function livePlausible(liveCents, savedCents) {
+  if (!Number.isFinite(liveCents) || liveCents < 10 || liveCents > 1_000_000) return "implausible";
+  if (savedCents > 0 && (liveCents * 20 < savedCents || liveCents > savedCents * 20)) return "far";
+  return "ok";
 }

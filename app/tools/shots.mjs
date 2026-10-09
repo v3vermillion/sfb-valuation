@@ -18,7 +18,8 @@ fs.mkdirSync(OUT, { recursive: true });
 
 const SIZES = [{ name: "390x844", width: 390, height: 844, dpr: 3 }, { name: "360x780", width: 360, height: 780, dpr: 2.75 }, { name: "768x1024", width: 768, height: 1024, dpr: 2 }];
 // --no-sandbox is a Chromium switch; WebKit takes no launch arguments here
-const browser = IS_CHROMIUM ? await chromium.launch({ args: ["--no-sandbox"] }) : await webkit.launch();
+const exe = process.env.CHROMIUM_EXECUTABLE ? { executablePath: process.env.CHROMIUM_EXECUTABLE } : {};   // a preinstalled Chromium
+const browser = IS_CHROMIUM ? await chromium.launch({ args: ["--no-sandbox"], ...exe }) : await webkit.launch();
 const IPHONE_UA = devices["iPhone 14"]?.userAgent;
 const audit = { controls: [], smallTargets: [], smallText: [], lowContrast: [], pages: [] };
 let failed = 0;

@@ -9,6 +9,29 @@ How this was checked: full read of crawler/, app/, pipeline/ and workflows; a lo
 the 760k fixture driven in Chromium (install, search, every barcode kind, tally, offline, update, reset);
 read-only probes of the deployed Workers and Cloudflare account.
 
+## Progress (updated 2026-10-09)
+
+| Step | Status |
+|---|---|
+| 1 Drop Books, Auto & Tires | Done (#12); the running crawl picked it up |
+| 2–4 Early-end guard, split Home/Home Improvement, re-crawl one department | Done (#12): `split` child nodes, `truncated`/`failed`, `[crawl-truncated]` |
+| 5 Anthropic key | Verified (HTTP 200) |
+| 6 Null body, department order | Done (#12) |
+| 7 Build memory | Partly: weekly builds no longer hold a second full copy of the published snapshot, repeated strings shared; peak memory now logged in every build summary. Measured 5.6 GB on 2.1M rows. Full scope (est. 4–7M rows) still needs the partitioned build or a narrower durable scope: decide on the finished crawl's real row count |
+| 8 Pack size | Designed (see below), next |
+| 9 Promo guard | Done |
+| 10 Pack and count parsing | Done for the hand-checked cases (bars, cans, rolls, diapers, tablets; count never doubled) |
+| 11 Suspicious prices | Case listings no longer answer a barcode (primary = lowest believable price); far-off per-unit prices flagged in the app and ranked lower |
+| 12 "Not available" online | Replaced by **Strongsville store prices** (store #2266): the store's own shelf price and stock, refreshed weekly |
+| 13 Department contamination | Open |
+| 14 Search | Done: relaxation, brand rule, head noun, multipacks, joined hyphen words; **gold set of 330 queries: 327 pass (99.1%)** on the real crawl, run before every deploy |
+| 15 Store-label typos | Done (every single-digit price typo tested) |
+| 16 PLU prices | Done |
+| 17 Live check sanity | Done (and asks for the Strongsville store's price) |
+| 18 Small fixes | Done: brand once, About text, UPC-E in the crawler |
+| 19–23 Phone reliability | Next, with the new pack format |
+| 24–27 Ops/handoff | 26 done (limiter 20/min, store id); 24 waits on the food bank's Cloudflare account; 25, 27 open |
+
 ## What blocks the first publish today
 
 | # | Finding | Evidence |
@@ -109,7 +132,7 @@ Each step lists the change, how it is proven, and its exit condition. Steps in t
 
 ### Phase 6 — Acceptance: go/no-go with evidence
 
-28. First real publish with every gate passing (live match ≥ 97%, review passed, sentinels 117/117 on the reduced scope).
+28. First real publish with every gate passing (live match ≥ 97%, review passed, all 116 sentinels on the reduced scope).
 29. **Shelf spot-check** at Walmart Strongsville (#2266): 50 items from a real donation table; ≥ 90% within 10% of shelf.
 30. **Device matrix:** iPhone SE (iOS 16.4+), a current iPhone, a mid-range Android; installed to Home Screen; scan 30 real
     items each, airplane mode for a day, an update arriving, 7 days without opening (iOS eviction).

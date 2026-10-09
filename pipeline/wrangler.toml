@@ -4,10 +4,12 @@ compatibility_date = "2026-10-01"
 
 [vars]
 WM_KEY_VERSION = "1"
+# Strongsville Supercenter (8585 Pearl Rd): live prices are this store's shelf prices, like the app's (data/store.json)
+STORE_ID = "2266"
 
 # Public live price check (GET /v1/price/<gtin>). Two limits, both charged only when a Walmart call is made:
-# 30 per caller (IP) per minute, and 60 Walmart calls per minute in total so the shared key (also used by the
-# crawler) can never be exhausted from the app. namespace_id must be unique per account; any small integer works.
+# 30 per caller (IP) per minute, and 20 Walmart calls per minute in total (counted per Cloudflare location) so the
+# shared key, which the crawler paces at about 8 calls a minute, is never pushed into rate limiting from the app. namespace_id must be unique per account; any small integer works.
 # Without these bindings the route answers 503 (it fails closed).
 [[ratelimits]]
 name = "PRICE_LIMITER"
@@ -17,4 +19,4 @@ simple = { limit = 30, period = 60 }
 [[ratelimits]]
 name = "PRICE_GLOBAL_LIMITER"
 namespace_id = "1002"
-simple = { limit = 60, period = 60 }
+simple = { limit = 20, period = 60 }

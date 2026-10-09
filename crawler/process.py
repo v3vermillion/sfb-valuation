@@ -9,7 +9,7 @@
 - Picks one primary row per UPC for barcode lookups.
 Output: store/build/candidate/{items.jsonl.gz, stats.json}
 """
-import json, math, statistics
+import json, math, statistics, sys
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 
@@ -26,6 +26,21 @@ def latest_run():
     return state
 
 
+_SHARED = ("path", "dept", "unit", "base_unit", "stock", "offer", "size_src", "basis", "cat", "store_stock")
+
+
+def _compact(row):
+    """One copy of each repeated string (a Walmart path, a department, a unit name) across millions of rows, and one
+    shared empty tuple for the many rows without variant words: about 15% of a row's memory."""
+    for k in _SHARED:
+        v = row.get(k)
+        if isinstance(v, str):
+            row[k] = sys.intern(v)
+    if not row.get("variants"):
+        row["variants"] = ()
+    return row
+
+
 def build():
     cfg = store.config()
     state = latest_run()
@@ -34,13 +49,22 @@ def build():
     # state order, not a set: an item listed in two departments always lands in the same one
     crawled_depts = [d["id"] for d in state["departments"] if d["status"] == "done"]
 
-    prev_rows = {}
+    # the last published snapshot: a department crawled this run needs only each row's last prices (promo guard, price
+    # change); every other row is carried over whole. Holding every published row in full beside this run's rows
+    # doubled the build's memory.
+    crawled_names = {depts[d]["name"] for d in crawled_depts if d in depts}
+    prev_rows, carry = {}, {}
     prev_path = BUILD / "published" / "items.jsonl.gz"
     if store.jsonl_exists(prev_path):
         for r in store.iter_jsonl_gz(prev_path):
-            prev_rows[r["id"]] = r
+            if r.get("dept") in crawled_names:
+                fl = r.get("flags") or ()
+                prev_rows[r["id"]] = (r.get("price"), r.get("online_price", r.get("price")), r.get("unit_price"),
+                                      "promo_price" in fl, "kept_normal_price" in fl)
+            else:
+                carry[r["id"]] = _compact(r)
 
-    rows, seen = {}, set()
+    rows, rejected = {}, set()        # item ids kept (rows) or rejected: a second listing of either is a duplicate
     rejects = defaultdict(Counter)
     raw_counts = Counter()
     for dept_id in crawled_depts:
@@ -51,30 +75,46 @@ def build():
             for item in store.iter_jsonl_gz(part):
                 raw_counts[dept["name"]] += 1
                 iid = item.get("itemId")
-                if iid in seen:
+                if iid in rows or iid in rejected:
                     rejects[dept["name"]]["duplicate"] += 1
                     continue
-                seen.add(iid)
                 row, why = normalize(item, dept, cfg)
                 if why:
+                    rejected.add(iid)
                     rejects[dept["name"]][why] += 1
                     continue
-                prev = prev_rows.get(iid)
-                if "promo_price" in row["flags"] and prev and "promo_price" not in prev.get("flags", []):
-                    row["promo"] = row["price"]
-                    row["price"] = prev["price"]
-                    row["unit_price"] = prev.get("unit_price")
-                    row["flags"].append("kept_normal_price")
-                if prev and prev.get("price"):
-                    row["prev_price"] = prev["price"]
-                rows[iid] = row
+                prev = prev_rows.get(iid) or carry.pop(iid, None)
+                if isinstance(prev, dict):        # listed in another department last time
+                    fl = prev.get("flags") or ()
+                    prev = (prev.get("price"), prev.get("online_price", prev.get("price")), prev.get("unit_price"),
+                            "promo_price" in fl, "kept_normal_price" in fl)
+                # a promo keeps the last normal price, also when the promo already ran at the last publish (that row
+                # carries the normal price it kept, flagged kept_normal_price); without a normal price on record the
+                # promo price stands, flagged. The normal price is Walmart.com's, never the store's (online_price).
+                if prev:
+                    p_price, p_online, p_unit, p_promo, p_kept = prev
+                    if "promo_price" in row["flags"] and isinstance(p_online, (int, float)) and (not p_promo or p_kept):
+                        row["promo"] = row["price"]
+                        row["price"] = p_online
+                        row["unit_price"] = (round(p_unit * p_online / p_price, 4)
+                                             if p_unit and p_price and p_online != p_price else p_unit)
+                        row["flags"].append("kept_normal_price")
+                    if p_price:
+                        row["prev_price"] = p_price
+                rows[iid] = _compact(row)
 
+    del prev_rows
     carried = 0
-    crawled_names = {depts[d]["name"] for d in crawled_depts if d in depts}
-    for iid, r in prev_rows.items():
-        if iid not in rows and r.get("dept") not in crawled_names:
-            r = dict(r); r.setdefault("flags", []).append("carried_over")
+    for iid, r in carry.items():
+        if iid not in rows:
+            r.setdefault("flags", []).append("carried_over")
             rows[iid] = r; carried += 1
+    del carry
+
+    # the store's own shelf price where Walmart gave one recently (data/store.json, crawler/storeprice.py); before price
+    # sanity, so a store price is judged like any other
+    from . import storeprice
+    store_priced = storeprice.apply(rows)
 
     names_filled = fill_placeholder_names(rows)
 
@@ -104,7 +144,9 @@ def build():
     for _, dept_name, why in dropped_placeholders:
         rejects[dept_name][why] += 1
 
-    # one primary row per UPC (barcode lookups): prefer current, in stock, normal price, newest listing
+    # one primary row per UPC (barcode lookups): prefer current, a believable price, in stock, normal price, then the
+    # lowest price (a single unit, not a case listed under the same barcode: Similac Advance 12.4 oz at $21.97, not
+    # its $120.72 listing), then the newest listing
     by_upc = defaultdict(list)
     for r in rows.values():
         r.pop("primary", None)
@@ -112,8 +154,9 @@ def build():
             by_upc[r["upc"]].append(r)
     conflicts = []
     for upc, group in by_upc.items():
-        group.sort(key=lambda r: ("retired_upc" in r["flags"], r.get("stock") != "Available",
-                                  "promo_price" in r["flags"], -int(r["id"])))
+        group.sort(key=lambda r: ("retired_upc" in r["flags"], bool(r.get("price_withheld")),
+                                  (r.get("store_stock") or r.get("stock")) != "Available",
+                                  "promo_price" in r["flags"], r["price"], -int(r["id"])))
         group[0]["primary"] = True
         prices = [g["price"] for g in group]
         if len(group) > 1 and max(prices) > 1.5 * min(prices):
@@ -152,6 +195,7 @@ def build():
         "upc_price_conflicts": len(conflicts), "upc_price_conflict_examples": conflicts[:25],
         "unit_outliers_raw": unit_outliers_raw,
         "price_bounds": price_bounds, "price_withheld": withheld,
+        "store_prices": {"rows": store_priced, "store": (storeprice.config() or {}).get("name")},
         "placeholders": {"count": sum(1 for r in rows.values() if "placeholder" in r["flags"]), "names_filled": names_filled,
                          "examples": [{"id": r["id"], "upc": r.get("upc"), "name": r["name"], "listed_name": r.get("listed_name"),
                                        "name_src": r.get("name_src"), "dept": r["dept"],

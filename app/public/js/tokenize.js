@@ -34,7 +34,37 @@ export function tokenize(s) {
   return out;
 }
 
+// Hyphenated brand words are also indexed joined, the way people type them: "Jell-O" -> jello, "Cheez-It" ->
+// cheezit, "Pop-Tarts" -> poptarts, "Kool-Aid" -> koolaid, "Rice-A-Roni" -> ricearoni, "Q-tips" -> qtips.
+export function joinedTokens(s) {
+  const t = String(s).normalize("NFKD").replace(DIACRITICS, "").toLowerCase().replace(/['’`]/g, "");
+  return (t.match(/[a-z0-9]+(?:-[a-z0-9]+)+/g) || []).map((w) => w.replace(/-/g, "")).filter((w) => /^[a-z]/.test(w) && w.length >= 4);
+}
+
 /** Sorted unique tokens (what the index stores per item). */
 export function uniqueTokens(s) {
-  return Array.from(new Set(tokenize(s))).sort();
+  return Array.from(new Set([...tokenize(s), ...joinedTokens(s)])).sort();
+}
+
+// The item a listing is: the last word of the name before its first comma or dash, once trailing quantities are
+// stripped ("Huggies Little Movers Baby Diapers, Size 4" -> diapers; "Huggies Day Pack Diaper Bag" -> bag;
+// "Coca-Cola Soda Pop 12 fl oz 12 Pack Cans" -> pop). A container word is a quantity only after a number.
+const MEASURE = new Set(["oz", "ounce", "ounces", "fl", "fluid", "lb", "lbs", "pound", "pounds", "g", "gram", "grams", "kg", "mg", "mcg", "ml",
+  "l", "liter", "liters", "litre", "litres", "gal", "gallon", "gallons", "qt", "quart", "quarts", "pt", "pint", "pints", "ct", "cnt", "count",
+  "pk", "each", "ea", "x", "of", "size", "sq", "ft", "inch", "inches", "in", "mm", "cm", "percent"]);
+const CONTAINER = new Set(["can", "cans", "bag", "bags", "box", "boxes", "bottle", "bottles", "jar", "jars", "cup", "cups", "pouch", "pouches",
+  "tub", "tubs", "carton", "cartons", "case", "pack", "packs", "pc", "pcs", "piece", "pieces", "rolls", "sheets", "bars", "packets"]);
+const HEAD_SKIP = new Set(["value", "family", "original", "classic", "new", "assorted", "variety", "fresh", "fruit", "vegetable", "vegetables"]);
+export function headNoun(name) {
+  // "Melton Coat For Dogs" is a coat, "Shampoo with Argan Oil" a shampoo: what follows for/with/by describes it
+  const first = String(name).split(/,| - | \| /)[0];
+  const lead = first.split(/\s+(?:for|with|by|w\/)\s+/i)[0];
+  const toks = tokenize(lead.trim() ? lead : first);
+  while (toks.length) {
+    const t = toks[toks.length - 1];
+    const afterNumber = toks.slice(-4, -1).some((x) => /^\d/.test(x));
+    if (/^\d/.test(t) || MEASURE.has(t) || HEAD_SKIP.has(t) || (CONTAINER.has(t) && afterNumber)) toks.pop();
+    else break;
+  }
+  return toks.length ? toks[toks.length - 1] : null;
 }

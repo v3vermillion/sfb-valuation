@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { resolveCode, fromItem, kindLabel, splitTitle, titleOf, notesFor } from "../public/js/resolve.js";
+import { resolveCode, fromItem, kindLabel, splitTitle, titleOf, notesFor, livePlausible } from "../public/js/resolve.js";
 
 const corn = { rank: 0, id: 1, brand: "Great Value", name: "Great Value Golden Sweet Whole Kernel Corn, Canned Corn, 15.25 oz Can", priceCents: 87, size: 15.25, unit: "oz", pack: 1, basis: "each", cat: 6, catName: "Canned & Jarred", upc: "00078742054261", retired: false, primary: true, storeBrand: true };
 const retired = { ...corn, rank: 1, id: 2, retired: true, primary: false };
@@ -123,4 +123,27 @@ test("a barcode with a plausible listing and a withheld one shows the plausible 
 
 test("a discontinued listing says so", () => {
   assert.match(notesFor(fromItem({ ...corn, discontinued: true })).map((n) => n.text).join(" "), /discontinued/);
+});
+
+test("a live price must be believable before it can be used", () => {
+  assert.equal(livePlausible(296, 300), "ok");
+  assert.equal(livePlausible(250, 4925), "ok");            // 19.7x below: still within the 20x line
+  assert.equal(livePlausible(98, 4925), "far");            // Pampers 162 ct at $0.98 against a saved $49.25
+  assert.equal(livePlausible(500000, 2000), "far");
+  assert.equal(livePlausible(5, null), "implausible");      // under $0.10
+  assert.equal(livePlausible(2_000_000, null), "implausible");
+  assert.equal(livePlausible(NaN, 100), "implausible");
+  assert.equal(livePlausible(1999, null), "ok");            // an unknown barcode: only the absolute range applies
+});
+
+test("an equivalent's title names the brand once", async () => {
+  const db = { async lookupUpc() { return { items: [], equivalent: { brand: "Rachael Ray Nutrish", name: "Rachael Ray Nutrish Surfin' Turf Cat Food", quantity: "3 lb", estCents: 798, confidence: "medium", basis: null } }; } };
+  const r = await resolveCode(db, "071190006114");
+  assert.equal(r.kind, "equivalent");
+  assert.equal(r.title, "Rachael Ray Nutrish Surfin' Turf Cat Food, 3 lb");
+});
+
+test("a price far from items of its size says so", () => {
+  const notes = notesFor({ kind: "exact", item: { ...corn, unitSuspect: true } }).map((n) => n.text).join(" ");
+  assert.match(notes, /case or multipack/);
 });

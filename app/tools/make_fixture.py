@@ -465,7 +465,9 @@ def gen_chunk(args):
         price = round_price(raw)
         path = rng.choice(paths)
         top = path.split("/")[1].strip().lower() if "/" in path else ""
-        dept = DEPTS.get(DEPT_BY_TOP.get(top, dept_id)) or DEPTS[dept_id]
+        dept = DEPTS.get(DEPT_BY_TOP.get(top, dept_id)) or DEPTS.get(dept_id)
+        if dept is None:
+            continue                      # a department no longer crawled (data/categories.json: Auto & Tires, Books)
         item = {"itemId": item_id, "name": name, "brandName": brand, "salePrice": price, "categoryPath": path,
                 "marketplace": False, "sellerInfo": "Walmart.com", "availableOnline": rng.random() < 0.9,
                 "stock": "Available" if rng.random() < 0.86 else "Not available", "offerType": "ONLINE_AND_STORE"}
@@ -508,7 +510,9 @@ def sentinel_rows():
     rows = []
     for i, (name, brand, price, upc, path) in enumerate(SENTINEL_ITEMS):
         top = path.split("/")[1].strip().lower()
-        dept = DEPTS[DEPT_BY_TOP[top]]
+        dept = DEPTS.get(DEPT_BY_TOP.get(top))
+        if dept is None:
+            continue                      # a sentinel of a department no longer crawled
         item = {"itemId": 900000000 + i, "name": name, "brandName": brand, "salePrice": price, "upc": upc, "categoryPath": path,
                 "marketplace": False, "sellerInfo": "Walmart.com", "availableOnline": True, "stock": "Available"}
         row, why = normalize(item, dept, CFG)

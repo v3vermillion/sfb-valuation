@@ -22,7 +22,8 @@ const stats = (a) => (a.length ? { n: a.length, p50: +pct(a, 0.5).toFixed(1), p9
 // Chromium-only switches: fake camera (and the file that feeds it) and --no-sandbox never reach WebKit.
 const launchArgs = ["--no-sandbox", "--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"];
 if (VIDEO) launchArgs.push(`--use-file-for-fake-video-capture=${VIDEO}`);
-const browser = IS_CHROMIUM ? await chromium.launch({ args: launchArgs }) : await webkit.launch();
+const exe = process.env.CHROMIUM_EXECUTABLE ? { executablePath: process.env.CHROMIUM_EXECUTABLE } : {};   // a preinstalled Chromium
+const browser = IS_CHROMIUM ? await chromium.launch({ args: launchArgs, ...exe }) : await webkit.launch();
 const DEVICE_NAME = IS_CHROMIUM ? "Pixel 7" : "iPhone 14";
 const device = devices[DEVICE_NAME];
 if (!device) throw new Error(`Playwright has no "${DEVICE_NAME}" device profile`);

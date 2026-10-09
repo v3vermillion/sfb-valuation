@@ -47,8 +47,12 @@ def live_state():
     return json.loads((REPO / "tests" / "fixtures" / "run-live.json").read_text())
 
 
-def dec(st=None, man=None, siz=None, audit=None, g=None, cfg=CFG, identify=None, depts=DEPTS, h=HASH, now=NOW):
-    return ci.decide(st, man, siz, audit, g, cfg, now, current_hash=h, identify_latest=identify, departments=depts)
+STORE_FRESH = {"store_id": "2266", "due": 0, "next_due": "2026-12-31"}     # store prices all current
+
+
+def dec(st=None, man=None, siz=None, audit=None, g=None, cfg=CFG, identify=None, depts=DEPTS, h=HASH, now=NOW, store=STORE_FRESH):
+    return ci.decide(st, man, siz, audit, g, cfg, now, current_hash=h, identify_latest=identify, departments=depts,
+                     store_latest=store)
 
 
 class Decide(unittest.TestCase):
@@ -418,6 +422,7 @@ class Peek(PlanBase):
         self.write("build/published/manifest.json", manifest(1))
         self.write("audit/latest.json", {"checked": iso(1)})
         self.write("identify/latest.json", {"refreshed": iso(1)})
+        self.write("store_prices/latest.json", STORE_FRESH)
         with mock.patch.object(ci, "utcnow", lambda: NOW):
             o, _ = self.run_plan("--plan", "peek")
         self.assertEqual(o["work"], "none")
@@ -713,6 +718,9 @@ class Continue(PlanBase):
             o, _ = self.run_plan("--plan", "continue")
         self.assertEqual(o["work"], "identify"); self.assertEqual(calls, ["fetch", "match"])
         self.assertEqual(self.read("identify/latest.json")["refreshed"], NOW.isoformat(timespec="seconds"))
+        with mock.patch.object(ci, "utcnow", lambda: NOW):
+            self.assertEqual(self.run_plan("--plan", "peek")[0]["work"], "store")      # store prices next
+        self.write("store_prices/latest.json", STORE_FRESH)
         with mock.patch.object(ci, "utcnow", lambda: NOW):
             self.assertEqual(self.run_plan("--plan", "peek")[0]["work"], "none")
 
