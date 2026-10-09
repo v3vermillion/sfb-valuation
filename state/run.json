@@ -1,5 +1,5 @@
 {
-  "calls": 18679,
+  "calls": 18762,
   "calls_base": 16806,
   "departments": [
     {
@@ -144,11 +144,11 @@
     },
     {
       "id": "4171",
-      "items": 54996,
+      "items": 71395,
       "name": "Toys",
-      "next": "/api-proxy/service/affil/product/v2/paginated/items?category=4171&soldByWmt=true&count=200&lastDoc=36624189&remainingHits=457775",
-      "pages": 275,
-      "parts": 3,
+      "next": "/api-proxy/service/affil/product/v2/paginated/items?category=4171&soldByWmt=true&count=200&lastDoc=43326461&remainingHits=441375",
+      "pages": 357,
+      "parts": 4,
       "status": "crawling",
       "total_pages": 2564
     },
@@ -238,27 +238,27 @@
       "consistent": false,
       "limit_from_429s": 6,
       "limit_per_min": 8,
-      "limit_per_min_median": 7.0,
-      "ok": 1925,
-      "ok_per_min": 6.41,
+      "limit_per_min_median": 7,
+      "ok": 1937,
+      "ok_per_min": 6.45,
       "pattern": "per-minute",
-      "reason": "20 x 429 cost 0.7% of the run: incidental",
-      "requests": 1945,
+      "reason": "19 x 429 cost 0.6% of the run: incidental",
+      "requests": 1956,
       "safe_per_min": 8,
-      "sleep_s": 118.3,
-      "span_s": 18028.2,
-      "status_429": 20
+      "sleep_s": 113.1,
+      "span_s": 18016.9,
+      "status_429": 19
     },
     "per_min": 8,
     "run_id": "20261007-182439-full",
-    "updated": "2026-10-09T18:50:53+00:00"
+    "updated": "2026-10-09T23:51:44+00:00"
   },
   "plan": "full",
   "run_id": "20261007-182439-full",
   "started": "2026-10-07T18:24:39+00:00",
   "status": "crawling",
   "throttle_base": 19270,
-  "throttle_wait_s": 19377,
+  "throttle_wait_s": 19383,
   "throttled_runs": 0,
-  "updated": "2026-10-09T23:38:41+00:00"
+  "updated": "2026-10-09T23:51:44+00:00"
 }
