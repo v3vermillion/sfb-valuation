@@ -214,7 +214,7 @@ class Decisions20261008(unittest.TestCase):
         self.assertIsNone(row); self.assertEqual(reason, "test_listing")
 
     def test_other_placeholders_are_kept_for_barcode_lookup(self):
-        for name in ("coming soon", "Merchandise", "Discontinued Item by supplier", "Protection Plan 3 Year"):
+        for name in ("coming soon", "Merchandise", "Discontinued Item by supplier", "Protection Plan 3 Year", "SMARTnet"):
             row, reason = N.normalize(self.item(name, price=2.98), FOOD, CFG)
             self.assertIsNone(reason, name); self.assertIn("placeholder", row["flags"])
         row, _ = N.normalize(self.item("Great Value Corn, 15 oz", upc="406727352130"), FOOD, CFG)
@@ -227,3 +227,40 @@ class Decisions20261008(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class HygieneAndContainerCounts(unittest.TestCase):
+    """Real listings from the 2026-10-09 crawl that were read wrong."""
+
+    def test_a_container_count_beside_a_weight_is_the_pack(self):
+        self.assertEqual(N.parse_quantity("Dove Gentle Exfoliating Beauty Bar, 3.75 oz, 6 Bar", extended=False), (3.75, "oz", 6))
+        self.assertEqual(N.parse_quantity("StarKist Chunk Light Tuna in Water, 5 oz, 8 Cans", extended=False), (5.0, "oz", 8))
+
+    def test_rolls_diapers_and_tablets_are_counts(self):
+        for name, n in [("Charmin Ultra Soft Toilet Paper 24 Double Rolls", 24), ("Charmin Sensitive Bathroom Tissue, Unscented, 12 rolls", 12),
+                        ("Parent's Choice Diapers, Size 3, 36 Diapers", 36), ("Equate Ibuprofen 200 mg, 100 Tablets", 100),
+                        ("Bounty Paper Towels, 6 Triple Rolls", 6)]:
+            self.assertEqual(N.parse_quantity(name)[:2], (float(n), "ct"), name)
+
+    def test_a_count_read_as_the_size_is_not_also_a_pack(self):
+        row, why = N.normalize({"itemId": 1, "upc": "037000978172", "name": "Charmin Ultra Soft Toilet Paper Mega Rolls, 12 count",
+                              "salePrice": 17.01, "marketplace": False, "categoryPath": "Home Page/Household Essentials/Toilet Paper"},
+                             next(d for d in CFG["departments"] if d["name"] == "Household Essentials"), CFG)
+        self.assertIsNone(why)
+        self.assertEqual((row["size"], row["unit"], row["pack"]), (12.0, "ct", 1))
+        self.assertNotIn(12, row.get("pack_options") or [])
+
+
+class UpcE(unittest.TestCase):
+    def test_a_valid_upc_e_is_stored_as_its_upc_a(self):
+        # the app's own test pair: UPC-E 11459709 -> UPC-A 011400000597... checked through the shared expansion
+        a = N.upce_to_upca("11459709")
+        self.assertEqual(len(a), 12)
+        key, retired, ok = N.gtin14("11459709")
+        self.assertTrue(ok); self.assertEqual(key, a.zfill(14))
+
+    def test_an_eight_digit_code_that_is_not_a_valid_upc_e_stays_as_it_is(self):
+        key, _, _ = N.gtin14("11459708")
+        self.assertEqual(key, "00000011459708")
+        key, _, _ = N.gtin14("40170725")              # EAN-8 (number system 4): never expanded
+        self.assertEqual(key, "00000040170725")

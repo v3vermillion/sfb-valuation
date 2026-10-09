@@ -142,3 +142,8 @@ test("an equivalent's title names the brand once", async () => {
   assert.equal(r.kind, "equivalent");
   assert.equal(r.title, "Rachael Ray Nutrish Surfin' Turf Cat Food, 3 lb");
 });
+
+test("a price far from items of its size says so", () => {
+  const notes = notesFor({ kind: "exact", item: { ...corn, unitSuspect: true } }).map((n) => n.text).join(" ");
+  assert.match(notes, /case or multipack/);
+});

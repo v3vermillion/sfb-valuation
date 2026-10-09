@@ -37,7 +37,11 @@ COUNT = re.compile(r"(?<![\w.])(\d+)\s*-?\s*(?:count|ct|cnt)\b\.?", re.I)
 # "20 Tea Bags", "12 Bars", "40 K-Cup Pods", "100 Each", "42 pc", "18 Packets", "24 Stems"
 COUNT_EXT = re.compile(r"(?<![\w.])(\d+)\s*-?\s*(?:count|ct|cnt|ea|each|pcs?|pieces?|(?:tea\s+)?bags?|teabags|bg|bars?|"
                        r"(?:k-?cup\s+)?pods?|k-?cups?|capsules?|packets?|sticks?|sachets?|pouches|bottles?|cans|"
-                       r"servings?|svgs|sheets?|drinks?|stems?|candles?)\b\.?", re.I)
+                       r"servings?|svgs|sheets?|drinks?|stems?|candles?|"
+                       # what hygiene and paper goods are counted in: "24 Double Rolls", "52 Diapers", "100 Tablets"
+                       r"(?:(?:double|triple|mega|super|family|giant|huge|jumbo|regular|big|xl|mega\s+plus)\s+){0,2}rolls?|"
+                       r"diapers?|wipes|tablets?|caplets?|softgels?|gummies|pads|liners|tampons|pants|pull-?ups|"
+                       r"lozenges|trash\s+bags|cups|plates|napkins|towels|filters)\b\.?", re.I)
 # containers that multiply a stated weight or volume into a pack: "4 oz, 8 Bars", "0.5 oz, 12 Packets"
 PACK_NOUNS = re.compile(r"(?<![\w.])(\d+)\s*-?\s*(?:count|ct|cnt|bars?|bottles?|cans|pouches|packets?|(?:k-?cup\s+)?pods?|"
                         r"k-?cups?|capsules?|sticks?|sachets?)\b\.?", re.I)
@@ -114,9 +118,34 @@ def gtin14(upc):
         return None, retired, False
     if len(digits) == 11:                      # UPC-A missing its check digit
         digits += str(_check_digit(digits))
+    elif len(digits) == 8 and digits[0] in "01":
+        # a UPC-E whose check digit validates is stored as the UPC-A it stands for, so a package printed with either
+        # form is found (the app keys an 8-digit scan the same way: app/public/js/barcode.js toGtin14)
+        a = upce_to_upca(digits)
+        if a and a[-1] == digits[-1]:
+            digits = a
     key = digits.zfill(14)
     ok = int(key[-1]) == _check_digit(key[:-1])
     return key, retired, ok
+
+
+def upce_to_upca(d: str):
+    """UPC-E (8 digits, number system 0 or 1) -> UPC-A with its check digit; None when not a UPC-E shape.
+    Same expansion as app/public/js/barcode.js upcEToUpcA."""
+    if len(d) != 8 or d[0] not in "01" or not d.isdigit():
+        return None
+    ns, x = d[0], d[1:7]
+    last = x[5]
+    if last in "012":
+        mfr, prod = x[0:2] + last + "00", "00" + x[2:5]
+    elif last == "3":
+        mfr, prod = x[0:3] + "00", "000" + x[3:5]
+    elif last == "4":
+        mfr, prod = x[0:4] + "0", "0000" + x[4]
+    else:
+        mfr, prod = x[0:5], "0000" + last
+    body = ns + mfr + prod
+    return body + str(_check_digit(body))
 
 
 def _check_digit(body: str) -> int:
@@ -188,7 +217,10 @@ def parse_quantity(text: str, extended: bool = True):
     size, unit = (sizes[0] if sizes else (None, None))
     if size is not None:
         if pack is None:
-            c = (PACK_NOUNS if extended else COUNT).search(t)
+            # "3.75 oz, 6 Bars", "5 oz, 8 Cans": a container count beside a weight is a pack in either pass (it used to be
+            # read only when the size field stated nothing, so a 6-bar box was priced per ounce as one bar); a reading
+            # that disagrees with comparable items is undone by process.resolve_packs()
+            c = PACK_NOUNS.search(t)
             if c and unit != "ct" and int(c.group(1)) > 0:
                 pack = int(c.group(1))
         return size, unit, pack
@@ -388,6 +420,9 @@ def normalize(item: dict, dept: dict, cfg: dict):
     if per_unit and TRUNCATED_PACK_RX.search(raw_name):
         options = sorted(set(options) | {1} | set(CASE_COUNTS))
         flags.append("pack_truncated")
+    if unit == "ct" and size and float(size).is_integer():
+        # "Mega Rolls, 12 count" is 12 rolls: the number already read as the size is never a pack of it as well
+        options = [o for o in options if o != int(size) or o == pack]
     if pack not in options:
         options = sorted(set(options) | {pack})
     if size is None:

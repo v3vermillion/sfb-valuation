@@ -202,7 +202,7 @@ PLACEHOLDER_RX = re.compile(
     r"\*+\s*(?:holiday|parent)\b|^\W*(?:\*+[^*]*\*+\s*)+\w*\s*$|\bcoming\s+soon\b|\bdo\s+not\s+(?:use|sell|order|buy|purchase)\b|"
     r"^\W*delete\b|\*+\s*to\s+be\s+deleted\s*\*+|^\W*(?:placeholder|tbd)\W*$|\bcvp\b.*\bitem\b|\bnon-tax\b.*\bitem\b|"
     r"\bfy\d\d\s+wk\d+\b|^\W*services?\b.*\bprogram\b|\bextended\s+(?:warranty|service)\b|\bprotection\s+plan\b|"
-    r"\bnon[\s-]*tech\b|\bfitting\s+sku\b",
+    r"\bnon[\s-]*tech\b|\bfitting\s+sku\b|^\W*smartnet\W*$",          # a Cisco support contract listed in Baby and Health
     re.I)
 # store display units (PDQ trays, shippers, pallets, planogram modules): a whole display priced as one listing. Only a
 # display with a piece count or a display-sized price counts ("Tones T Grnd Sage Pdq" at $1.20 is one jar of sage)

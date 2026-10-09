@@ -3,14 +3,14 @@
 // Loads the sfb-pack files (see tools/build-db.mjs for the layout), keeps them as typed-array views, and
 // answers: search(query) within a frame, lookup(gtin), equivalent(gtin), plu(code), item(rank).
 // Items are stored in rank order (best first), so a bitset scan from rank 0 already yields best-first results.
-import { tokenize } from "./tokenize.js";
+import { tokenize, joinedTokens } from "./tokenize.js";
 
 const te = new TextEncoder(), td = new TextDecoder();
 const F = { RETIRED: 1, NO_SIZE: 2, PROMO: 4, CARRIED: 8, STORE_BRAND: 16, PRIMARY: 32, SIZE_CONFLICT: 64, UNAVAILABLE: 128 };
 const UNIT_NAME = [null, "oz", "fl oz", "lb", "ct", "g", "kg", "ml", "l", "gal", "qt", "pt"];
 // category names come from the pack manifest (data/categories.json); this table only covers a pack built before that
 const CAT_NAME = { 1: "Produce", 2: "Dairy & Eggs", 3: "Meat & Seafood", 4: "Deli & Prepared Foods", 5: "Frozen Foods", 6: "Canned & Jarred Foods", 7: "Pasta, Rice & Dry Goods", 8: "Bread & Bakery", 9: "Snacks & Candy", 10: "Beverages", 11: "Condiments, Sauces & Spreads", 12: "International Foods", 13: "Baby", 14: "Health & Medicine", 15: "Personal Care", 16: "Household Supplies", 17: "Kitchen & Dining", 18: "Home", 19: "Pet Food & Supplies", 20: "School, Office & Crafts", 21: "Toys, Books & Games", 22: "Seasonal & Party", 23: "Other", 24: "Auto", 25: "Electronics", 26: "Jewelry & Accessories", 27: "Sports & Outdoors", 28: "Baking, Spices & Oils", 29: "Breakfast & Cereal", 30: "Beauty", 31: "Hardware & Tools", 32: "Lawn, Garden & Floral" };
-const F2 = { PLACEHOLDER: 1, PRICE_WITHHELD: 2, DISCONTINUED: 4, STORE_PRICE: 32 };
+const F2 = { PLACEHOLDER: 1, PRICE_WITHHELD: 2, DISCONTINUED: 4, STORE_PRICE: 32, UNIT_SUSPECT: 64 };
 const VALUE_CONF = ["rough", "low", "medium", "high"];
 const NO_RANK = 0xFFFFFFFF;
 
@@ -28,7 +28,7 @@ const ABBREV = {
 const SYNONYM_GROUPS = [
   ["oz", "ounce", "ounces"], ["fl", "fluid"], ["lb", "lbs", "pound", "pounds"], ["ct", "count", "cnt", "pk", "pack", "packs"],
   ["gal", "gallon", "gallons"], ["qt", "quart", "quarts"], ["pt", "pint", "pints"], ["l", "liter", "liters", "litre", "litres", "ltr"], ["ml", "milliliter", "milliliters"],
-  ["g", "gram", "grams"], ["kg", "kilogram", "kilograms"], ["and", "n"], ["mac", "macaroni"], ["ketchup", "catsup"], ["soda", "pop"],
+  ["g", "gram", "grams"], ["kg", "kilogram", "kilograms"], ["and", "n"], ["mac", "macaroni"], ["ketchup", "catsup"], ["soda", "pop"], ["coke", "cocacola"],
   ["diaper", "diapers"], ["wipe", "wipes"], ["tissue", "tissues", "kleenex"], ["bandaid", "bandaids", "bandage", "bandages"],
   ["tuna", "tunafish"], ["ramen", "noodles"], ["cereal", "cereals"], ["bar", "bars"], ["cookie", "cookies"], ["chip", "chips"],
   ["cracker", "crackers"], ["bean", "beans"], ["tomato", "tomatoes"], ["potato", "potatoes"], ["pea", "peas"], ["egg", "eggs"],
@@ -146,7 +146,7 @@ function item(rank, withBasis = true) {
     rank, id: db.id[rank], brand: txt.slice(0, sep), name: txt.slice(sep + 1), priceCents: db.price[rank],
     size: db.size[rank] || null, unit: UNIT_NAME[db.unit[rank]], pack: db.pack[rank], basis: db.basis[rank] ? "lb" : "each",
     cat: db.cat[rank], catName: (db.catNames && db.catNames[db.cat[rank]]) || CAT_NAME[db.cat[rank]] || "Other", upc: upc ? String(upc).padStart(14, "0") : null,
-    placeholder: !!(flags2 & F2.PLACEHOLDER), discontinued: !!(flags2 & F2.DISCONTINUED), storePrice: !!(flags2 & F2.STORE_PRICE),
+    placeholder: !!(flags2 & F2.PLACEHOLDER), discontinued: !!(flags2 & F2.DISCONTINUED), storePrice: !!(flags2 & F2.STORE_PRICE), unitSuspect: !!(flags2 & F2.UNIT_SUSPECT),
     priceWithheld: withheld, rawPriceCents: withheld ? db.rawPrice[rank] : null, valueConfidence: withheld ? VALUE_CONF[(flags2 >> 3) & 3] : null,
     valueBasis: withheld && withBasis && basisRank !== NO_RANK && basisRank !== rank ? item(basisRank, false) : null,
     retired: !!(flags & F.RETIRED), noSize: !!(flags & F.NO_SIZE), promo: !!(flags & F.PROMO), carried: !!(flags & F.CARRIED),
@@ -279,13 +279,23 @@ function collect(bitsets, limit) {
 
 const UNIT_WORDS = new Set(["oz", "ounce", "ounces", "fl", "fluid", "lb", "lbs", "pound", "pounds", "ct", "cnt", "count", "pack", "pk", "pc", "pcs", "piece", "pieces", "g", "gram", "grams", "kg", "mg", "mcg", "ml", "l", "liter", "liters", "litre", "litres", "gal", "gallon", "gallons", "qt", "quart", "quarts", "pt", "pint", "pints", "each", "ea", "x", "of", "the", "and", "with", "in", "a", "can", "bag", "box", "bottle", "jar", "cup", "tub", "pouch", "package", "carton", "case", "sq", "ft", "inch", "inches", "mm", "cm"]);
 function numberTokens(tokens) { return tokens.filter((t) => /^\d/.test(t)).map(Number); }
-// The item a listing is: the last content word of the name before its first comma or dash ("Huggies Little Movers
-// Baby Diapers, Size 4" -> diapers; "Huggies Diaper Bag Backpack" -> backpack). Colours and sizes after the comma
-// are not the item.
-const HEAD_SKIP = new Set(["size", "pack", "count", "value", "family", "original", "classic", "new", "assorted", "variety"]);
+// The item a listing is: the last word of the name before its first comma or dash, once trailing quantities are
+// stripped ("Huggies Little Movers Baby Diapers, Size 4" -> diapers; "Huggies Day Pack Diaper Bag" -> bag;
+// "Coca-Cola Soda Pop 12 fl oz 12 Pack Cans" -> pop). A container word is a quantity only after a number.
+const MEASURE = new Set(["oz", "ounce", "ounces", "fl", "fluid", "lb", "lbs", "pound", "pounds", "g", "gram", "grams", "kg", "mg", "mcg", "ml",
+  "l", "liter", "liters", "litre", "litres", "gal", "gallon", "gallons", "qt", "quart", "quarts", "pt", "pint", "pints", "ct", "cnt", "count",
+  "pk", "each", "ea", "x", "of", "size", "sq", "ft", "inch", "inches", "in", "mm", "cm", "percent"]);
+const CONTAINER = new Set(["can", "cans", "bag", "bags", "box", "boxes", "bottle", "bottles", "jar", "jars", "cup", "cups", "pouch", "pouches",
+  "tub", "tubs", "carton", "cartons", "case", "pack", "packs", "pc", "pcs", "piece", "pieces", "rolls", "sheets", "bars", "packets"]);
+const HEAD_SKIP = new Set(["value", "family", "original", "classic", "new", "assorted", "variety", "fresh", "fruit", "vegetable", "vegetables"]);
 function headNoun(name) {
-  const head = String(name).split(/,| - | \| /)[0];
-  const toks = tokenize(head).filter((t) => !/^\d/.test(t) && !UNIT_WORDS.has(t) && !HEAD_SKIP.has(t));
+  const toks = tokenize(String(name).split(/,| - | \| /)[0]);
+  while (toks.length) {
+    const t = toks[toks.length - 1];
+    const afterNumber = toks.slice(-4, -1).some((x) => /^\d/.test(x));
+    if (/^\d/.test(t) || MEASURE.has(t) || HEAD_SKIP.has(t) || (CONTAINER.has(t) && afterNumber)) toks.pop();
+    else break;
+  }
   return toks.length ? toks[toks.length - 1] : null;
 }
 
@@ -302,7 +312,7 @@ function homeCategories(groups) {
 const tokCache = new Map();
 function itemTokens(rank, it) {
   let t = tokCache.get(rank);
-  if (!t) { t = tokenize(it.brand + " " + it.name); if (tokCache.size > 6000) tokCache.clear(); tokCache.set(rank, t); }
+  if (!t) { const s = it.brand + " " + it.name; t = [...tokenize(s), ...joinedTokens(s)]; if (tokCache.size > 6000) tokCache.clear(); tokCache.set(rank, t); }
   return t;
 }
 
@@ -327,7 +337,13 @@ function scoreCandidates(ranks, qTokens, groups) {
     // "Peanut Butter 16 oz" (2/2) beats "Peanut Butter Cookies 12 ct" (2/3) for the query "peanut butter".
     const content = toks.filter((t) => !/^\d/.test(t) && !UNIT_WORDS.has(t) && !brandToks.includes(t));
     s += 1.5 * Math.min(1, matched / Math.max(1, content.length));
-    if (brandToks.length && groups.length && groups[0].some((a) => brandToks.some((b) => b.startsWith(a)))) s += 1.5;
+    // the brand counts only when the query names all of it: "tomato sauce" is not a search for the Jersey Tomato brand,
+    // "soy sauce" not for Soy Vay
+    const brandJoined = joinedTokens(it.brand);
+    const namesBrand = (g) => g.some((a) => brandToks.some((b) => b.startsWith(a)) || brandJoined.some((j) => j.startsWith(a)));
+    if (brandToks.length && groups.length && namesBrand(groups[0])
+        && (brandToks.every((b) => groups.some((g) => g.some((a) => b.startsWith(a) || a.startsWith(b))))
+            || brandJoined.some((j) => groups.some((g) => g.some((a) => j.startsWith(a)))))) s += 1.5;
     for (const n of nums) { if ((it.size && Math.abs(it.size - n) < 0.01) || it.pack === n) s += 1.2; }
     s -= 0.03 * Math.max(0, toks.length - groups.length);
     // phrase proximity: query words that sit next to each other in the name are the item the volunteer means
@@ -337,10 +353,12 @@ function scoreCandidates(ranks, qTokens, groups) {
     for (const h of homes) if (h && h === it.cat) s += 0.8;
     const head = headNoun(it.name);
     if (head && groups.some((g) => g.some((a) => head === a || (a.length >= 4 && head.startsWith(a))))) s += 1.6;
+    else if (head && toks.length) s -= 0.6;          // the query's words only describe it: a diaper *bag*, a tomato *basket*
     if (it.storeBrand) s += 0.3;
     if (it.retired) s -= 1.5;
     if (it.unavailable) s -= 0.4;
     s -= (r / db.N) * 0.8;            // global rank as the final tiebreaker
+    if (globalThis.SFB_SCORE_DEBUG) it._score = Math.round(s * 100) / 100;
     return { it, s };
   });
   scored.sort((a, b) => b.s - a.s || a.it.rank - b.it.rank);

@@ -22,6 +22,11 @@ const ROWS = [
   row("Huggies Little Movers Baby Diapers, Size 4, 60 Count", "Huggies", 24.97, { size: 60, unit: "ct", cat: "13", dept: "Baby" }),
   row("Huggies Diaper Bag Backpack, Gray", "Huggies", 39.97, { cat: "13", dept: "Baby" }),
   row("Huggies Diaper Pail Refills", "Huggies", 9.97, { cat: "13", dept: "Baby" }),
+  row("Jersey Tomato Co. Marinara Sauce, 25 Oz", "Jersey Tomato", 4.98, { size: 25, unit: "oz", cat: "11" }),
+  row("Hunt's Tomato Sauce, 15 oz Can", "Hunt's", 0.98, { size: 15, unit: "oz", cat: "11" }),
+  row("(6 pack) Hunt's Tomato Sauce, 15 oz Can", "Hunt's", 5.88, { size: 15, unit: "oz", pack: 6, cat: "11" }),
+  row("Jell-O Strawberry Gelatin Dessert Mix, 3 oz Box", "Jell-O", 1.12, { size: 3, unit: "oz", cat: "28" }),
+  row("Shahia Cherry Jello Cups", "Shahia", 0.66, { cat: "9" }),
 ];
 
 let db;
@@ -54,4 +59,19 @@ test("every query still returns something", () => {
     const r = top(q);
     if (q !== "zzzz") assert.ok(r.items.length > 0, q);
   }
+});
+
+test("a query word that is only part of a brand does not earn the brand bonus", () => {
+  const r = top("tomato sauce");
+  assert.match(r.items[0].name, /^Hunt's Tomato Sauce/);
+});
+
+test("the single item ranks before its (6 pack) listing", () => {
+  const names = top("hunts tomato sauce").items.map((it) => it.name);
+  assert.ok(names.indexOf("Hunt's Tomato Sauce, 15 oz Can") < names.indexOf("(6 pack) Hunt's Tomato Sauce, 15 oz Can"));
+});
+
+test("hyphenated brands are found typed joined: jello finds Jell-O first", () => {
+  const r = top("jello");
+  assert.equal(r.items[0].brand, "Jell-O");
 });

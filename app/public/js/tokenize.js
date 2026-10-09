@@ -34,7 +34,14 @@ export function tokenize(s) {
   return out;
 }
 
+// Hyphenated brand words are also indexed joined, the way people type them: "Jell-O" -> jello, "Cheez-It" ->
+// cheezit, "Pop-Tarts" -> poptarts, "Kool-Aid" -> koolaid, "Rice-A-Roni" -> ricearoni, "Q-tips" -> qtips.
+export function joinedTokens(s) {
+  const t = String(s).normalize("NFKD").replace(DIACRITICS, "").toLowerCase().replace(/['’`]/g, "");
+  return (t.match(/[a-z0-9]+(?:-[a-z0-9]+)+/g) || []).map((w) => w.replace(/-/g, "")).filter((w) => /^[a-z]/.test(w) && w.length >= 4);
+}
+
 /** Sorted unique tokens (what the index stores per item). */
 export function uniqueTokens(s) {
-  return Array.from(new Set(tokenize(s))).sort();
+  return Array.from(new Set([...tokenize(s), ...joinedTokens(s)])).sort();
 }

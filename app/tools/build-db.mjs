@@ -14,7 +14,8 @@
 //                price is what the app shows: Walmart's price, or for a withheld price (flags2 PRICE_WITHHELD) its
 //                equivalent value, with Walmart's own price in rawPrice; flags2 bits: 1 placeholder (barcode lookup only,
 //                never in the token index), 2 price withheld, 4 discontinued, bits 3-4 value confidence (0 rough .. 3 high),
-//                32 the price is the store's own shelf price (manifest.store names the store), not Walmart.com's
+//                32 the price is the store's own shelf price (manifest.store names the store), not Walmart.com's,
+//                64 the price is far from comparable items by size (unit_price_suspect: often a case listed as one)
 //   strings-K    "SFBS" u32 count u32 firstRank | offsets u32[count+1] | utf8 bytes of "brand\x1Fname" per item
 //   upc.bin      "SFBU" u32 M | keys f64[M] sorted (GTIN-14 as a number; primary row first within a key) | ranks u32[M]
 //   tokens.bin   "SFBT" u32 T u32 postingBytes | dictOff u32[T+1] | dict utf8 (tokens in byte order) | postOff u32[T+1] | postings (varint deltas of ascending ranks) | tokCat u8[T] (dominant category, 0 = none)
@@ -38,7 +39,7 @@ const TO_FLOZ = { "fl oz": 1, ml: 0.033814, l: 33.814, gal: 128, qt: 32, pt: 16 
 const F = { RETIRED: 1, NO_SIZE: 2, PROMO: 4, CARRIED: 8, STORE_BRAND: 16, PRIMARY: 32, SIZE_CONFLICT: 64, UNAVAILABLE: 128 };
 const CORE_DEPTS = new Set(["Food", "Health and Medicine", "Pharmacy", "Personal Care", "Beauty", "Baby", "Pets", "Household Essentials"]);
 const CONF = { low: 0, medium: 1, high: 2 };
-const F2 = { PLACEHOLDER: 1, PRICE_WITHHELD: 2, DISCONTINUED: 4, STORE_PRICE: 32 };
+const F2 = { PLACEHOLDER: 1, PRICE_WITHHELD: 2, DISCONTINUED: 4, STORE_PRICE: 32, UNIT_SUSPECT: 64 };
 const VALUE_CONF = { rough: 0, low: 1, medium: 2, high: 3 };
 const NO_RANK = 0xFFFFFFFF;
 
@@ -114,6 +115,7 @@ for await (const r of jsonlGz(path.join(pubDir, srcManifest.file || "items.jsonl
   if (flags.includes("placeholder")) bits2 |= F2.PLACEHOLDER;
   if (flags.includes("discontinued")) bits2 |= F2.DISCONTINUED;
   if (flags.includes("store_price")) bits2 |= F2.STORE_PRICE;
+  if (flags.includes("unit_price_suspect")) bits2 |= F2.UNIT_SUSPECT;
   const withheld = Boolean(r.price_withheld && r.equiv && r.equiv.price > 0);
   if (withheld) bits2 |= F2.PRICE_WITHHELD | ((VALUE_CONF[r.equiv.confidence] ?? 0) << 3);
   const name = String(r.name || "").trim();
@@ -133,7 +135,9 @@ for await (const r of jsonlGz(path.join(pubDir, srcManifest.file || "items.jsonl
   if (bits & F.PROMO) score -= 0.2;
   if (bits2 & F2.PLACEHOLDER) score -= 2;
   if (withheld) score -= 1;
+  if (bits2 & F2.UNIT_SUSPECT) score -= 1;      // priced far from items of its size: likely a case or multipack listing
   score -= Math.min(1, name.length / 120);
+  if (/^\s*\(\d+\s*pack\)/i.test(name)) score -= 0.8;   // "(6 pack) ..." multipacks after the single item a volunteer holds
   items.push({
     id: Number(r.id), upc, name, brand, price: Math.round(Number(withheld ? r.equiv.price : r.price) * 100), size: r.size == null ? 0 : Number(r.size),
     flags2: bits2, rawPrice: withheld ? Math.round(Number(r.price) * 100) : 0, valueBasisId: withheld && r.equiv.basis_id != null ? Number(r.equiv.basis_id) : null,
@@ -171,7 +175,7 @@ const header = (magic, ...nums) => Buffer.concat([MAGIC(magic), u32(nums)]);
 
 fs.mkdirSync(path.join(OUT, version), { recursive: true });
 const files = {};
-const MAX_ASSET_BYTES = 25 * 1048576;   // Cloudflare Workers static assets reject any single file over 25 MiB
+const MAX_ASSET_BYTES = Number(process.env.SFB_MAX_ASSET_BYTES) || 25 * 1048576;   // Cloudflare Workers static assets reject any single file over 25 MiB
 function writeGz(name, buf) {
   const gz = zlib.gzipSync(buf, { level: 6 });
   if (gz.length > MAX_ASSET_BYTES) throw new Error(`${name}.gz is ${(gz.length / 1048576).toFixed(1)} MiB, over Cloudflare's 25 MiB per-file limit: shard it (see SHARD_BYTES for strings)`);
@@ -303,18 +307,28 @@ function writeGz(name, buf) {
 }
 
 // ---------------------------------------------------------------- 8. PLU produce table, priced from the snapshot when possible
+// A code is priced from a produce row only when the row names everything that distinguishes the code ("yellow bell
+// pepper", not any bell pepper; "blood orange", not a bag of navels), loose produce is preferred over bags and packs,
+// and a price outside 0.4-2.5x the code's typical price falls back to the typical one: a wrong match never prices a code.
+const PLU_GENERIC = new Set(["fresh", "small", "medium", "large", "extra", "jumbo", "greenhouse", "conventional", "loose", "each", "lb", "per", "whole", "the", "and", "of"]);
+const singular = (t) => (t.endsWith("ies") ? t.slice(0, -3) + "y" : t.endsWith("oes") ? t.slice(0, -2) : t.endsWith("s") && !t.endsWith("ss") ? t.slice(0, -1) : t);
+function pluMatchWords(c) {
+  const own = tokenize(c.name).filter((t) => !/^\d/.test(t) && !PLU_GENERIC.has(t)).map(singular);
+  return [...new Set([...(c.match || []).map(singular), ...own])];
+}
 {
   const src = JSON.parse(fs.readFileSync(path.join(APP, "data", "plu.json"), "utf8"));
   const produce = [];
   for (let i = 0; i < N; i++) if (items[i].cat === 1 && !(items[i].flags2 & (F2.PLACEHOLDER | F2.PRICE_WITHHELD))) produce.push(i);
-  const toks = new Map(produce.map((i) => [i, uniqueTokens(items[i].name)]));
+  const toks = new Map(produce.map((i) => [i, tokenize(items[i].name).map(singular)]));
   const out = [];
-  let priced = 0;
+  let priced = 0, outOfBand = 0;
   for (const c of src.codes) {
+    const words = pluMatchWords(c);
     let best = null;
     for (const i of produce) {
       const tk = toks.get(i);
-      if (!c.match.every((m) => tk.some((t) => t.startsWith(m)))) continue;
+      if (!words.every((m) => tk.some((t) => t.startsWith(m)))) continue;
       const it = items[i];
       let price = null;
       if (c.unit === "lb") {
@@ -324,15 +338,21 @@ function writeGz(name, buf) {
         if (!it.size || it.unitName === "ct") price = it.price / 100 / (it.unitName === "ct" ? it.size * it.pack : it.pack);
       }
       if (price == null || !(price > 0)) continue;
-      if (!best || i < best.rank) best = { rank: i, price };
+      // loose first: sold the way the code is (by the pound / each), not a bag, a pack or a tray
+      let fit = 0;
+      if ((c.unit === "lb" && it.basis === 1) || (c.unit === "each" && !it.size)) fit += 2;
+      if (/\b(bag|bags|pack|packs|tray|clamshell|container|pouch|box)\b|\(\d+\s*pack\)/i.test(it.name)) fit -= 2;
+      fit -= 0.1 * Math.max(0, tk.length - words.length);       // extra words: a variety or a product made from it
+      if (!best || fit > best.fit || (fit === best.fit && i < best.rank)) best = { rank: i, price, fit };
     }
+    if (best && c.fallback > 0 && (best.price < 0.4 * c.fallback || best.price > 2.5 * c.fallback)) { best = null; outOfBand++; }
     if (best) priced++;
     out.push({ plu: c.plu, name: c.name, unit: c.unit, price: best ? Math.round(best.price * 100) / 100 : c.fallback, source: best ? "snapshot" : "typical", rank: best ? best.rank : null });
   }
   const json = JSON.stringify({ built: new Date().toISOString(), codes: out });
   fs.writeFileSync(path.join(OUT, version, "plu.json"), json);
   files["plu.json"] = { path: "plu.json", bytes: json.length, gzBytes: json.length };
-  log(`PLU table: ${priced}/${out.length} codes priced from the snapshot, rest typical`);
+  log(`PLU table: ${priced}/${out.length} codes priced from the snapshot, ${outOfBand} matches outside 0.4-2.5x typical, rest typical`);
 }
 
 // ---------------------------------------------------------------- 9. manifest + pointer

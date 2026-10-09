@@ -106,6 +106,13 @@ with the store's live price. Manual: Actions → pipeline → plan `store`. At a
 rows takes several days of pipeline time; consumable departments come first so food and household items are covered
 soonest. `store-price-probe.yml` (manual, read-only) re-checks which store id the API returns near a ZIP code.
 
+### Search gold set
+`data/gold-search.json` holds 330 queries as volunteers type them, each with the words the right item must contain (and a
+size when the query states one). deploy-app runs `app/tools/gold.mjs` on every real pack (not the fixture): the summary
+lists every miss with the top 3 found; below 95% opens `[search-gold]`, below 90% the step fails and the live site keeps
+the previous build. Locally: `node --max-old-space-size=6144 app/tools/gold.mjs --db app/dist/db`. When a volunteer
+reports a wrong result, add it as a query first, then fix the ranking (app/public/js/db-worker.js) until it passes.
+
 ### Crawl scope edits, split departments, early ends
 An edit of `data/categories.json` applies to the crawl in progress (`crawl.sync`, printed as `scope:` lines in the run log):
 a department removed from `departments` is `dropped`; one given a `split` (a list of Walmart child node ids) is re-crawled

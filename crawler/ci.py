@@ -50,7 +50,7 @@ audit ok -> audit-regression, audit-failed; a successful run -> pipeline-failed 
 
 Local use: WM_CONSUMER_ID / WM_PRIVATE_KEY set and SFB_STORE pointing at a data-store checkout.
 """
-import argparse, shutil, hashlib, inspect, json, os, subprocess, tempfile
+import argparse, shutil, hashlib, inspect, json, os, subprocess, tempfile, time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -556,13 +556,28 @@ def _build(recheck=False):
         # they still exist (deterministic, no Walmart calls); only a candidate whose raw pages are gone
         # is re-evaluated as it stands
         _ensure_identify_data()
+        t0 = time.time()
         process.build()
+        summary(f"- build: {(time.time() - t0) / 60:.1f} min, peak memory {_peak_rss_gb():.2f} GB "
+                f"(runner {_total_ram_gb():.0f} GB)")
     wm = _wm() if _has_wm_credentials() else None
     status = _qa_check(wm)
     store.checkpoint(f"{state['run_id']} {'rechecked' if recheck else 'built'}: {status}")
     summary(_read_text(_report_path(), "(no report written)"))
     _after_check(status, state)
     return status
+
+
+def _peak_rss_gb():
+    import resource
+    return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024 ** 2      # ru_maxrss is KiB on Linux
+
+
+def _total_ram_gb():
+    try:
+        return os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES") / 1024 ** 3
+    except (ValueError, OSError, AttributeError):
+        return 0.0
 
 
 def _has_wm_credentials():

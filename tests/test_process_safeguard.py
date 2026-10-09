@@ -107,7 +107,8 @@ class PackResolution(unittest.TestCase):
         raw.append(item(901, "(12 Cans) Bush's Original Baked Beans, Canned Beans, 16 oz", 20.38, beans))
         raw.append(item(902, "Famous Amos Cookies, 2 oz Snack Pack, 36/Carton", 30.22, beans))
         rows, _ = self.build(raw)
-        self.assertEqual(rows[200901]["pack"], 12); self.assertIn("pack_resolved", rows[200901]["flags"])
+        # "(12 Cans)" beside "16 oz" is read as the pack directly (2026-10-09), so nothing is left to resolve
+        self.assertEqual(rows[200901]["pack"], 12); self.assertNotIn("unit_price_suspect", rows[200901]["flags"])
         self.assertEqual(rows[200902]["pack"], 36)
         self.assertEqual(rows[200000]["pack"], 1); self.assertNotIn("pack_resolved", rows[200000]["flags"], "in-band rows keep their reading")
 

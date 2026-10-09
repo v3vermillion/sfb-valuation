@@ -189,6 +189,7 @@ export function notesFor(res, ctx = {}) {
     if (it.carried) notes.push({ tone: "", text: `Walmart didn't list a price when checked on ${ctx.priceDateLong || "the last check"}, so the previous price was carried over.` });
     if (it.promo) notes.push({ tone: "", text: "This was a Rollback or sale price when checked." });
     if (it.unavailable) notes.push({ tone: "", text: it.storePrice ? "Not on the store's shelf when checked. The price is the store's last one." : "Out of stock online when checked. The price is the last one listed." });
+    if (it.unitSuspect) notes.push({ tone: "warn", text: "This price is far from similar items of the same size, so the listing may be a case or multipack. Compare the size and count with the item in your hand." });
     if (it.sizeConflict) notes.push({ tone: "", text: "Walmart's listing shows two sizes. The one in the title is used." });
     if (it.discontinued) notes.push({ tone: "", text: "Walmart marks this item as discontinued. The price is the last one listed." });
     if (!it.primary && (res.kind === "exact" || res.kind === "closest")) notes.push({ tone: "", text: "Walmart lists this barcode more than once; this is one of the other listings." });
