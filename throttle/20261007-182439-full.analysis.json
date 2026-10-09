@@ -2350,18 +2350,58 @@
         "300s": null,
         "60s": null
       }
+    },
+    {
+      "analyzed": "2026-10-09T03:48:27+00:00",
+      "cap": 7,
+      "client": {
+        "cap_wait_s": 14113.1,
+        "max_per_min": 7,
+        "min_interval": 1.25,
+        "requests": 2101,
+        "sleep_s": 0.0,
+        "status_429": 0
+      },
+      "consistent": null,
+      "events": 2101,
+      "gap_s": null,
+      "limit_from_429s": null,
+      "limit_per_min": null,
+      "limit_per_min_median": null,
+      "limit_per_s": null,
+      "lost_share": 0.0,
+      "network_errors": 0,
+      "ok": 2100,
+      "ok_per_min": 7.0,
+      "pattern": null,
+      "per_429": [],
+      "per_min": 8,
+      "reason": "no 429s under the 7/min cap: probing up 10%",
+      "requests": 2101,
+      "run_id": "20261007-182439-full",
+      "safe_per_min": 7,
+      "sleep_s": 0,
+      "span_s": 18000.0,
+      "status_429": 0,
+      "status_5xx": 1,
+      "windows": {
+        "10s": null,
+        "1s": null,
+        "300s": null,
+        "60s": null
+      }
     }
   ],
   "run_id": "20261007-182439-full",
   "totals": {
-    "invocations": 2,
+    "invocations": 3,
     "network_errors": 0,
-    "ok": 2557,
-    "ok_per_min": 6.27,
-    "requests": 2807,
+    "ok": 4657,
+    "ok_per_min": 6.58,
+    "requests": 4908,
     "sleep_s": 2702.6,
-    "span_s": 24464.1,
+    "span_s": 42464.1,
     "status_429": 250,
-    "status_5xx": 0
+    "status_5xx": 1
   }
 }

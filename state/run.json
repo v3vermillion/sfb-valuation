@@ -1,5 +1,5 @@
 {
-  "calls": 10880,
+  "calls": 10968,
   "calls_base": 8867,
   "departments": [
     {
@@ -114,11 +114,11 @@
     },
     {
       "id": "5428",
-      "items": 28800,
+      "items": 46400,
       "name": "Patio & Garden",
-      "next": "/api-proxy/service/affil/product/v2/paginated/items?category=5428&soldByWmt=true&count=200&lastDoc=26130132&remainingHits=445268",
-      "pages": 144,
-      "parts": 2,
+      "next": "/api-proxy/service/affil/product/v2/paginated/items?category=5428&soldByWmt=true&count=200&lastDoc=38280047&remainingHits=427668",
+      "pages": 232,
+      "parts": 3,
       "status": "crawling",
       "total_pages": 2371
     },
@@ -239,19 +239,19 @@
       "limit_from_429s": null,
       "limit_per_min": null,
       "limit_per_min_median": null,
-      "ok": 1801,
-      "ok_per_min": 6.0,
+      "ok": 2100,
+      "ok_per_min": 7.0,
       "pattern": null,
-      "reason": "no 429s under the 6/min cap: probing up 10%",
-      "requests": 1801,
-      "safe_per_min": 6,
+      "reason": "no 429s under the 7/min cap: probing up 10%",
+      "requests": 2101,
+      "safe_per_min": 7,
       "sleep_s": 0,
       "span_s": 18000.0,
       "status_429": 0
     },
-    "per_min": 7,
+    "per_min": 8,
     "run_id": "20261007-182439-full",
-    "updated": "2026-10-08T22:48:00+00:00"
+    "updated": "2026-10-09T03:48:27+00:00"
   },
   "plan": "full",
   "run_id": "20261007-182439-full",
@@ -260,5 +260,5 @@
   "throttle_base": 18936,
   "throttle_wait_s": 18936,
   "throttled_runs": 0,
-  "updated": "2026-10-09T03:35:48+00:00"
+  "updated": "2026-10-09T03:48:27+00:00"
 }
