@@ -2854,18 +2854,259 @@
           "min": 7
         }
       }
+    },
+    {
+      "analyzed": "2026-10-09T18:50:53+00:00",
+      "cap": 8,
+      "client": {
+        "cap_wait_s": 14376.5,
+        "max_per_min": 6,
+        "min_interval": 1.438,
+        "requests": 1945,
+        "sleep_s": 118.3,
+        "status_429": 20
+      },
+      "consistent": false,
+      "events": 1965,
+      "gap_s": {
+        "max": 1020.22,
+        "median": 960.695,
+        "min": 541.492
+      },
+      "limit_from_429s": 6,
+      "limit_per_min": 8,
+      "limit_per_min_median": 7.0,
+      "limit_per_s": null,
+      "lost_share": 0.0066,
+      "network_errors": 0,
+      "ok": 1925,
+      "ok_per_min": 6.41,
+      "pattern": "per-minute",
+      "per_429": [
+        {
+          "ok_60s": 7,
+          "req_10s": 4,
+          "req_1s": 0,
+          "req_300s": 7,
+          "req_60s": 7,
+          "since_prev_s": null,
+          "t": 1791553836.895
+        },
+        {
+          "ok_60s": 7,
+          "req_10s": 2,
+          "req_1s": 0,
+          "req_300s": 35,
+          "req_60s": 7,
+          "since_prev_s": 972.277,
+          "t": 1791554809.172
+        },
+        {
+          "ok_60s": 7,
+          "req_10s": 3,
+          "req_1s": 0,
+          "req_300s": 35,
+          "req_60s": 7,
+          "since_prev_s": 964.916,
+          "t": 1791555774.088
+        },
+        {
+          "ok_60s": 7,
+          "req_10s": 4,
+          "req_1s": 0,
+          "req_300s": 35,
+          "req_60s": 7,
+          "since_prev_s": 964.279,
+          "t": 1791556738.367
+        },
+        {
+          "ok_60s": 7,
+          "req_10s": 4,
+          "req_1s": 0,
+          "req_300s": 35,
+          "req_60s": 7,
+          "since_prev_s": 958.836,
+          "t": 1791557697.203
+        },
+        {
+          "ok_60s": 7,
+          "req_10s": 5,
+          "req_1s": 0,
+          "req_300s": 35,
+          "req_60s": 7,
+          "since_prev_s": 961.848,
+          "t": 1791558659.051
+        },
+        {
+          "ok_60s": 7,
+          "req_10s": 4,
+          "req_1s": 0,
+          "req_300s": 35,
+          "req_60s": 7,
+          "since_prev_s": 1020.22,
+          "t": 1791559679.271
+        },
+        {
+          "ok_60s": 7,
+          "req_10s": 4,
+          "req_1s": 0,
+          "req_300s": 35,
+          "req_60s": 7,
+          "since_prev_s": 956.503,
+          "t": 1791560635.774
+        },
+        {
+          "ok_60s": 7,
+          "req_10s": 5,
+          "req_1s": 0,
+          "req_300s": 34,
+          "req_60s": 7,
+          "since_prev_s": 962.435,
+          "t": 1791561598.209
+        },
+        {
+          "ok_60s": 7,
+          "req_10s": 4,
+          "req_1s": 0,
+          "req_300s": 35,
+          "req_60s": 7,
+          "since_prev_s": 960.695,
+          "t": 1791562558.904
+        },
+        {
+          "ok_60s": 7,
+          "req_10s": 4,
+          "req_1s": 0,
+          "req_300s": 35,
+          "req_60s": 7,
+          "since_prev_s": 957.424,
+          "t": 1791563516.328
+        },
+        {
+          "ok_60s": 7,
+          "req_10s": 4,
+          "req_1s": 0,
+          "req_300s": 34,
+          "req_60s": 7,
+          "since_prev_s": 962.965,
+          "t": 1791564479.293
+        },
+        {
+          "ok_60s": 7,
+          "req_10s": 6,
+          "req_1s": 0,
+          "req_300s": 35,
+          "req_60s": 7,
+          "since_prev_s": 960.002,
+          "t": 1791565439.295
+        },
+        {
+          "ok_60s": 7,
+          "req_10s": 1,
+          "req_1s": 0,
+          "req_300s": 35,
+          "req_60s": 7,
+          "since_prev_s": 1017.225,
+          "t": 1791566456.52
+        },
+        {
+          "ok_60s": 7,
+          "req_10s": 1,
+          "req_1s": 0,
+          "req_300s": 35,
+          "req_60s": 7,
+          "since_prev_s": 960.002,
+          "t": 1791567416.522
+        },
+        {
+          "ok_60s": 7,
+          "req_10s": 1,
+          "req_1s": 0,
+          "req_300s": 35,
+          "req_60s": 7,
+          "since_prev_s": 960.561,
+          "t": 1791568377.083
+        },
+        {
+          "ok_60s": 7,
+          "req_10s": 1,
+          "req_1s": 0,
+          "req_300s": 35,
+          "req_60s": 7,
+          "since_prev_s": 960.002,
+          "t": 1791569337.085
+        },
+        {
+          "ok_60s": 7,
+          "req_10s": 4,
+          "req_1s": 0,
+          "req_300s": 35,
+          "req_60s": 7,
+          "since_prev_s": 961.347,
+          "t": 1791570298.432
+        },
+        {
+          "ok_60s": 6,
+          "req_10s": 4,
+          "req_1s": 0,
+          "req_300s": 30,
+          "req_60s": 6,
+          "since_prev_s": 541.492,
+          "t": 1791570839.924
+        },
+        {
+          "ok_60s": 7,
+          "req_10s": 5,
+          "req_1s": 0,
+          "req_300s": 35,
+          "req_60s": 7,
+          "since_prev_s": 959.767,
+          "t": 1791571799.691
+        }
+      ],
+      "per_min": null,
+      "reason": "20 x 429 cost 0.7% of the run: incidental",
+      "requests": 1945,
+      "run_id": "20261007-182439-full",
+      "safe_per_min": 8,
+      "sleep_s": 118.3,
+      "span_s": 18028.2,
+      "status_429": 20,
+      "status_5xx": 0,
+      "windows": {
+        "10s": {
+          "max": 6,
+          "median": 4.0,
+          "min": 1
+        },
+        "1s": {
+          "max": 0,
+          "median": 0.0,
+          "min": 0
+        },
+        "300s": {
+          "max": 35,
+          "median": 35.0,
+          "min": 7
+        },
+        "60s": {
+          "max": 7,
+          "median": 7.0,
+          "min": 6
+        }
+      }
     }
   ],
   "run_id": "20261007-182439-full",
   "totals": {
-    "invocations": 5,
+    "invocations": 6,
     "network_errors": 0,
-    "ok": 8512,
-    "ok_per_min": 6.51,
-    "requests": 8801,
-    "sleep_s": 2919.4,
-    "span_s": 78487.0,
-    "status_429": 288,
+    "ok": 10437,
+    "ok_per_min": 6.49,
+    "requests": 10746,
+    "sleep_s": 3037.7,
+    "span_s": 96515.2,
+    "status_429": 308,
     "status_5xx": 1
   }
 }
