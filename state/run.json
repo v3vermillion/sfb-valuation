@@ -1,5 +1,5 @@
 {
-  "calls": 9503,
+  "calls": 9609,
   "calls_base": 8867,
   "departments": [
     {
@@ -94,11 +94,11 @@
     },
     {
       "id": "4044",
-      "items": 218600,
+      "items": 239800,
       "name": "Home",
-      "next": "/api-proxy/service/affil/product/v2/paginated/items?category=4044&soldByWmt=true&count=200&lastDoc=29137354&remainingHits=6136514",
-      "pages": 1093,
-      "parts": 12,
+      "next": "/api-proxy/service/affil/product/v2/paginated/items?category=4044&soldByWmt=true&count=200&lastDoc=33126608&remainingHits=6115314",
+      "pages": 1199,
+      "parts": 13,
       "status": "crawling",
       "total_pages": 31776
     },
@@ -260,5 +260,5 @@
   "throttle_base": 18936,
   "throttle_wait_s": 18936,
   "throttled_runs": 0,
-  "updated": "2026-10-09T00:18:40+00:00"
+  "updated": "2026-10-09T00:33:42+00:00"
 }
