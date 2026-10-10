@@ -1,5 +1,5 @@
 {
-  "calls": 23283,
+  "calls": 23380,
   "calls_base": 22694,
   "departments": [
     {
@@ -94,11 +94,11 @@
     },
     {
       "id": "4044",
-      "items": 448079,
+      "items": 467279,
       "name": "Home",
       "next": null,
-      "pages": 2241,
-      "parts": 25,
+      "pages": 2337,
+      "parts": 26,
       "status": "crawling",
       "total_pages": null,
       "units": [
@@ -114,11 +114,11 @@
         },
         {
           "id": "4044_539103",
-          "items": 3000,
+          "items": 22200,
           "name": "Bedding",
-          "next": "/api-proxy/service/affil/product/v2/paginated/items?category=4044_539103&soldByWmt=true&count=200&lastDoc=13227347&remainingHits=228140",
-          "pages": 15,
-          "parts": 1,
+          "next": "/api-proxy/service/affil/product/v2/paginated/items?category=4044_539103&soldByWmt=true&count=200&lastDoc=36010892&remainingHits=208940",
+          "pages": 111,
+          "parts": 2,
           "status": "crawling",
           "total_pages": 1156
         },
@@ -362,7 +362,7 @@
   "started": "2026-10-07T18:24:39+00:00",
   "status": "crawling",
   "throttle_base": 19611,
-  "throttle_wait_s": 19648,
+  "throttle_wait_s": 19653,
   "throttled_runs": 0,
-  "updated": "2026-10-10T11:28:56+00:00"
+  "updated": "2026-10-10T11:43:58+00:00"
 }
