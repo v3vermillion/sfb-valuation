@@ -1,5 +1,5 @@
 {
-  "calls": 25145,
+  "calls": 25243,
   "calls_base": 24653,
   "departments": [
     {
@@ -94,11 +94,11 @@
     },
     {
       "id": "4044",
-      "items": 816640,
+      "items": 836040,
       "name": "Home",
       "next": null,
-      "pages": 4085,
-      "parts": 46,
+      "pages": 4182,
+      "parts": 47,
       "status": "crawling",
       "total_pages": null,
       "units": [
@@ -134,11 +134,11 @@
         },
         {
           "id": "4044_90828",
-          "items": 16600,
+          "items": 36000,
           "name": "Storage & Organization",
-          "next": "/api-proxy/service/affil/product/v2/paginated/items?category=4044_90828&soldByWmt=true&count=200&lastDoc=52641215&remainingHits=78252",
-          "pages": 83,
-          "parts": 1,
+          "next": "/api-proxy/service/affil/product/v2/paginated/items?category=4044_90828&soldByWmt=true&count=200&lastDoc=358431937&remainingHits=58852",
+          "pages": 180,
+          "parts": 2,
           "status": "crawling",
           "total_pages": 475
         },
@@ -362,7 +362,7 @@
   "started": "2026-10-07T18:24:39+00:00",
   "status": "crawling",
   "throttle_base": 19723,
-  "throttle_wait_s": 19754,
+  "throttle_wait_s": 19759,
   "throttled_runs": 0,
-  "updated": "2026-10-10T16:14:32+00:00"
+  "updated": "2026-10-10T16:29:39+00:00"
 }
