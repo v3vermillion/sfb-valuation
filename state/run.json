@@ -1,5 +1,5 @@
 {
-  "calls": 24435,
+  "calls": 24468,
   "calls_base": 22694,
   "departments": [
     {
@@ -94,11 +94,11 @@
     },
     {
       "id": "4044",
-      "items": 676219,
+      "items": 682819,
       "name": "Home",
       "next": null,
-      "pages": 3382,
-      "parts": 37,
+      "pages": 3415,
+      "parts": 38,
       "status": "crawling",
       "total_pages": null,
       "units": [
@@ -124,13 +124,13 @@
         },
         {
           "id": "4044_539095",
-          "items": 0,
+          "items": 6600,
           "name": "Bath",
-          "next": null,
-          "pages": 0,
-          "parts": 0,
-          "status": "pending",
-          "total_pages": null
+          "next": "/api-proxy/service/affil/product/v2/paginated/items?category=4044_539095&soldByWmt=true&count=200&lastDoc=21866974&remainingHits=117221",
+          "pages": 33,
+          "parts": 1,
+          "status": "crawling",
+          "total_pages": 620
         },
         {
           "id": "4044_90828",
@@ -364,5 +364,5 @@
   "throttle_base": 19611,
   "throttle_wait_s": 19712,
   "throttled_runs": 0,
-  "updated": "2026-10-10T14:25:06+00:00"
+  "updated": "2026-10-10T14:30:01+00:00"
 }
