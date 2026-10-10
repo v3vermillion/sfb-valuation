@@ -1,5 +1,5 @@
 {
-  "calls": 22608,
+  "calls": 22694,
   "calls_base": 20736,
   "departments": [
     {
@@ -94,21 +94,21 @@
     },
     {
       "id": "4044",
-      "items": 314600,
+      "items": 331600,
       "name": "Home",
       "next": null,
-      "pages": 1573,
-      "parts": 17,
+      "pages": 1658,
+      "parts": 18,
       "status": "crawling",
       "total_pages": null,
       "units": [
         {
           "id": "4044_623679",
-          "items": 314600,
+          "items": 331600,
           "name": "Kitchen & Dining",
-          "next": "/api-proxy/service/affil/product/v2/paginated/items?category=4044_623679&soldByWmt=true&count=200&lastDoc=857904229&remainingHits=130479",
-          "pages": 1573,
-          "parts": 17,
+          "next": "/api-proxy/service/affil/product/v2/paginated/items?category=4044_623679&soldByWmt=true&count=200&lastDoc=932609905&remainingHits=113479",
+          "pages": 1658,
+          "parts": 18,
           "status": "crawling",
           "total_pages": 2226
         },
@@ -343,26 +343,26 @@
       "limit_from_429s": 7,
       "limit_per_min": 8,
       "limit_per_min_median": 7,
-      "ok": 1955,
-      "ok_per_min": 6.43,
+      "ok": 1939,
+      "ok_per_min": 6.45,
       "pattern": "per-minute",
       "reason": "19 x 429 cost 0.6% of the run: incidental",
-      "requests": 1974,
+      "requests": 1958,
       "safe_per_min": 8,
-      "sleep_s": 117.1,
-      "span_s": 18255.2,
+      "sleep_s": 111.5,
+      "span_s": 18027.2,
       "status_429": 19
     },
     "per_min": 8,
     "run_id": "20261007-182439-full",
-    "updated": "2026-10-10T04:56:48+00:00"
+    "updated": "2026-10-10T09:57:50+00:00"
   },
   "plan": "full",
   "run_id": "20261007-182439-full",
   "started": "2026-10-07T18:24:39+00:00",
   "status": "crawling",
   "throttle_base": 19500,
-  "throttle_wait_s": 19604,
+  "throttle_wait_s": 19611,
   "throttled_runs": 0,
-  "updated": "2026-10-10T09:43:58+00:00"
+  "updated": "2026-10-10T09:57:50+00:00"
 }
