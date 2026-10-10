@@ -1,5 +1,5 @@
 {
-  "calls": 19084,
+  "calls": 19181,
   "calls_base": 18762,
   "departments": [
     {
@@ -248,13 +248,13 @@
     },
     {
       "id": "4171",
-      "items": 129191,
+      "items": 148589,
       "name": "Toys",
-      "next": "/api-proxy/service/affil/product/v2/paginated/items?category=4171&soldByWmt=true&count=200&lastDoc=103195429&remainingHits=383575",
-      "pages": 646,
-      "parts": 7,
+      "next": "/api-proxy/service/affil/product/v2/paginated/items?category=4171&soldByWmt=true&count=200&lastDoc=141826684&remainingHits=364175",
+      "pages": 743,
+      "parts": 8,
       "status": "crawling",
-      "total_pages": 2564
+      "total_pages": 2565
     },
     {
       "id": "3920",
@@ -364,5 +364,5 @@
   "throttle_base": 19383,
   "throttle_wait_s": 19406,
   "throttled_runs": 0,
-  "updated": "2026-10-10T00:41:53+00:00"
+  "updated": "2026-10-10T00:56:57+00:00"
 }
