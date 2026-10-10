@@ -1,5 +1,5 @@
 {
-  "calls": 24567,
+  "calls": 24653,
   "calls_base": 22694,
   "departments": [
     {
@@ -94,11 +94,11 @@
     },
     {
       "id": "4044",
-      "items": 702419,
+      "items": 719419,
       "name": "Home",
       "next": null,
-      "pages": 3513,
-      "parts": 39,
+      "pages": 3598,
+      "parts": 40,
       "status": "crawling",
       "total_pages": null,
       "units": [
@@ -124,11 +124,11 @@
         },
         {
           "id": "4044_539095",
-          "items": 26200,
+          "items": 43200,
           "name": "Bath",
-          "next": "/api-proxy/service/affil/product/v2/paginated/items?category=4044_539095&soldByWmt=true&count=200&lastDoc=51241621&remainingHits=97621",
-          "pages": 131,
-          "parts": 2,
+          "next": "/api-proxy/service/affil/product/v2/paginated/items?category=4044_539095&soldByWmt=true&count=200&lastDoc=227283942&remainingHits=80621",
+          "pages": 216,
+          "parts": 3,
           "status": "crawling",
           "total_pages": 620
         },
@@ -343,26 +343,26 @@
       "limit_from_429s": 7,
       "limit_per_min": 8,
       "limit_per_min_median": 7,
-      "ok": 1939,
-      "ok_per_min": 6.45,
+      "ok": 1940,
+      "ok_per_min": 6.47,
       "pattern": "per-minute",
       "reason": "19 x 429 cost 0.6% of the run: incidental",
-      "requests": 1958,
+      "requests": 1959,
       "safe_per_min": 8,
-      "sleep_s": 111.5,
-      "span_s": 18027.2,
+      "sleep_s": 112.4,
+      "span_s": 17999.3,
       "status_429": 19
     },
     "per_min": 8,
     "run_id": "20261007-182439-full",
-    "updated": "2026-10-10T09:57:50+00:00"
+    "updated": "2026-10-10T14:58:22+00:00"
   },
   "plan": "full",
   "run_id": "20261007-182439-full",
   "started": "2026-10-07T18:24:39+00:00",
   "status": "crawling",
   "throttle_base": 19611,
-  "throttle_wait_s": 19718,
+  "throttle_wait_s": 19723,
   "throttled_runs": 0,
-  "updated": "2026-10-10T14:45:12+00:00"
+  "updated": "2026-10-10T14:58:22+00:00"
 }
