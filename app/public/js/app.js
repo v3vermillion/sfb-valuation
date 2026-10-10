@@ -160,7 +160,8 @@ function readyText() {
   // the date is what a volunteer needs; the count can be dropped on a narrow header
   // food and household first: until the other departments arrive the header says so (and the count is what is open)
   const items = db.more ? db.stats?.items || m.items : m.items;
-  const more = db.more ? ` · <span class="n">other departments </span>${navigator.onLine ? "loading" : "next time online"}` : "";
+  const more = db.storageFull ? ` · phone storage full: free about ${db.storageFull.needMB} MB`
+    : db.more ? ` · <span class="n">other departments </span>${navigator.onLine ? "loading" : "next time online"}` : "";
   return `${navigator.onLine ? "" : "Offline · "}<span class="n">${compact(items)} items · </span>${esc(fmtDate(priceDate()))}${more}`;
 }
 
@@ -172,18 +173,22 @@ db.addEventListener("state", (e) => {
     case "ready": setStatus("ready", readyText()); setProgress(null); break;
     case "offline-empty": setStatus("offline", "Offline — connect once to get prices"); setProgress(null); if (state.query.trim()) runSearch(state.query); break;
     case "error":
-      setProgress(null); state.dbError = d.message; state.dbErrorNetwork = !!d.network;
+      setProgress(null); state.dbError = d.message; state.dbErrorNetwork = !!d.network; state.dbErrorStorage = !!d.storage;
       if (d.network) {
         // the connection dropped mid-download: say so, and try again on our own (also on the "online" event)
         setStatus("offline", "No connection — prices will download when it's back");
         clearTimeout(state.retryTimer);
         state.retryTimer = setTimeout(() => { if (!db.version && navigator.onLine) db.start().catch(() => {}); }, 30_000);
-      } else setStatus("error", "Database problem — tap for details");
+      } else if (d.storage) setStatus("error", "Phone storage is full — tap for details");
+      else setStatus("error", "Database problem — tap for details");
       if (state.query.trim()) runSearch(state.query);
       break;
   }
   renderStale();
 });
+// a full phone during a background download (other departments, a weekly update): the header says so until a later
+// download succeeds; the prices already on the phone keep working
+for (const ev of ["storage-full", "storage-ok"]) db.addEventListener(ev, () => { if (db.version) setStatus("ready", readyText()); });
 db.addEventListener("progress", (e) => {
   const d = e.detail;
   if (d.phase === "download") {
@@ -226,7 +231,32 @@ window.addEventListener("online", () => {
 });
 window.addEventListener("offline", () => { if (db.version) setStatus("ready", readyText()); renderStale(); toast("Offline — scanning and search still work", { iconName: "wifi-off" }); });
 // an installed app (Android's "Add to Home screen") is what makes Chrome grant persistent storage: ask again right then
-window.addEventListener("appinstalled", () => { db.requestPersistence({ force: true }).catch(() => {}); });
+window.addEventListener("appinstalled", () => { db.requestPersistence({ force: true }).catch(() => {}); hideInstallHint(); });
+
+// ------------------------------------------------------------------ "Add to Home Screen" (first runs, in the browser)
+// Safari deletes a website's saved data after about a week without a visit; an app on the Home Screen keeps its prices.
+// Android's Chrome offers its own install prompt, kept here and shown as a button.
+const INSTALL_KEY = "sfb.installHint";
+const standalone = () => navigator.standalone === true || matchMedia("(display-mode: standalone)").matches;
+const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+let installPrompt = null;
+function hideInstallHint() { const h = $("installHint"); if (h) { h.hidden = true; h.innerHTML = ""; } }
+function showInstallHint() {
+  const h = $("installHint");
+  if (!h || standalone() || readJson(INSTALL_KEY, null)?.dismissed) return;
+  if (!isIOS && !installPrompt) return;
+  const how = isIOS
+    ? `Tap ${icon("share")} <b>Share</b>, then <b>Add to Home Screen</b>. Safari clears a website's saved prices after about a week without a visit; the Home Screen app keeps them and opens full screen.`
+    : "Install it so it opens full screen and the phone keeps the prices.";
+  h.innerHTML = `<div><b>Add this app to your Home Screen.</b> ${how}</div>${installPrompt ? `<button class="btn btn--sm" type="button" data-act="install">Install</button>` : ""}<button class="x-btn" type="button" data-act="dismiss" aria-label="Don't show again">${icon("x")}</button>`;
+  h.hidden = false;
+}
+window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); installPrompt = e; showInstallHint(); });
+$("installHint")?.addEventListener("click", async (e) => {
+  const act = e.target.closest("[data-act]")?.dataset.act;
+  if (act === "install" && installPrompt) { const p = installPrompt; installPrompt = null; p.prompt(); const r = await p.userChoice.catch(() => null); if (r?.outcome === "accepted") hideInstallHint(); else showInstallHint(); }
+  if (act === "dismiss") { writeJson(INSTALL_KEY, { dismissed: Date.now() }); hideInstallHint(); }
+});
 
 // ------------------------------------------------------------------ prices-as-of banner (amber from 14 days, red from 45)
 // Sits under the header, above the content; the dock never moves. Re-evaluated on every database state change,
@@ -717,7 +747,7 @@ function settingsHtml() {
       <dt>Snapshot</dt><dd class="mono">${esc(m.version)}</dd>
       <dt>App build</dt><dd class="mono">${esc(BUILD)}</dd>
     </dl>
-    <p class="note" id="storageNote"${state.persisted === false ? "" : " hidden"}>Storage is best-effort: the phone may clear the prices to free space (they re-download when online). Adding the app to the Home Screen keeps them.</p>` : `<p class="note${state.dbError ? " note--warn" : ""}">${esc(state.dbError ? `The database couldn't be opened: ${state.dbError}` : db.state === "offline-empty" ? "Prices haven't been downloaded yet. Connect once and they stay on this phone." : "The price database hasn't finished loading.")}</p>`}
+    <p class="note" id="storageNote"${state.persisted === false ? "" : " hidden"}>Storage is best-effort: the phone may clear the prices to free space (they re-download when online). Adding the app to the Home Screen keeps them.</p>` : `<p class="note${state.dbError ? " note--warn" : ""}">${esc(state.dbError ? (state.dbErrorPlain || state.dbErrorStorage ? state.dbError : `The database couldn't be opened: ${state.dbError}`) : db.state === "offline-empty" ? "Prices haven't been downloaded yet. Connect once and they stay on this phone." : "The price database hasn't finished loading.")}</p>`}
     ${db.pendingUpdate ? `<p class="note">Newer prices (${esc(fmtDate(db.pendingUpdate.manifest?.priceDate, true))}) are downloaded and will be used as soon as nothing is open.</p>` : ""}
     ${m?.fixture ? `<p class="note note--warn">Sample data. This snapshot is a synthetic, full-size stand-in built in the shape of the real crawl so speed and behaviour can be proven before the first published crawl. Prices are plausible, not real.</p>` : ""}
     <div class="actions"><button class="btn btn--ghost" type="button" data-act="update">${icon("refresh")} Check for new prices</button><button class="btn btn--danger" type="button" data-act="reset">${icon("trash")} Reset app data</button></div>
@@ -872,5 +902,12 @@ if ("serviceWorker" in navigator && !new URLSearchParams(location.search).has("n
 
 setStatus("loading", "Starting…");
 keyboardInset();
-db.start();
+showInstallHint();
+if (typeof DecompressionStream === "undefined") {
+  // the price database is unpacked with DecompressionStream: Safari 16.4 (iOS 16.4, March 2023) and Chrome 80 or newer
+  setStatus("error", "This phone needs an update — tap for details");
+  state.dbErrorPlain = true;
+  state.dbError = isIOS ? "This iPhone's software is too old to keep the prices offline. Update it to iOS 16.4 or newer (Settings › General › Software Update), then open the app again."
+    : "This browser is too old to keep the prices offline. Update Chrome (or the phone's browser), then open the app again.";
+} else db.start();
 perf.boot.scriptMs = Math.round(performance.now());

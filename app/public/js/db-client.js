@@ -44,9 +44,18 @@ export function fileList(manifest, version) {
 }
 const shardIds = (manifest) => (manifest.shards ? manifest.shards.map((s) => s.id) : ["all"]);
 
-/** A download that failed: `network` when the phone lost its connection (worth retrying), else the server's answer. */
+/** A download that failed: `network` when the phone lost its connection (worth retrying), `storage` when the phone
+ * refused to save it (full), else the server's answer. */
 class DownloadError extends Error {
-  constructor(message, { network = false } = {}) { super(message); this.network = network; }
+  constructor(message, { network = false, storage = false, needMB = 0 } = {}) { super(message); this.network = network; this.storage = storage; this.needMB = needMB; }
+}
+/** Save a response in Cache Storage; a full phone is a storage error, a body cut off mid-way a network one. */
+async function save(cache, url, res) {
+  try { await cache.put(url, res); }
+  catch (e) {
+    if (e?.name === "QuotaExceededError") throw new DownloadError("this phone's storage is full", { storage: true });
+    throw new DownloadError(`${url}: ${e?.message || e}`, { network: true });
+  }
 }
 
 export class DbClient extends EventTarget {
@@ -162,7 +171,7 @@ export class DbClient extends EventTarget {
           await this.#load(cur.version);
           this.#writeKey(KEY, { version: cur.version, installedAt: Date.now() });
         } catch (err) {
-          this.#setState("error", { message: this.#explain(err), network: !!err.network });
+          this.#setState("error", { message: this.#explain(err), network: !!err.network, storage: !!err.storage });
         }
       }
     })();
@@ -175,6 +184,7 @@ export class DbClient extends EventTarget {
   }
 
   #explain(err) {
+    if (err?.storage) return `This phone is out of storage space for the prices (about ${err.needMB || "?"} MB more is needed). Free some space (old photos, videos or apps), then open the app again.`;
     if (err?.network || !navigator.onLine) return "The connection dropped while downloading prices. They will download again as soon as the phone is back online.";
     return String(err?.message || err);
   }
@@ -197,7 +207,7 @@ export class DbClient extends EventTarget {
       try { res = await fetch(url, { cache: "no-store" }); }
       catch (e) { throw new DownloadError(`could not reach the price server (${e.message})`, { network: true }); }
       if (!res.ok || /text\/html/i.test(res.headers.get("content-type") || "")) throw new DownloadError("manifest missing");
-      await cache.put(url, res.clone());
+      await save(cache, url, res.clone());
     }
     return res.json();
   }
@@ -233,7 +243,7 @@ export class DbClient extends EventTarget {
           if (/text\/html/i.test(res.headers.get("content-type") || "")) throw new DownloadError(`download failed: ${f.url} (not a pack file)`);
           // the response goes straight into Cache Storage: reading it into an ArrayBuffer first copied every pack file
           // through the page's JS heap twice on a phone
-          await cache.put(f.url, res);
+          await save(cache, f.url, res);
           return;
         } catch (e) {
           if (failed || attempt >= RETRIES || !e.network || !navigator.onLine) throw e;
@@ -250,7 +260,14 @@ export class DbClient extends EventTarget {
       }
     };
     await Promise.all(Array.from({ length: PARALLEL }, runOne));
+    if (failed?.storage) {
+      // say how much room is missing (what this download still needed), in every tier: a full phone never fixes itself
+      failed.needMB = Math.max(1, Math.ceil((totalBytes - doneBytes) / 1048576));
+      this.storageFull = { needMB: failed.needMB, tier };
+      this.#emit("storage-full", this.storageFull);
+    }
     if (failed) throw failed;                  // the other downloads stopped too; late progress is never reported
+    if (this.storageFull) { this.storageFull = null; this.#emit("storage-ok", {}); }
     if (!background) this.#lastDownloadMs = Math.round(performance.now() - t0);
     return manifest;
   }

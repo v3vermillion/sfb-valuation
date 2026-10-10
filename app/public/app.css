@@ -261,6 +261,10 @@ input::-webkit-search-decoration, input::-webkit-search-cancel-button { -webkit-
 .facts li span:last-child { text-align: right; color: var(--ink); font-weight: 500; }
 .note { margin: 14px 0 0; padding: 12px 14px; border-radius: var(--r-s); background: var(--surface-2); color: var(--ink-2); font-size: 14.5px; line-height: 1.45; }
 .note--warn { background: color-mix(in oklab, var(--closest) 12%, transparent); color: var(--ink); }
+.install { display: flex; gap: 10px; align-items: flex-start; }
+.install > div { flex: 1; }
+.install b { color: var(--ink); }
+.install .ico { width: 18px; height: 18px; vertical-align: -3px; }
 .note--equiv { background: color-mix(in oklab, var(--equiv) 14%, transparent); }
 .live-row { display: flex; align-items: center; gap: 10px; margin-top: 14px; padding: 12px 14px; border-radius: var(--r-s); border: 1px dashed var(--line-2); font-size: 14.5px; color: var(--ink-2); min-height: 48px; }
 .live-row .ico { width: 18px; height: 18px; color: var(--live); flex: none; }
