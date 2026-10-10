@@ -1,6 +1,6 @@
 {
-  "calls": 24653,
-  "calls_base": 22694,
+  "calls": 24752,
+  "calls_base": 24653,
   "departments": [
     {
       "id": "976759",
@@ -94,11 +94,11 @@
     },
     {
       "id": "4044",
-      "items": 719419,
+      "items": 739019,
       "name": "Home",
       "next": null,
-      "pages": 3598,
-      "parts": 40,
+      "pages": 3696,
+      "parts": 41,
       "status": "crawling",
       "total_pages": null,
       "units": [
@@ -124,11 +124,11 @@
         },
         {
           "id": "4044_539095",
-          "items": 43200,
+          "items": 62800,
           "name": "Bath",
-          "next": "/api-proxy/service/affil/product/v2/paginated/items?category=4044_539095&soldByWmt=true&count=200&lastDoc=227283942&remainingHits=80621",
-          "pages": 216,
-          "parts": 3,
+          "next": "/api-proxy/service/affil/product/v2/paginated/items?category=4044_539095&soldByWmt=true&count=200&lastDoc=541867840&remainingHits=61021",
+          "pages": 314,
+          "parts": 4,
           "status": "crawling",
           "total_pages": 620
         },
@@ -361,8 +361,8 @@
   "run_id": "20261007-182439-full",
   "started": "2026-10-07T18:24:39+00:00",
   "status": "crawling",
-  "throttle_base": 19611,
-  "throttle_wait_s": 19723,
+  "throttle_base": 19723,
+  "throttle_wait_s": 19729,
   "throttled_runs": 0,
-  "updated": "2026-10-10T14:58:22+00:00"
+  "updated": "2026-10-10T15:13:57+00:00"
 }
