@@ -1,5 +1,5 @@
 {
-  "calls": 21020,
+  "calls": 21031,
   "calls_base": 20736,
   "departments": [
     {
@@ -94,23 +94,23 @@
     },
     {
       "id": "4044",
-      "items": 0,
+      "items": 2200,
       "name": "Home",
       "next": null,
-      "pages": 0,
-      "parts": 0,
-      "status": "pending",
+      "pages": 11,
+      "parts": 1,
+      "status": "crawling",
       "total_pages": null,
       "units": [
         {
           "id": "4044_623679",
-          "items": 0,
+          "items": 2200,
           "name": "Kitchen & Dining",
-          "next": null,
-          "pages": 0,
-          "parts": 0,
-          "status": "pending",
-          "total_pages": null
+          "next": "/api-proxy/service/affil/product/v2/paginated/items?category=4044_623679&soldByWmt=true&count=200&lastDoc=10993624&remainingHits=442879",
+          "pages": 11,
+          "parts": 1,
+          "status": "crawling",
+          "total_pages": 2226
         },
         {
           "id": "4044_539103",
@@ -364,5 +364,5 @@
   "throttle_base": 19500,
   "throttle_wait_s": 19516,
   "throttled_runs": 0,
-  "updated": "2026-10-10T05:40:37+00:00"
+  "updated": "2026-10-10T05:42:33+00:00"
 }
