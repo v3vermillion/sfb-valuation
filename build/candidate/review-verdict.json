@@ -1,0 +1,190 @@
+{
+  "checked": "2026-10-13T01:11:46+00:00",
+  "junk_examples": [
+    {
+      "id": 10054464242,
+      "why": "Hoover \"TREND POD DISPLAY MASTER\" SKU dump, a store display and not a sellable item"
+    },
+    {
+      "id": 10843560,
+      "why": "JumpStart PC software on CD (Win), which is a video game/software product"
+    },
+    {
+      "id": 141264495,
+      "why": "Keyword-stuffed search-query name, marketplace-style listing at $82"
+    },
+    {
+      "id": 146319569,
+      "why": "Keyword-stuffed search-query name, marketplace-style listing at $78"
+    },
+    {
+      "id": 17243184,
+      "why": "Nutritional drink 11 oz at $50.68, price implausible (already flagged unit_price_suspect)"
+    },
+    {
+      "id": 282084771,
+      "why": "Name is just \"SEASONS\", a placeholder, at $20.98"
+    },
+    {
+      "id": 356665564,
+      "why": "Dodge Ram door lock actuator, an auto part listed under Baby"
+    },
+    {
+      "id": 391483457,
+      "why": "Toyota Sienna bumper retainer, an auto part listed under Toys"
+    },
+    {
+      "id": 816679284,
+      "why": "Car wash bucket named \"(500 pack) (5 pack)\" with pack parsed as 500, misleading and not in the crawled departments"
+    },
+    {
+      "id": 595383565,
+      "why": "Anti-diarrheal 100 caps at $1600.52, implausible price"
+    },
+    {
+      "id": 41733221,
+      "why": "Plus-size pantyhose, apparel"
+    },
+    {
+      "id": 45887816,
+      "why": "Dart cup lids sold as 1,000 pack, commercial supply, size 24 oz x 16 does not match the name"
+    },
+    {
+      "id": 233493526,
+      "why": "Wholesale case of 3 x 72 rubber turtles, a wholesale lot at $148"
+    },
+    {
+      "id": 1147717176,
+      "why": "Cardstock weight (65 lb) parsed as the size, while the name says 50/pack; misleading"
+    },
+    {
+      "id": 43253386,
+      "why": "Sani Professional commercial wipes sold by a third-party seller at $38.15, probably a bulk case"
+    },
+    {
+      "id": 232251453,
+      "why": "AbilityOne Skilcraft industrial mop heads, commercial supply"
+    }
+  ],
+  "junk_rate": 0.053,
+  "max_junk_rate": 0.05,
+  "max_tokens": 12000,
+  "miscategorized_examples": [
+    {
+      "category": "School, Office & Crafts",
+      "id": 108546763,
+      "should_be": "Seasonal & Party"
+    },
+    {
+      "category": "School, Office & Crafts",
+      "id": 174947930,
+      "should_be": "Seasonal & Party"
+    },
+    {
+      "category": "School, Office & Crafts",
+      "id": 270653929,
+      "should_be": "Seasonal & Party"
+    },
+    {
+      "category": "Pasta, Rice & Dry Goods",
+      "id": 10292235,
+      "should_be": "Baking, Spices & Oils"
+    },
+    {
+      "category": "Pasta, Rice & Dry Goods",
+      "id": 9730183,
+      "should_be": "Baking, Spices & Oils"
+    },
+    {
+      "category": "Beverages",
+      "id": 11090135,
+      "should_be": "Health & Medicine"
+    },
+    {
+      "category": "School, Office & Crafts",
+      "id": 20626264979,
+      "should_be": "Household Supplies"
+    },
+    {
+      "category": "Household Supplies",
+      "id": 21452180,
+      "should_be": "School, Office & Crafts"
+    },
+    {
+      "category": "Personal Care",
+      "id": 47217200,
+      "should_be": "School, Office & Crafts"
+    },
+    {
+      "category": "Sports & Outdoors",
+      "id": 15849810524,
+      "should_be": "Kitchen & Dining"
+    },
+    {
+      "category": "Sports & Outdoors",
+      "id": 159394021,
+      "should_be": "Kitchen & Dining"
+    },
+    {
+      "category": "Sports & Outdoors",
+      "id": 670391086,
+      "should_be": "Kitchen & Dining"
+    },
+    {
+      "category": "Sports & Outdoors",
+      "id": 16308373080,
+      "should_be": "Kitchen & Dining"
+    },
+    {
+      "category": "Sports & Outdoors",
+      "id": 317462910,
+      "should_be": "Toys, Books & Games"
+    },
+    {
+      "category": "Pet Food & Supplies",
+      "id": 52417366,
+      "should_be": "Seasonal & Party"
+    },
+    {
+      "category": "Lawn, Garden & Floral",
+      "id": 658793198,
+      "should_be": "Toys, Books & Games"
+    },
+    {
+      "category": "Household Supplies",
+      "id": 833655832,
+      "should_be": "Electronics"
+    },
+    {
+      "category": "Kitchen & Dining",
+      "id": 915566502,
+      "should_be": "Home"
+    },
+    {
+      "category": "Household Supplies",
+      "id": 1298999384,
+      "should_be": "Seasonal & Party"
+    },
+    {
+      "category": "Household Supplies",
+      "id": 697672975,
+      "should_be": "Seasonal & Party"
+    },
+    {
+      "category": "Hardware & Tools",
+      "id": 974787638,
+      "should_be": "Household Supplies"
+    }
+  ],
+  "miscategorized_rate": 0.07,
+  "model": "claude-sonnet-5-5",
+  "notes": "Mostly clean consumer goods with sensible names, sizes and flags. Only a few isolated junk rows (auto parts in Baby/Toys, keyword-stuffed marketplace names, wholesale or commercial lots, implausible prices), with no single class large enough to call systematic. The clearest pattern is category mislabeling: Christmas greeting cards under School/Office, koozies and magnets under Sports & Outdoors.",
+  "run_id": "20261007-182439-full",
+  "sample_rows": 300,
+  "status": "fail",
+  "systematic_junk": false,
+  "usage": {
+    "input_tokens": 53262,
+    "output_tokens": 4695
+  }
+}

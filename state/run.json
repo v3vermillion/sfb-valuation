@@ -1,0 +1,369 @@
+{
+  "calls": 44558,
+  "calls_base": 44197,
+  "crawled": "2026-10-12T18:04:09+00:00",
+  "departments": [
+    {
+      "id": "976759",
+      "items": 315794,
+      "name": "Food",
+      "next": null,
+      "pages": 1579,
+      "parts": 17,
+      "status": "done",
+      "total_pages": 1579
+    },
+    {
+      "id": "976760",
+      "items": 173937,
+      "name": "Health and Medicine",
+      "next": null,
+      "pages": 870,
+      "parts": 10,
+      "status": "done",
+      "total_pages": 870
+    },
+    {
+      "id": "5431",
+      "items": 11,
+      "name": "Pharmacy",
+      "next": null,
+      "pages": 1,
+      "parts": 1,
+      "status": "done",
+      "total_pages": 1
+    },
+    {
+      "id": "1005862",
+      "items": 83207,
+      "name": "Personal Care",
+      "next": null,
+      "pages": 417,
+      "parts": 5,
+      "status": "done",
+      "total_pages": 417
+    },
+    {
+      "id": "1085666",
+      "items": 204670,
+      "name": "Beauty",
+      "next": null,
+      "pages": 1024,
+      "parts": 12,
+      "status": "done",
+      "total_pages": 1024
+    },
+    {
+      "id": "7924299",
+      "items": 54797,
+      "name": "Premium Beauty",
+      "next": null,
+      "pages": 274,
+      "parts": 4,
+      "status": "done",
+      "total_pages": 274
+    },
+    {
+      "id": "5427",
+      "items": 180009,
+      "name": "Baby",
+      "next": null,
+      "pages": 901,
+      "parts": 10,
+      "status": "done",
+      "total_pages": 901
+    },
+    {
+      "id": "5440",
+      "items": 236558,
+      "name": "Pets",
+      "next": null,
+      "pages": 1183,
+      "parts": 14,
+      "status": "done",
+      "total_pages": 1183
+    },
+    {
+      "id": "1115193",
+      "items": 76111,
+      "name": "Household Essentials",
+      "next": null,
+      "pages": 381,
+      "parts": 5,
+      "status": "done",
+      "total_pages": 381
+    },
+    {
+      "id": "4044",
+      "items": 972354,
+      "name": "Home",
+      "next": null,
+      "pages": 4865,
+      "parts": 55,
+      "status": "done",
+      "total_pages": 4865,
+      "units": [
+        {
+          "id": "4044_623679",
+          "items": 445079,
+          "name": "Kitchen & Dining",
+          "next": null,
+          "pages": 2226,
+          "parts": 24,
+          "status": "done",
+          "total_pages": 2226
+        },
+        {
+          "id": "4044_539103",
+          "items": 231140,
+          "name": "Bedding",
+          "next": null,
+          "pages": 1156,
+          "parts": 13,
+          "status": "done",
+          "total_pages": 1156
+        },
+        {
+          "id": "4044_539095",
+          "items": 123821,
+          "name": "Bath",
+          "next": null,
+          "pages": 620,
+          "parts": 8,
+          "status": "done",
+          "total_pages": 620
+        },
+        {
+          "id": "4044_90828",
+          "items": 94852,
+          "name": "Storage & Organization",
+          "next": null,
+          "pages": 475,
+          "parts": 6,
+          "status": "done",
+          "total_pages": 475
+        },
+        {
+          "id": "4044_90548",
+          "items": 77462,
+          "name": "Appliances",
+          "next": null,
+          "pages": 388,
+          "parts": 4,
+          "status": "done",
+          "total_pages": 388
+        }
+      ]
+    },
+    {
+      "id": "1072864",
+      "items": 340470,
+      "name": "Home Improvement",
+      "next": null,
+      "pages": 1704,
+      "parts": 23,
+      "status": "done",
+      "total_pages": 1704,
+      "units": [
+        {
+          "id": "1072864_1031899",
+          "items": 137318,
+          "name": "Tools",
+          "next": null,
+          "pages": 687,
+          "parts": 9,
+          "status": "done",
+          "total_pages": 687
+        },
+        {
+          "id": "1072864_1067619",
+          "items": 103990,
+          "name": "Electrical",
+          "next": null,
+          "pages": 520,
+          "parts": 6,
+          "status": "done",
+          "total_pages": 520
+        },
+        {
+          "id": "1072864_133032",
+          "items": 85183,
+          "name": "Heating, Cooling & Air Quality",
+          "next": null,
+          "pages": 426,
+          "parts": 5,
+          "status": "done",
+          "total_pages": 426
+        },
+        {
+          "id": "1072864_8036850",
+          "items": 8619,
+          "name": "Emergency Prep",
+          "next": null,
+          "pages": 44,
+          "parts": 2,
+          "status": "done",
+          "total_pages": 44
+        },
+        {
+          "id": "1072864_6610571",
+          "items": 5360,
+          "name": "Water Purification",
+          "next": null,
+          "pages": 27,
+          "parts": 1,
+          "status": "done",
+          "total_pages": 27
+        }
+      ]
+    },
+    {
+      "id": "5428",
+      "items": 474069,
+      "name": "Patio & Garden",
+      "next": null,
+      "pages": 2371,
+      "parts": 26,
+      "status": "done",
+      "total_pages": 2371
+    },
+    {
+      "id": "1229749",
+      "items": 667366,
+      "name": "Office Supplies",
+      "next": null,
+      "pages": 3337,
+      "parts": 35,
+      "status": "done",
+      "total_pages": 3337
+    },
+    {
+      "id": "1334134",
+      "items": 376624,
+      "name": "Arts Crafts & Sewing",
+      "next": null,
+      "pages": 1884,
+      "parts": 21,
+      "status": "done",
+      "total_pages": 1884
+    },
+    {
+      "id": "4171",
+      "items": 512774,
+      "name": "Toys",
+      "next": null,
+      "pages": 2564,
+      "parts": 27,
+      "status": "done",
+      "total_pages": 2565
+    },
+    {
+      "id": "3920",
+      "items": 0,
+      "name": "Books",
+      "next": null,
+      "pages": 0,
+      "parts": 0,
+      "status": "dropped",
+      "total_pages": null
+    },
+    {
+      "id": "1085632",
+      "items": 6248,
+      "name": "Seasonal",
+      "next": null,
+      "pages": 32,
+      "parts": 1,
+      "status": "done",
+      "total_pages": 32
+    },
+    {
+      "id": "2637",
+      "items": 242299,
+      "name": "Party & Occasions",
+      "next": null,
+      "pages": 1212,
+      "parts": 14,
+      "status": "done",
+      "total_pages": 1212
+    },
+    {
+      "id": "91083",
+      "items": 0,
+      "name": "Auto & Tires",
+      "next": null,
+      "pages": 0,
+      "parts": 0,
+      "status": "dropped",
+      "total_pages": null
+    },
+    {
+      "id": "3944",
+      "items": 732863,
+      "name": "Electronics",
+      "next": null,
+      "pages": 3665,
+      "parts": 39,
+      "status": "done",
+      "total_pages": 3665
+    },
+    {
+      "id": "1105910",
+      "items": 330846,
+      "name": "Cell Phones",
+      "next": null,
+      "pages": 1655,
+      "parts": 18,
+      "status": "done",
+      "total_pages": 1655
+    },
+    {
+      "id": "3891",
+      "items": 788550,
+      "name": "Jewelry",
+      "next": null,
+      "pages": 3943,
+      "parts": 42,
+      "status": "done",
+      "total_pages": 3943
+    },
+    {
+      "id": "4125",
+      "items": 1165021,
+      "name": "Sports & Outdoors",
+      "next": null,
+      "pages": 6231,
+      "parts": 65,
+      "status": "done",
+      "total_pages": 6231
+    }
+  ],
+  "pace": {
+    "inferred": {
+      "consistent": false,
+      "limit_from_429s": 5,
+      "limit_per_min": 8,
+      "limit_per_min_median": 7,
+      "ok": 356,
+      "ok_per_min": 6.31,
+      "pattern": "per-minute",
+      "reason": "5 x 429 cost 0.8% of the run: incidental",
+      "requests": 361,
+      "safe_per_min": 8,
+      "sleep_s": 28.7,
+      "span_s": 3382.4,
+      "status_429": 5
+    },
+    "per_min": 8,
+    "run_id": "20261007-182439-full",
+    "updated": "2026-10-12T18:04:09+00:00"
+  },
+  "plan": "full",
+  "run_id": "20261007-182439-full",
+  "started": "2026-10-07T18:24:39+00:00",
+  "status": "published",
+  "throttle_base": 20862,
+  "throttle_wait_s": 20890,
+  "throttled_runs": 0,
+  "updated": "2026-10-12T18:04:09+00:00"
+}

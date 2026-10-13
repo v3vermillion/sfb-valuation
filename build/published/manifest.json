@@ -1,0 +1,32 @@
+{
+  "approved_manually": true,
+  "file": "items.jsonl.gz",
+  "full_published": "2026-10-13T15:31:00+00:00",
+  "gates": {
+    "checked": "2026-10-13T01:11:12+00:00",
+    "config_hash": "65aa64d97bcb249205512b32f1d13e69ef91e909618255fec0d5586b814b5504",
+    "failed": [
+      "sample_review"
+    ],
+    "passed_deterministic": true,
+    "sample_review": {
+      "detail": "junk rate 5.3%, systematic junk: no, 16 examples, model claude-sonnet-5-5; notes: Mostly clean consumer goods with sensible names, sizes and flags. Only a few isolated junk rows (auto parts in Baby/Toys, keyword-stuffed marketplace names, wholesale or commercial lots, implausible prices), with no single class large enough to call systematic. The clearest pattern is category mislabeling: Christmas greeting cards under School/Office, koozies and magnets under Sports & Outdoors.",
+      "pass": false,
+      "threshold": 0.05,
+      "value": 0.053
+    },
+    "status": "hold"
+  },
+  "gates_passed": false,
+  "history": {
+    "date": "2026-10-13",
+    "file": "baseline-20261007-182439-full.jsonl.gz",
+    "kind": "baseline",
+    "rows": 2566573,
+    "run_id": "20261007-182439-full"
+  },
+  "items": 2566573,
+  "published": "2026-10-13T15:31:00+00:00",
+  "upcs": 2389686,
+  "version": "20261007-182439-full"
+}

@@ -1,0 +1,559 @@
+{
+  "checked": "2026-10-13T01:11:12+00:00",
+  "config_hash": "65aa64d97bcb249205512b32f1d13e69ef91e909618255fec0d5586b814b5504",
+  "extras": {
+    "drift": [],
+    "live": {
+      "by_tier": {
+        "consumable": {
+          "close": 184,
+          "close_rate": 0.92,
+          "exact": 174,
+          "found": 200,
+          "missing": 17
+        },
+        "durable": {
+          "close": 249,
+          "close_rate": 0.9188,
+          "exact": 238,
+          "found": 271,
+          "missing": 12
+        }
+      },
+      "calls": 25,
+      "checked": 500,
+      "close": 433,
+      "close_rate": 0.9193,
+      "error": null,
+      "exact": 412,
+      "examples": [
+        {
+          "id": 15486201512,
+          "live": null,
+          "name": "Hudson Baby Unisex Baby Cotton Poly Animal Face Hooded Towel, Pink Flamingo, One Size",
+          "snapshot": 25.99
+        },
+        {
+          "id": 5400456211,
+          "live": null,
+          "name": "(2 pack) Vibrant Life Jumbo Deodorizing Wipes for Dogs & Puppies, Vanilla Coconut, 100 Count",
+          "snapshot": 15.95
+        },
+        {
+          "id": 18482659001,
+          "live": null,
+          "name": "(5 pack) Vibrant Life Pine Wood Pet Bedding, 141 L Bag",
+          "snapshot": 34.28
+        },
+        {
+          "id": 20060222813,
+          "live": null,
+          "name": "3-Piece Reversible King Bedspread Set, Blue Geometric Mosaic Bedding Coverlet",
+          "snapshot": 18.99
+        },
+        {
+          "id": 377955024,
+          "live": null,
+          "name": "Goody Mosaic Natural Edge Control Hairbrush (Pack of 2)",
+          "snapshot": 4.94
+        },
+        {
+          "id": 13843116303,
+          "live": null,
+          "name": "DecMode 18\" Black Leather Handmade Box Style Magazine Holder with Detail Stitching and Curved Buckle Handles",
+          "snapshot": 72.8
+        },
+        {
+          "id": 47220328,
+          "live": null,
+          "name": "Windsoft Facial Quality Two-Ply Toilet Tissue, Bundle of 2",
+          "snapshot": 32.46
+        },
+        {
+          "id": 612797452,
+          "live": null,
+          "name": "Pet Life \u00ae 'Bryer' 2-in-1 Hand-Inserted Microfiber Pet Grooming Towel and Brush",
+          "snapshot": 15.99
+        },
+        {
+          "id": 256733949,
+          "live": null,
+          "name": "Winter Holiday White Poodle Dish Drying Mat",
+          "snapshot": 16.07
+        },
+        {
+          "id": 817904021,
+          "live": null,
+          "name": "Simply Daisy Classic Monogram 28 x 36 in M Laundry Bag",
+          "snapshot": 43.75
+        },
+        {
+          "id": 911164565,
+          "live": null,
+          "name": "Simply Daisy Advent Calendar 18 x 29 in Green Laundry Bag",
+          "snapshot": 31.25
+        },
+        {
+          "id": 14952507426,
+          "live": null,
+          "name": "(4 pack) Mainstays Performance Cotton Washcloth, White, 12 in x 12 in, 1 Piece",
+          "snapshot": 7.88
+        },
+        {
+          "id": 1496472722,
+          "live": null,
+          "name": "Simply Daisy 16\" x 16\" Patterned Pumpkins Indoor/Outdoor Polyester Throw Pillow, Sienna",
+          "snapshot": 34.99
+        },
+        {
+          "id": 530040089,
+          "live": null,
+          "name": "Tan Goldendoodle Christmas Tree Dish Drying Mat",
+          "snapshot": 16.8
+        },
+        {
+          "id": 19658070406,
+          "live": null,
+          "name": "Charleston Woven Cotton Rich Tablecloth 60\"X120\" in Ash Blue",
+          "snapshot": 25.0
+        },
+        {
+          "id": 843666090,
+          "live": null,
+          "name": "Love Beauty and Planet\u2014less plastic, more love.",
+          "snapshot": 6.94
+        },
+        {
+          "id": 447536411,
+          "live": null,
+          "name": "Giddyup! Buck's Decorative Tumbled Chips, 1 Bag",
+          "snapshot": 17.89
+        },
+        {
+          "id": 971673403,
+          "live": null,
+          "name": "Simply Daisy's Sunset Tulip Stripe 26 inch Blue Decorative Floral Throw Pillow",
+          "snapshot": 60.0
+        },
+        {
+          "id": 5177096172,
+          "live": null,
+          "name": "Carolines Treasures DAC4035PTHD 7.5 x 7.5 in. Unisex Hippie Animal Raccoon Pair of Pot Holders",
+          "snapshot": 21.41
+        },
+        {
+          "id": 983934831,
+          "live": null,
+          "name": "20 x 20 Inch Green Geometric Print Decorative Polyester Throw Pillow with a Linen Texture",
+          "snapshot": 39.75
+        },
+        {
+          "id": 18593964616,
+          "live": null,
+          "name": "Brentwood 80-Watt 1-Speed Electric Citrus Juicer with Ergonomic Lever, Black",
+          "snapshot": 49.95
+        },
+        {
+          "id": 47213601,
+          "live": null,
+          "name": "Avery Heavy-Duty View Binder with 2\" One Touch EZD Ring 79802, Navy Blue and Avery Lay Flat View Report Cover w/Flexible Fastener, Letter-Size, 1/2\" Capacity, Available in Multiple Colors Bundle",
+          "snapshot": 16.21
+        },
+        {
+          "id": 1760743713,
+          "live": null,
+          "name": "Simply Daisy 18\" x 18\" Spooky Cats Indoor/Outdoor Polyester Throw Pillow, Amethyst",
+          "snapshot": 38.99
+        },
+        {
+          "id": 962471817,
+          "live": null,
+          "name": "Simply Daisy Modern Monogram 28 x 36 inch x Laundry Bag",
+          "snapshot": 43.75
+        },
+        {
+          "id": 53322235,
+          "live": null,
+          "name": "Simply Daisy 16\" x 16\" Geometric Decorative Pillow",
+          "snapshot": 17.42
+        }
+      ],
+      "found": 471,
+      "match_rate": 0.8747,
+      "missing": 29,
+      "missing_rate": 0.058,
+      "sample": 500,
+      "tolerance": 0.05,
+      "within_5pct": 433,
+      "within_5pct_rate": 0.9193
+    },
+    "sentinel_misses": [],
+    "unit_outliers": [
+      {
+        "cat": "19",
+        "group": "p:Pets Shop By Brand",
+        "id": 14237731,
+        "median": 0.0152,
+        "name": "FRONTLINE Plus for Dogs",
+        "ratio": 45175.440789,
+        "unit": "fl oz",
+        "unit_price": 686.6667
+      },
+      {
+        "cat": "19",
+        "group": "p:Cats",
+        "id": 1235174081,
+        "median": 0.4915,
+        "name": "FunPillow Dumpbin 2G",
+        "ratio": 40795.653713,
+        "unit": "oz",
+        "unit_price": 20051.0638
+      },
+      {
+        "cat": "19",
+        "group": "p:Pets Shop By Brand",
+        "id": 16439955,
+        "median": 0.0152,
+        "name": "FRONTLINE Plus for Dogs",
+        "ratio": 40394.736842,
+        "unit": "fl oz",
+        "unit_price": 614.0
+      },
+      {
+        "cat": "14",
+        "group": "p:Home Health Care",
+        "id": 1390264874,
+        "median": 0.2077,
+        "name": "FLUZONE QIV 0.5ML",
+        "ratio": 33474.543572,
+        "unit": "fl oz",
+        "unit_price": 6952.6627
+      },
+      {
+        "cat": "19",
+        "group": "p:Pets Shop By Brand",
+        "id": 16439958,
+        "median": 0.0152,
+        "name": "FRONTLINE Plus for Dogs",
+        "ratio": 30087.717105,
+        "unit": "fl oz",
+        "unit_price": 457.3333
+      },
+      {
+        "cat": "30",
+        "group": "p:Air Fresheners/All Air Fresheners",
+        "id": 325874115,
+        "median": 2.5,
+        "name": "TimeMist Settings Fragrance Dispenser Black 3 2/5\"W x 3 2/5\"D x 8 1/4\"H 1047811EA",
+        "ratio": 4e-05,
+        "unit": "ct",
+        "unit_price": 0.0001
+      },
+      {
+        "cat": "14",
+        "group": "p:Medicine Cabinet/Over-the-Counter Medicines",
+        "id": 15557056882,
+        "median": 4.6372,
+        "name": "HYRIMOZ 0.2ML B 20MG",
+        "ratio": 20613.351872,
+        "unit": "fl oz",
+        "unit_price": 95588.2353
+      },
+      {
+        "cat": "27",
+        "group": "p:Home Health Care",
+        "id": 779549756,
+        "median": 1.6425,
+        "name": "Taylor Precision Products 55814072F 400lb-capacity Digital Glass Body Analyzer & UPG AAA 50 Pack",
+        "ratio": 6.1e-05,
+        "unit": "oz",
+        "unit_price": 0.0001
+      },
+      {
+        "cat": "27",
+        "group": "p:Home Health Care",
+        "id": 940971158,
+        "median": 1.6425,
+        "name": "Taylor Precision Products 55804072F 440lb-capacity Digital Glass Body Analyzer & UPG AAA 50 Pack",
+        "ratio": 6.1e-05,
+        "unit": "oz",
+        "unit_price": 0.0001
+      },
+      {
+        "cat": "14",
+        "group": "p:Home Health Care",
+        "id": 1432550670,
+        "median": 1.6425,
+        "name": "BENTISM Rubber Curb Ramp Driveway Ramp for Curb 4.25\" Rise 19.7\" Wide 33069 lbs",
+        "ratio": 6.1e-05,
+        "unit": "oz",
+        "unit_price": 0.0001
+      },
+      {
+        "cat": "14",
+        "group": "p:Home Health Care",
+        "id": 1915291114,
+        "median": 1.6425,
+        "name": "BENTISM Rubber Curb Ramp Driveway Ramp for Curb 3.7\" Rise 39.4\" Wide 33069lbs Load",
+        "ratio": 6.1e-05,
+        "unit": "oz",
+        "unit_price": 0.0001
+      },
+      {
+        "cat": "14",
+        "group": "p:Home Health Care",
+        "id": 2984313755,
+        "median": 1.6425,
+        "name": "BENTISM Curb Ramp Rubber Driveway Ramp 2.6\" Rise 15 tons Capacity Threshold Ramp",
+        "ratio": 6.1e-05,
+        "unit": "oz",
+        "unit_price": 0.0001
+      },
+      {
+        "cat": "14",
+        "group": "p:Home Health Care",
+        "id": 3084973264,
+        "median": 1.6425,
+        "name": "BENTISM Rubber Curb Ramp Driveway Ramp for Curb 6\" Rise 19.3\" Wide 33069 lbs Load",
+        "ratio": 6.1e-05,
+        "unit": "oz",
+        "unit_price": 0.0001
+      },
+      {
+        "cat": "14",
+        "group": "p:Home Health Care",
+        "id": 3992026852,
+        "median": 1.6425,
+        "name": "VEVOR Rubber Curb Ramp Driveway Ramp for Curb 2 Pack 6\" Rise 19.3\" Wide 33069lbs",
+        "ratio": 6.1e-05,
+        "unit": "oz",
+        "unit_price": 0.0001
+      },
+      {
+        "cat": "14",
+        "group": "p:Home Health Care",
+        "id": 5550793769,
+        "median": 1.6425,
+        "name": "KFFKFF Rubber Threshold Ramp Door Ramp 3\" Rise 33069 lbs Load Rubber Curb Ramp",
+        "ratio": 6.1e-05,
+        "unit": "oz",
+        "unit_price": 0.0001
+      },
+      {
+        "cat": "14",
+        "group": "p:Home Health Care",
+        "id": 5729715760,
+        "median": 1.6425,
+        "name": "KFFKFF Rubber Threshold Ramp Door Ramp 1\" Rise 33069 lbs Load Rubber Curb Ramp",
+        "ratio": 6.1e-05,
+        "unit": "oz",
+        "unit_price": 0.0001
+      },
+      {
+        "cat": "14",
+        "group": "p:Home Health Care",
+        "id": 14336422198,
+        "median": 1.6425,
+        "name": "KFFKFF Enhanced Rubber Incline Ramp, 4\" Height Doorway Ramp with Single Channel, Pure Rubber Vehicle Ramp with Anti-Slip Grainy Surface, 33069 lbs Weight Tolerance Sidewalk Ramp for Wheelchair",
+        "ratio": 6.1e-05,
+        "unit": "oz",
+        "unit_price": 0.0001
+      },
+      {
+        "cat": "14",
+        "group": "p:FSA and HSA Store/FSA and HSA Shop All",
+        "id": 34052351,
+        "median": 4.0985,
+        "name": "Baseline Tactile monofilament evaluator, 1.65 (0.008 gram) Semmes-Weinstein",
+        "ratio": 15908.065047,
+        "unit": "oz",
+        "unit_price": 65200.0
+      },
+      {
+        "cat": "16",
+        "group": "p:Pest Control/All Pest Control",
+        "id": 16622243,
+        "median": 0.6993,
+        "name": "OFF! Clip-On Mosquito Repellent Starter Kit 0.0016 Ounces",
+        "ratio": 15309.95281,
+        "unit": "oz",
+        "unit_price": 10706.25
+      },
+      {
+        "cat": "2",
+        "group": "p:Dairy & Eggs/Milk/Boxed Milk",
+        "id": 38056035,
+        "median": 0.4349,
+        "name": "Enfamil Human Milk Fortifier - 0.71g Foi",
+        "ratio": 11577.833985,
+        "unit": "oz",
+        "unit_price": 5035.2
+      },
+      {
+        "cat": "14",
+        "group": "p:Cough Cold and Flu medicine/Cold Cough and Flu",
+        "id": 15539071805,
+        "median": 1.8325,
+        "name": "(3 pack) Vicks VapoInhaler, Soothing Non-Medicated Vapor Inhaler with Menthol Scent, 2 Count",
+        "ratio": 9605.970641,
+        "unit": "fl oz",
+        "unit_price": 17602.9412
+      },
+      {
+        "cat": "28",
+        "group": "p:Pantry/Pantry meal essentials",
+        "id": 1390510331,
+        "median": 0.4331,
+        "name": "Splenda\u00ae No Calorie Sweetener Packets, 0.035 Oz Packets, 400/box, 6 Boxes/carton",
+        "ratio": 9102.752164,
+        "unit": "oz",
+        "unit_price": 3942.8571
+      },
+      {
+        "cat": "16",
+        "group": "p:Pest Control/All Pest Control",
+        "id": 16553034,
+        "median": 0.6993,
+        "name": "OFF! Clip-On Mosquito Repellent Starter Kit, 0.0016 oz",
+        "ratio": 7802.445302,
+        "unit": "oz",
+        "unit_price": 5456.25
+      },
+      {
+        "cat": "19",
+        "group": "p:Fish Supplies/Fish Aquarium Cleaners",
+        "id": 271852298,
+        "median": 0.6577,
+        "name": "Freshwater Eco-Balance (480 gal)",
+        "ratio": 0.000152,
+        "unit": "fl oz",
+        "unit_price": 0.0001
+      },
+      {
+        "cat": "19",
+        "group": "p:Fish Supplies/Fish Aquarium Cleaners",
+        "id": 685883525,
+        "median": 0.6577,
+        "name": "Reef Re-Fresh (480 gal)",
+        "ratio": 0.000152,
+        "unit": "fl oz",
+        "unit_price": 0.0001
+      }
+    ],
+    "unstable": []
+  },
+  "finalized": "2026-10-13T01:12:19+00:00",
+  "gates": {
+    "category_counts": {
+      "detail": "no previous snapshot",
+      "pass": true,
+      "threshold": 0.2,
+      "value": null
+    },
+    "departments_complete": {
+      "detail": "15 departments checked; sizing used",
+      "pass": true,
+      "threshold": 0.3,
+      "value": 0
+    },
+    "item_count": {
+      "detail": "no previous snapshot",
+      "pass": true,
+      "threshold": 0.9,
+      "value": null
+    },
+    "live_match": {
+      "detail": "433/471 within 5% (91.9%; exact 412, 87.5%) of the rows Walmart still lists; no longer listed: 29 of 500 (5.8%, not counted as wrong); consumable 92.0% of 200, durable 91.9% of 271; 25 calls",
+      "pass": true,
+      "threshold": 0.9,
+      "value": 0.9193
+    },
+    "price_drift": {
+      "detail": "no previous snapshot",
+      "pass": true,
+      "threshold": 0.02,
+      "value": null
+    },
+    "sample_review": {
+      "detail": "junk rate 5.3%, systematic junk: no, 16 examples, model claude-sonnet-5-5; notes: Mostly clean consumer goods with sensible names, sizes and flags. Only a few isolated junk rows (auto parts in Baby/Toys, keyword-stuffed marketplace names, wholesale or commercial lots, implausible prices), with no single class large enough to call systematic. The clearest pattern is category mislabeling: Christmas greeting cards under School/Office, koozies and magnets under Sports & Outdoors.",
+      "pass": false,
+      "threshold": 0.05,
+      "value": 0.053
+    },
+    "sentinels": {
+      "detail": "114/114 found and priced",
+      "pass": true,
+      "threshold": 0,
+      "value": 0
+    },
+    "size_parse": {
+      "detail": "270916/289282 Food rows sized (93.7%): 266389 with a parsed size, 8 sold by the pound, 4519 sold each",
+      "pass": true,
+      "threshold": 0.92,
+      "value": 0.9365
+    },
+    "unit_outliers": {
+      "detail": "measure-only: 21595 of 614587 unit-priced rows outside [median/10, median*10] of their category+unit group (3.51%); their per-unit prices are dropped and the rows flagged unit_price_suspect",
+      "pass": true,
+      "threshold": null,
+      "value": 0.03514
+    }
+  },
+  "passed_deterministic": true,
+  "run_id": "20261007-182439-full",
+  "status": "hold",
+  "thresholds": {
+    "audit_match_min": 0.95,
+    "audit_sample": 500,
+    "category_count_min_rows": 200,
+    "category_count_tolerance": 0.2,
+    "dept_size_tolerance": 0.3,
+    "item_count_min_ratio": 0.9,
+    "live_match_min": 0.9,
+    "live_match_tolerance": 0.05,
+    "live_missing_max": null,
+    "live_sample": 500,
+    "price_drift_max": 0.02,
+    "price_sanity": {
+      "caps": {
+        "Arts Crafts & Sewing": 2000,
+        "Auto & Tires": 5000,
+        "Baby": 2500,
+        "Beauty": 1000,
+        "Books": 500,
+        "Cell Phones": 3000,
+        "Electronics": 10000,
+        "Food": 500,
+        "Health and Medicine": 3000,
+        "Home": 5000,
+        "Home Improvement": 10000,
+        "Household Essentials": 500,
+        "Jewelry": 20000,
+        "Office Supplies": 3000,
+        "Party & Occasions": 1000,
+        "Patio & Garden": 10000,
+        "Personal Care": 1000,
+        "Pets": 2000,
+        "Pharmacy": 1000,
+        "Premium Beauty": 1500,
+        "Seasonal": 3000,
+        "Sports & Outdoors": 10000,
+        "Toys": 3000,
+        "default": 5000
+      },
+      "floor": 0.1,
+      "note": "Item prices outside [floor, min(cap, over_p99 x the department's 99th percentile)] are withheld: the app values them at an equivalent instead (crawler/process.py). Caps per department name; default when unnamed.",
+      "over_p99": 5
+    },
+    "sample_review": {
+      "max_junk_rate": 0.05,
+      "required": true,
+      "sample_size": 300
+    },
+    "sentinel_misses_max": 0,
+    "size_parse_min": 0.92,
+    "unit_outlier_group_min": 50,
+    "unit_outliers_max": null
+  },
+  "transient": false
+}
