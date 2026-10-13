@@ -1,0 +1,443 @@
+{
+  "alert": true,
+  "audit_match_min": 0.95,
+  "by_tier": {
+    "consumable": {
+      "close": 184,
+      "close_rate": 0.9436,
+      "exact": 179,
+      "found": 195,
+      "missing": 24
+    },
+    "durable": {
+      "close": 229,
+      "close_rate": 0.9347,
+      "exact": 221,
+      "found": 245,
+      "missing": 36
+    }
+  },
+  "calls": 25,
+  "checked": "2026-10-13T15:32:12+00:00",
+  "checked_rows": 500,
+  "close_rate": 0.9386,
+  "date": "2026-10-13",
+  "drift_examples": [
+    {
+      "id": 2360833670,
+      "live": null,
+      "name": "Herman Survivors Non-Aerosol Waterproofing Spray, 6.8 Ounces",
+      "snapshot": 10.88
+    },
+    {
+      "id": 141741411,
+      "live": null,
+      "name": "Set of 2 Cup Holder Car Coasters",
+      "snapshot": 12.66
+    },
+    {
+      "id": 805666428,
+      "live": null,
+      "name": "Simply Daisy Modern Monogram 28 x 36 in k Laundry Bag",
+      "snapshot": 43.75
+    },
+    {
+      "id": 910460465,
+      "live": null,
+      "name": "Excellante Passion White Melamine Dinnerware Collection 10.75 X 10.75 Inch Round Square Plate, Comes in Each",
+      "snapshot": 34.91
+    },
+    {
+      "id": 654723733,
+      "live": null,
+      "name": "Yardley Moisturizing Bar Cocoa Butter 4.25 oz",
+      "snapshot": 14.48
+    },
+    {
+      "id": 45955261,
+      "live": null,
+      "name": "goDog Just For Me Gators Squeaky Plush Dog Toy, Chew Guard Technology, Pink, Mini",
+      "snapshot": 5.9
+    },
+    {
+      "id": 3933232380,
+      "live": null,
+      "name": "LUXPaper A8 Invitation Envelopes w/Peel & Press, 5 1/2 x 8 1/8, Midnight Black, 50 Pack",
+      "snapshot": 13.95
+    },
+    {
+      "id": 17731263998,
+      "live": null,
+      "name": "Klear Vu Indoor/Outdoor Boardwalk Stripe Rocking Chair Seat and Seatback Cushion Set",
+      "snapshot": 39.64
+    },
+    {
+      "id": 16550839,
+      "live": null,
+      "name": "Vim WS55 Heavy Duty Work Shears with Belt Loop Sheath",
+      "snapshot": 27.74
+    },
+    {
+      "id": 16213252,
+      "live": null,
+      "name": "Ball 12-Pack Wide Mouth Lids without Bands",
+      "snapshot": 4.59
+    },
+    {
+      "id": 5344903917,
+      "live": null,
+      "name": "Pit Bull Terrier My Valentine Greeting Cards Pack of 8 7 in x 5 in",
+      "snapshot": 13.89
+    },
+    {
+      "id": 761559901,
+      "live": null,
+      "name": "Flexicore Packaging\u00ae 5.25\"x3.25\"x13\" - 25 pcs - Natural Brown Kraft Wine Paper Bags, Shopping, Mechandise, Party, Gift Bags",
+      "snapshot": 24.99
+    },
+    {
+      "id": 50661099,
+      "live": null,
+      "name": "Beech-Nut Naturals Stage 1 Baby Food, Apple, 4 oz Jar (10 Pack)",
+      "snapshot": 9.62
+    },
+    {
+      "id": 16777456,
+      "live": null,
+      "name": "Ogilvie The Original Home Perm Kit, for Normal Hair with Extra Body, 1 Count",
+      "snapshot": 12.97
+    },
+    {
+      "id": 621719862,
+      "live": null,
+      "name": "Fingertip Pulse Oximeter, Case of 25",
+      "snapshot": 1250.0
+    },
+    {
+      "id": 12852363136,
+      "live": null,
+      "name": "Bath Bliss Smooth Matte Stainless Steel Toilet Brush & Holder with 2 Pack Replacement Brushes in White",
+      "snapshot": 25.99
+    },
+    {
+      "id": 685363371,
+      "live": null,
+      "name": "Harper Lane Tropical Vibes 3-Piece Reversible Quilt Set Full/Queen Adult",
+      "snapshot": 44.0
+    },
+    {
+      "id": 19718964909,
+      "live": null,
+      "name": "Mainstays Velvet Plush Bed Blanket, Mocha Floral, Twin Size",
+      "snapshot": 17.96
+    },
+    {
+      "id": 5674832316,
+      "live": null,
+      "name": "Noble Linens 300 Thread Count 4 Piece Cotton Sheet Set in White ,Twin",
+      "snapshot": 52.32
+    },
+    {
+      "id": 3386305036,
+      "live": null,
+      "name": "LUXPaper A8 Invitation Envelopes w/Peel & Press, 5 1/2 x 8 1/8, Midnight Black, 250 Pack",
+      "snapshot": 58.69
+    },
+    {
+      "id": 2099664883,
+      "live": null,
+      "name": "LUXPaper Certificate Holders for 8 1/2 x 11 Documents, 100 lb, Nautical Blue Linen, Gold Foil Floral Border, 25 Pack, Holder Size 9 1/2 x 12",
+      "snapshot": 26.95
+    },
+    {
+      "id": 737065843,
+      "live": null,
+      "name": "(2 Pack) Creme of Nature Exotic Shine Color Intensive Red 7.6 Permanent Hair Color, 1 application",
+      "snapshot": 8.43
+    },
+    {
+      "id": 20809812077,
+      "live": null,
+      "name": "Babyletto Crib Sheet in GOTS Certified Organic Muslin Cotton",
+      "snapshot": 48.0
+    },
+    {
+      "id": 47243683,
+      "live": null,
+      "name": "InterDesign Aldo Fabric Storage Organizer Collection",
+      "snapshot": 9.88
+    },
+    {
+      "id": 225935007,
+      "live": null,
+      "name": "Simply Daisy Canvas Starfish Ornaments 18 x 29 in Purple Laundry Bag",
+      "snapshot": 31.25
+    }
+  ],
+  "exact": 400,
+  "found": 440,
+  "live_error": null,
+  "match_rate": 0.9091,
+  "missing": 60,
+  "outlier_examples": [
+    {
+      "cat": "30",
+      "group": "p:Beauty by Top Brands",
+      "id": 26958762,
+      "median": 37.375,
+      "name": "Avalon Organics Lavender Nourishing Conditioner, 32 Ounce Bottle",
+      "ratio": 0.009348,
+      "unit": "oz",
+      "unit_price": 0.3494
+    },
+    {
+      "cat": "15",
+      "group": "p:Beauty by Top Brands",
+      "id": 14336659,
+      "median": 37.375,
+      "name": "Avalon Organics Nourishing Lavender Glycerin Hand Soap, 12 oz.",
+      "ratio": 0.012262,
+      "unit": "oz",
+      "unit_price": 0.4583
+    },
+    {
+      "cat": "15",
+      "group": "p:Beauty by Top Brands",
+      "id": 14336660,
+      "median": 37.375,
+      "name": "Avalon Organics Refreshing Lemon Glycerin Hand Soap, 12 oz.",
+      "ratio": 0.012262,
+      "unit": "oz",
+      "unit_price": 0.4583
+    },
+    {
+      "cat": "19",
+      "group": "p:Dogs/Dog Toys",
+      "id": 14260504581,
+      "median": 0.0172,
+      "name": "KONG\u00ae Ziggies Enhanced Dog Treats, Supports Oral Health, Small, 7 oz",
+      "ratio": 80.313953,
+      "unit": "oz",
+      "unit_price": 1.3814
+    },
+    {
+      "cat": "19",
+      "group": "p:Dogs/Dog Toys",
+      "id": 14254502069,
+      "median": 0.0172,
+      "name": "KONG\u00ae Ziggies Enhanced Dog Treats, Supports Oral Health, Medium/Large, 8 oz",
+      "ratio": 79.872093,
+      "unit": "oz",
+      "unit_price": 1.3738
+    },
+    {
+      "cat": "19",
+      "group": "p:Dogs/Dog Toys",
+      "id": 25265490,
+      "median": 0.0172,
+      "name": "KONG Natural Jerky, Chicken, 5 oz",
+      "ratio": 79.767442,
+      "unit": "oz",
+      "unit_price": 1.372
+    },
+    {
+      "cat": "19",
+      "group": "p:Dogs/Dog Toys",
+      "id": 55396174,
+      "median": 0.0172,
+      "name": "Kong Liver Snacks - Small (7 Oz)",
+      "ratio": 74.005814,
+      "unit": "oz",
+      "unit_price": 1.2729
+    },
+    {
+      "cat": "30",
+      "group": "p:Beauty by Top Brands",
+      "id": 10324706,
+      "median": 37.375,
+      "name": "Avalon Organics Biotin B-Complex Thickening Shampoo, 14 oz.",
+      "ratio": 0.013835,
+      "unit": "oz",
+      "unit_price": 0.5171
+    },
+    {
+      "cat": "15",
+      "group": "p:Beauty by Top Brands",
+      "id": 334930510,
+      "median": 37.375,
+      "name": "Organics Glycerin Hand Soap - Lavender by Avalon for Unisex - 12 oz Soap",
+      "ratio": 0.014871,
+      "unit": "oz",
+      "unit_price": 0.5558
+    },
+    {
+      "cat": "30",
+      "group": "p:Beauty by Top Brands",
+      "id": 10324708,
+      "median": 37.375,
+      "name": "Avalon Organics Biotin B-Complex Thickening Conditioner, 14 oz.",
+      "ratio": 0.014927,
+      "unit": "oz",
+      "unit_price": 0.5579
+    },
+    {
+      "cat": "19",
+      "group": "p:Dogs/Dog Toys",
+      "id": 19629122,
+      "median": 0.0172,
+      "name": "KONG\u00ae Stuff' N Easy Treat Easy Nozzle Control Dog Treat, Liver, 8 Ounces",
+      "ratio": 65.116279,
+      "unit": "oz",
+      "unit_price": 1.12
+    },
+    {
+      "cat": "19",
+      "group": "p:Dogs/Dog Toys",
+      "id": 25401575,
+      "median": 0.0172,
+      "name": "KONG\u00ae Stuff' N Easy Treat Easy Nozzle Control Dog Treat, Pepperoni, 8 Ounces",
+      "ratio": 65.116279,
+      "unit": "oz",
+      "unit_price": 1.12
+    },
+    {
+      "cat": "19",
+      "group": "p:Dogs/Dog Toys",
+      "id": 44817835,
+      "median": 0.0172,
+      "name": "KONG\u00ae Stuff' N Easy Treat Easy Nozzle Control Dog Treat, Bacon and Cheese, 8 Ounces",
+      "ratio": 65.116279,
+      "unit": "oz",
+      "unit_price": 1.12
+    },
+    {
+      "cat": "15",
+      "group": "p:Beauty by Top Brands",
+      "id": 26958690,
+      "median": 37.375,
+      "name": "Avalon Organics Nourishing Lavender Hand & Body Lotion, 32 oz.",
+      "ratio": 0.015577,
+      "unit": "oz",
+      "unit_price": 0.5822
+    },
+    {
+      "cat": "30",
+      "group": "p:Beauty by Top Brands",
+      "id": 26958679,
+      "median": 37.375,
+      "name": "Avalon Organics Biotin B-Complex Thickening Therapy Conditioner, 32 oz.",
+      "ratio": 0.015703,
+      "unit": "oz",
+      "unit_price": 0.5869
+    },
+    {
+      "cat": "15",
+      "group": "p:Beauty by Top Brands",
+      "id": 499367636,
+      "median": 37.375,
+      "name": "Organics Hand and Body Lotion - Nourishing Lavender by Avalon for Unisex - 12 oz Lotion",
+      "ratio": 0.015898,
+      "unit": "oz",
+      "unit_price": 0.5942
+    },
+    {
+      "cat": "30",
+      "group": "p:Beauty by Top Brands",
+      "id": 26958933,
+      "median": 37.375,
+      "name": "Avalon Organics Therapy Tea Tree Mint Scalp Normalizing Conditioner, 14 oz",
+      "ratio": 0.016436,
+      "unit": "oz",
+      "unit_price": 0.6143
+    },
+    {
+      "cat": "19",
+      "group": "p:Dogs/Dog Toys",
+      "id": 547748991,
+      "median": 0.0172,
+      "name": "KONG\u00ae Stuff' N Easy Treat Easy Nozzle Control Dog Treat, Peanut Butter, 14 Ounces",
+      "ratio": 58.017442,
+      "unit": "oz",
+      "unit_price": 0.9979
+    },
+    {
+      "cat": "30",
+      "group": "p:Beauty by Top Brands",
+      "id": 55614270,
+      "median": 37.375,
+      "name": "Organics Scalp Normalizing Tea Tree Mint Therapy Shampoo by Avalon Organics for Unisex - 14 oz Shampoo",
+      "ratio": 0.017525,
+      "unit": "oz",
+      "unit_price": 0.655
+    },
+    {
+      "cat": "30",
+      "group": "p:Beauty by Top Brands",
+      "id": 143045225,
+      "median": 37.375,
+      "name": "Avalon Organics Conditioner - Cucumber - Gluten Free - 11 oz - 1 each",
+      "ratio": 0.017731,
+      "unit": "oz",
+      "unit_price": 0.6627
+    },
+    {
+      "cat": "15",
+      "group": "p:Beauty by Top Brands",
+      "id": 124309180,
+      "median": 37.375,
+      "name": "Avalon Organics Hand And Body Lotion - Cucumber - Gluten Free - 12 Oz - 1 Each",
+      "ratio": 0.018462,
+      "unit": "oz",
+      "unit_price": 0.69
+    },
+    {
+      "cat": "30",
+      "group": "p:Beauty by Top Brands",
+      "id": 10324674,
+      "median": 37.375,
+      "name": "Avalon Organics Clarifying Lemon Shampoo",
+      "ratio": 0.019168,
+      "unit": "oz",
+      "unit_price": 0.7164
+    },
+    {
+      "cat": "30",
+      "group": "p:Beauty by Top Brands",
+      "id": 10324698,
+      "median": 37.375,
+      "name": "Avalon Organics Nourishing Lavender Conditioner, 11 oz",
+      "ratio": 0.019168,
+      "unit": "oz",
+      "unit_price": 0.7164
+    },
+    {
+      "cat": "19",
+      "group": "p:Dogs/Dog Toys",
+      "id": 55396173,
+      "median": 0.0172,
+      "name": "KONG Bacon and Cheese Easy Treats (8 oz)",
+      "ratio": 51.674419,
+      "unit": "oz",
+      "unit_price": 0.8888
+    },
+    {
+      "cat": "19",
+      "group": "p:Dogs/Dog Toys",
+      "id": 3635310,
+      "median": 0.0172,
+      "name": "Kong Liver Snacks - Large (11 Oz)",
+      "ratio": 51.482558,
+      "unit": "oz",
+      "unit_price": 0.8855
+    }
+  ],
+  "outlier_rows": 1754,
+  "outlier_share": 0.00296,
+  "published": "2026-10-13T15:31:00+00:00",
+  "sample": 500,
+  "status": "ok",
+  "tolerance": 0.05,
+  "unit_priced_rows": 592992,
+  "version": "20261007-182439-full",
+  "within_5pct": 0.9386
+}
