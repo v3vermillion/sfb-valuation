@@ -1,7 +1,80 @@
 {
-  "checked": "2026-10-14T10:38:29+00:00",
-  "due": 2307628,
-  "next_due": "2026-10-20",
-  "records": 62280,
+  "by_dept": {
+    "Food": {
+      "checked": 155,
+      "compared": 21,
+      "gone": 134,
+      "higher": 3,
+      "lower": 2,
+      "not_walmart": 37,
+      "out_of_stock": 13,
+      "priced": 21,
+      "same": 16,
+      "within_5pct": 19
+    },
+    "Health and Medicine": {
+      "checked": 96,
+      "compared": 7,
+      "gone": 89,
+      "higher": 2,
+      "lower": 0,
+      "not_walmart": 19,
+      "out_of_stock": 2,
+      "priced": 7,
+      "same": 5,
+      "within_5pct": 5
+    },
+    "Household Essentials": {
+      "checked": 35,
+      "compared": 7,
+      "gone": 28,
+      "higher": 0,
+      "lower": 0,
+      "not_walmart": 9,
+      "out_of_stock": 2,
+      "priced": 7,
+      "same": 7,
+      "within_5pct": 7
+    },
+    "Personal Care": {
+      "checked": 34,
+      "compared": 7,
+      "gone": 27,
+      "higher": 2,
+      "lower": 0,
+      "not_walmart": 6,
+      "out_of_stock": 4,
+      "priced": 7,
+      "same": 5,
+      "within_5pct": 6
+    }
+  },
+  "checked": "2026-10-14T15:31:26+00:00",
+  "due": 970621,
+  "next_due": "2026-10-14",
+  "records": 320,
+  "scope": [
+    {
+      "departments": [
+        "Food",
+        "Health and Medicine",
+        "Household Essentials",
+        "Personal Care"
+      ],
+      "max_age_days": 42,
+      "refresh_every_days": 28
+    },
+    {
+      "departments": [
+        "Baby",
+        "Beauty",
+        "Pets",
+        "Pharmacy",
+        "Premium Beauty"
+      ],
+      "max_age_days": 70,
+      "refresh_every_days": 56
+    }
+  ],
   "store_id": "2266"
 }
