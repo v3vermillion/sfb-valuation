@@ -1,10 +1,10 @@
 {
   "by_dept": {
     "Food": {
-      "checked": 1233,
+      "checked": 1311,
       "compared": 47,
       "error": 0,
-      "gone": 1186,
+      "gone": 1264,
       "higher": 3,
       "lower": 0,
       "not_walmart": 37,
@@ -40,10 +40,10 @@
       "within_5pct": 6
     },
     "Personal Care": {
-      "checked": 24,
+      "checked": 26,
       "compared": 2,
       "error": 0,
-      "gone": 22,
+      "gone": 24,
       "higher": 0,
       "lower": 0,
       "not_walmart": 1,
@@ -54,9 +54,9 @@
     }
   },
   "checked": "2026-10-15T20:19:01+00:00",
-  "due": 847081,
+  "due": 847001,
   "next_due": "2026-10-15",
-  "records": 123860,
+  "records": 123940,
   "scope": [
     {
       "departments": [
