@@ -1,52 +1,52 @@
 {
   "by_dept": {
     "Food": {
-      "checked": 19672,
-      "compared": 12542,
+      "checked": 19708,
+      "compared": 12555,
       "error": 0,
-      "gone": 7130,
-      "higher": 1513,
+      "gone": 7153,
+      "higher": 1517,
       "lower": 701,
-      "not_walmart": 1333,
-      "out_of_stock": 9050,
-      "priced": 12542,
-      "same": 10328,
-      "within_5pct": 11148
+      "not_walmart": 1338,
+      "out_of_stock": 9054,
+      "priced": 12555,
+      "same": 10337,
+      "within_5pct": 11158
     },
     "Health and Medicine": {
-      "checked": 6287,
-      "compared": 2235,
+      "checked": 6300,
+      "compared": 2238,
       "error": 0,
-      "gone": 4052,
+      "gone": 4062,
       "higher": 187,
       "lower": 103,
       "not_walmart": 939,
-      "out_of_stock": 797,
-      "priced": 2235,
-      "same": 1945,
-      "within_5pct": 2029
+      "out_of_stock": 799,
+      "priced": 2238,
+      "same": 1948,
+      "within_5pct": 2032
     },
     "Household Essentials": {
-      "checked": 4089,
-      "compared": 2042,
+      "checked": 4096,
+      "compared": 2043,
       "error": 0,
-      "gone": 2047,
+      "gone": 2053,
       "higher": 184,
       "lower": 107,
       "not_walmart": 636,
-      "out_of_stock": 931,
-      "priced": 2042,
-      "same": 1751,
-      "within_5pct": 1858
+      "out_of_stock": 932,
+      "priced": 2043,
+      "same": 1752,
+      "within_5pct": 1859
     },
     "Personal Care": {
-      "checked": 2772,
+      "checked": 2776,
       "compared": 1075,
       "error": 0,
-      "gone": 1697,
+      "gone": 1701,
       "higher": 96,
       "lower": 101,
-      "not_walmart": 278,
+      "not_walmart": 280,
       "out_of_stock": 452,
       "priced": 1075,
       "same": 878,
@@ -54,9 +54,9 @@
     }
   },
   "checked": "2026-10-15T05:09:05+00:00",
-  "due": 878201,
+  "due": 878141,
   "next_due": "2026-10-15",
-  "records": 92740,
+  "records": 92800,
   "scope": [
     {
       "departments": [
