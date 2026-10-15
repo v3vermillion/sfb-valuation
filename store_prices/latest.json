@@ -1,62 +1,62 @@
 {
   "by_dept": {
     "Food": {
-      "checked": 17760,
-      "compared": 5953,
+      "checked": 17802,
+      "compared": 5962,
       "error": 0,
-      "gone": 11807,
-      "higher": 1066,
+      "gone": 11840,
+      "higher": 1069,
       "lower": 490,
-      "not_walmart": 3318,
+      "not_walmart": 3324,
       "out_of_stock": 2533,
-      "priced": 5953,
-      "same": 4397,
-      "within_5pct": 4784
+      "priced": 5962,
+      "same": 4403,
+      "within_5pct": 4791
     },
     "Health and Medicine": {
-      "checked": 6465,
-      "compared": 1022,
+      "checked": 6496,
+      "compared": 1025,
       "error": 0,
-      "gone": 5443,
-      "higher": 126,
+      "gone": 5471,
+      "higher": 127,
       "lower": 99,
-      "not_walmart": 1284,
-      "out_of_stock": 360,
-      "priced": 1022,
-      "same": 797,
-      "within_5pct": 830
+      "not_walmart": 1291,
+      "out_of_stock": 362,
+      "priced": 1025,
+      "same": 799,
+      "within_5pct": 832
     },
     "Household Essentials": {
-      "checked": 2334,
-      "compared": 532,
+      "checked": 2347,
+      "compared": 538,
       "error": 0,
-      "gone": 1802,
+      "gone": 1809,
       "higher": 44,
       "lower": 36,
-      "not_walmart": 584,
-      "out_of_stock": 234,
-      "priced": 532,
-      "same": 452,
-      "within_5pct": 478
+      "not_walmart": 585,
+      "out_of_stock": 235,
+      "priced": 538,
+      "same": 458,
+      "within_5pct": 484
     },
     "Personal Care": {
-      "checked": 3661,
-      "compared": 622,
+      "checked": 3675,
+      "compared": 626,
       "error": 0,
-      "gone": 3039,
+      "gone": 3049,
       "higher": 51,
       "lower": 87,
-      "not_walmart": 684,
+      "not_walmart": 686,
       "out_of_stock": 199,
-      "priced": 622,
-      "same": 484,
-      "within_5pct": 521
+      "priced": 626,
+      "same": 488,
+      "within_5pct": 525
     }
   },
   "checked": "2026-10-14T19:04:21+00:00",
-  "due": 940401,
+  "due": 940301,
   "next_due": "2026-10-14",
-  "records": 30540,
+  "records": 30640,
   "scope": [
     {
       "departments": [
