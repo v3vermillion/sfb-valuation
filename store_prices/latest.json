@@ -1,39 +1,39 @@
 {
   "by_dept": {
     "Food": {
-      "checked": 1311,
-      "compared": 47,
+      "checked": 1603,
+      "compared": 60,
       "error": 0,
-      "gone": 1264,
+      "gone": 1543,
       "higher": 3,
       "lower": 0,
-      "not_walmart": 37,
-      "out_of_stock": 37,
-      "priced": 47,
-      "same": 44,
-      "within_5pct": 44
+      "not_walmart": 57,
+      "out_of_stock": 48,
+      "priced": 60,
+      "same": 57,
+      "within_5pct": 57
     },
     "Health and Medicine": {
-      "checked": 55,
-      "compared": 2,
+      "checked": 69,
+      "compared": 3,
       "error": 0,
-      "gone": 53,
+      "gone": 66,
       "higher": 1,
       "lower": 0,
-      "not_walmart": 4,
+      "not_walmart": 6,
       "out_of_stock": 2,
-      "priced": 2,
-      "same": 1,
-      "within_5pct": 1
+      "priced": 3,
+      "same": 2,
+      "within_5pct": 2
     },
     "Household Essentials": {
-      "checked": 28,
+      "checked": 42,
       "compared": 6,
       "error": 0,
-      "gone": 22,
+      "gone": 36,
       "higher": 0,
       "lower": 0,
-      "not_walmart": 5,
+      "not_walmart": 9,
       "out_of_stock": 0,
       "priced": 6,
       "same": 6,
@@ -54,9 +54,9 @@
     }
   },
   "checked": "2026-10-15T20:19:01+00:00",
-  "due": 847001,
+  "due": 846681,
   "next_due": "2026-10-15",
-  "records": 123940,
+  "records": 124260,
   "scope": [
     {
       "departments": [
