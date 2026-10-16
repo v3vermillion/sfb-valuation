@@ -1,62 +1,62 @@
 {
   "by_dept": {
     "Food": {
-      "checked": 4476,
-      "compared": 614,
+      "checked": 4520,
+      "compared": 624,
       "error": 0,
-      "gone": 3862,
+      "gone": 3896,
       "higher": 66,
-      "lower": 19,
-      "not_walmart": 281,
-      "out_of_stock": 381,
-      "priced": 614,
-      "same": 529,
-      "within_5pct": 559
+      "lower": 20,
+      "not_walmart": 288,
+      "out_of_stock": 386,
+      "priced": 624,
+      "same": 538,
+      "within_5pct": 568
     },
     "Health and Medicine": {
-      "checked": 1099,
-      "compared": 165,
+      "checked": 1108,
+      "compared": 170,
       "error": 0,
-      "gone": 934,
-      "higher": 23,
-      "lower": 13,
-      "not_walmart": 296,
+      "gone": 938,
+      "higher": 24,
+      "lower": 14,
+      "not_walmart": 297,
       "out_of_stock": 59,
-      "priced": 165,
-      "same": 129,
-      "within_5pct": 133
+      "priced": 170,
+      "same": 132,
+      "within_5pct": 137
     },
     "Household Essentials": {
-      "checked": 426,
-      "compared": 133,
+      "checked": 442,
+      "compared": 141,
       "error": 0,
-      "gone": 293,
-      "higher": 11,
+      "gone": 301,
+      "higher": 12,
       "lower": 9,
-      "not_walmart": 64,
-      "out_of_stock": 31,
-      "priced": 133,
-      "same": 113,
-      "within_5pct": 116
+      "not_walmart": 67,
+      "out_of_stock": 32,
+      "priced": 141,
+      "same": 120,
+      "within_5pct": 123
     },
     "Personal Care": {
-      "checked": 299,
-      "compared": 81,
+      "checked": 310,
+      "compared": 86,
       "error": 0,
-      "gone": 218,
+      "gone": 224,
       "higher": 8,
       "lower": 7,
       "not_walmart": 48,
       "out_of_stock": 17,
-      "priced": 81,
-      "same": 66,
-      "within_5pct": 75
+      "priced": 86,
+      "same": 71,
+      "within_5pct": 80
     }
   },
   "checked": "2026-10-16T06:31:08+00:00",
-  "due": 836261,
+  "due": 836181,
   "next_due": "2026-10-16",
-  "records": 134680,
+  "records": 134760,
   "scope": [
     {
       "departments": [
