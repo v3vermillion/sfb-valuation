@@ -1,17 +1,17 @@
 {
   "by_dept": {
     "Food": {
-      "checked": 1902,
-      "compared": 370,
+      "checked": 2042,
+      "compared": 374,
       "error": 0,
-      "gone": 1532,
+      "gone": 1668,
       "higher": 45,
       "lower": 13,
-      "not_walmart": 147,
-      "out_of_stock": 211,
-      "priced": 370,
-      "same": 312,
-      "within_5pct": 333
+      "not_walmart": 148,
+      "out_of_stock": 215,
+      "priced": 374,
+      "same": 316,
+      "within_5pct": 337
     },
     "Health and Medicine": {
       "checked": 838,
@@ -54,9 +54,9 @@
     }
   },
   "checked": "2026-10-16T06:31:08+00:00",
-  "due": 839321,
+  "due": 839181,
   "next_due": "2026-10-16",
-  "records": 131620,
+  "records": 131760,
   "scope": [
     {
       "departments": [
