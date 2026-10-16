@@ -1,23 +1,23 @@
 {
   "by_dept": {
     "Food": {
-      "checked": 3069,
-      "compared": 418,
+      "checked": 3206,
+      "compared": 422,
       "error": 0,
-      "gone": 2651,
+      "gone": 2784,
       "higher": 47,
       "lower": 13,
-      "not_walmart": 169,
-      "out_of_stock": 257,
-      "priced": 418,
-      "same": 358,
-      "within_5pct": 380
+      "not_walmart": 174,
+      "out_of_stock": 261,
+      "priced": 422,
+      "same": 362,
+      "within_5pct": 384
     },
     "Health and Medicine": {
-      "checked": 844,
+      "checked": 846,
       "compared": 134,
       "error": 0,
-      "gone": 710,
+      "gone": 712,
       "higher": 19,
       "lower": 11,
       "not_walmart": 213,
@@ -27,13 +27,13 @@
       "within_5pct": 107
     },
     "Household Essentials": {
-      "checked": 300,
+      "checked": 301,
       "compared": 85,
       "error": 0,
-      "gone": 215,
+      "gone": 216,
       "higher": 8,
       "lower": 5,
-      "not_walmart": 45,
+      "not_walmart": 46,
       "out_of_stock": 18,
       "priced": 85,
       "same": 72,
@@ -54,9 +54,9 @@
     }
   },
   "checked": "2026-10-16T06:31:08+00:00",
-  "due": 838141,
+  "due": 838001,
   "next_due": "2026-10-16",
-  "records": 132800,
+  "records": 132940,
   "scope": [
     {
       "departments": [
