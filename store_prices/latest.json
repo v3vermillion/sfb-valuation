@@ -1,62 +1,62 @@
 {
   "by_dept": {
     "Food": {
-      "checked": 1755,
-      "compared": 715,
+      "checked": 2005,
+      "compared": 824,
       "error": 0,
-      "gone": 1040,
-      "higher": 92,
-      "lower": 38,
-      "not_walmart": 209,
-      "out_of_stock": 330,
-      "priced": 715,
-      "same": 585,
-      "within_5pct": 634
+      "gone": 1181,
+      "higher": 103,
+      "lower": 42,
+      "not_walmart": 239,
+      "out_of_stock": 383,
+      "priced": 824,
+      "same": 679,
+      "within_5pct": 735
     },
     "Health and Medicine": {
-      "checked": 798,
-      "compared": 167,
+      "checked": 927,
+      "compared": 194,
       "error": 0,
-      "gone": 631,
-      "higher": 12,
-      "lower": 11,
-      "not_walmart": 168,
-      "out_of_stock": 37,
-      "priced": 167,
-      "same": 144,
-      "within_5pct": 152
-    },
-    "Household Essentials": {
-      "checked": 442,
-      "compared": 178,
-      "error": 0,
-      "gone": 264,
-      "higher": 10,
-      "lower": 9,
-      "not_walmart": 92,
-      "out_of_stock": 63,
-      "priced": 178,
-      "same": 159,
-      "within_5pct": 170
-    },
-    "Personal Care": {
-      "checked": 405,
-      "compared": 149,
-      "error": 0,
-      "gone": 256,
+      "gone": 733,
       "higher": 14,
       "lower": 12,
-      "not_walmart": 44,
-      "out_of_stock": 38,
-      "priced": 149,
-      "same": 123,
-      "within_5pct": 133
+      "not_walmart": 185,
+      "out_of_stock": 44,
+      "priced": 194,
+      "same": 168,
+      "within_5pct": 177
+    },
+    "Household Essentials": {
+      "checked": 494,
+      "compared": 197,
+      "error": 0,
+      "gone": 297,
+      "higher": 12,
+      "lower": 9,
+      "not_walmart": 101,
+      "out_of_stock": 71,
+      "priced": 197,
+      "same": 176,
+      "within_5pct": 189
+    },
+    "Personal Care": {
+      "checked": 474,
+      "compared": 169,
+      "error": 0,
+      "gone": 305,
+      "higher": 14,
+      "lower": 12,
+      "not_walmart": 55,
+      "out_of_stock": 39,
+      "priced": 169,
+      "same": 143,
+      "within_5pct": 153
     }
   },
   "checked": "2026-10-16T11:33:18+00:00",
-  "due": 832781,
+  "due": 832281,
   "next_due": "2026-10-16",
-  "records": 138160,
+  "records": 138660,
   "scope": [
     {
       "departments": [
