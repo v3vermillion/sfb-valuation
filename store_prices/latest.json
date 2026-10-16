@@ -1,13 +1,13 @@
 {
   "by_dept": {
     "Food": {
-      "checked": 411,
+      "checked": 511,
       "compared": 12,
       "error": 0,
-      "gone": 399,
+      "gone": 499,
       "higher": 0,
       "lower": 0,
-      "not_walmart": 4,
+      "not_walmart": 5,
       "out_of_stock": 10,
       "priced": 12,
       "same": 12,
@@ -41,9 +41,9 @@
     }
   },
   "checked": "2026-10-16T01:25:47+00:00",
-  "due": 845281,
+  "due": 845181,
   "next_due": "2026-10-16",
-  "records": 125660,
+  "records": 125760,
   "scope": [
     {
       "departments": [
