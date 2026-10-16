@@ -1,62 +1,62 @@
 {
   "by_dept": {
     "Food": {
-      "checked": 1805,
-      "compared": 134,
+      "checked": 2066,
+      "compared": 151,
       "error": 0,
-      "gone": 1671,
-      "higher": 19,
+      "gone": 1915,
+      "higher": 20,
       "lower": 12,
-      "not_walmart": 53,
-      "out_of_stock": 81,
-      "priced": 134,
-      "same": 103,
-      "within_5pct": 114
+      "not_walmart": 64,
+      "out_of_stock": 93,
+      "priced": 151,
+      "same": 119,
+      "within_5pct": 131
     },
     "Health and Medicine": {
-      "checked": 154,
-      "compared": 37,
+      "checked": 194,
+      "compared": 42,
       "error": 0,
-      "gone": 117,
+      "gone": 152,
       "higher": 4,
       "lower": 1,
-      "not_walmart": 20,
-      "out_of_stock": 11,
-      "priced": 37,
-      "same": 32,
-      "within_5pct": 35
+      "not_walmart": 26,
+      "out_of_stock": 12,
+      "priced": 42,
+      "same": 37,
+      "within_5pct": 40
     },
     "Household Essentials": {
-      "checked": 104,
-      "compared": 26,
+      "checked": 116,
+      "compared": 28,
       "error": 0,
-      "gone": 78,
+      "gone": 88,
       "higher": 1,
       "lower": 1,
-      "not_walmart": 25,
+      "not_walmart": 29,
       "out_of_stock": 7,
-      "priced": 26,
-      "same": 24,
-      "within_5pct": 24
+      "priced": 28,
+      "same": 26,
+      "within_5pct": 26
     },
     "Personal Care": {
-      "checked": 137,
-      "compared": 14,
+      "checked": 144,
+      "compared": 15,
       "error": 0,
-      "gone": 123,
+      "gone": 129,
       "higher": 0,
       "lower": 2,
-      "not_walmart": 13,
+      "not_walmart": 14,
       "out_of_stock": 5,
-      "priced": 14,
-      "same": 12,
-      "within_5pct": 12
+      "priced": 15,
+      "same": 13,
+      "within_5pct": 13
     }
   },
   "checked": "2026-10-16T01:25:47+00:00",
-  "due": 843501,
+  "due": 843181,
   "next_due": "2026-10-16",
-  "records": 127440,
+  "records": 127760,
   "scope": [
     {
       "departments": [
