@@ -1,62 +1,62 @@
 {
   "by_dept": {
     "Food": {
-      "checked": 997,
-      "compared": 98,
+      "checked": 1115,
+      "compared": 124,
       "error": 0,
-      "gone": 899,
-      "higher": 12,
-      "lower": 4,
-      "not_walmart": 53,
-      "out_of_stock": 57,
-      "priced": 98,
-      "same": 82,
-      "within_5pct": 85
+      "gone": 991,
+      "higher": 14,
+      "lower": 7,
+      "not_walmart": 67,
+      "out_of_stock": 66,
+      "priced": 124,
+      "same": 103,
+      "within_5pct": 107
     },
     "Health and Medicine": {
-      "checked": 92,
-      "compared": 12,
+      "checked": 132,
+      "compared": 21,
       "error": 0,
-      "gone": 80,
+      "gone": 111,
       "higher": 0,
       "lower": 0,
-      "not_walmart": 12,
-      "out_of_stock": 9,
-      "priced": 12,
-      "same": 12,
-      "within_5pct": 12
+      "not_walmart": 14,
+      "out_of_stock": 15,
+      "priced": 21,
+      "same": 21,
+      "within_5pct": 21
     },
     "Household Essentials": {
-      "checked": 107,
-      "compared": 24,
+      "checked": 120,
+      "compared": 29,
       "error": 0,
-      "gone": 83,
+      "gone": 91,
       "higher": 2,
       "lower": 2,
-      "not_walmart": 6,
-      "out_of_stock": 4,
-      "priced": 24,
-      "same": 20,
-      "within_5pct": 20
+      "not_walmart": 7,
+      "out_of_stock": 9,
+      "priced": 29,
+      "same": 25,
+      "within_5pct": 25
     },
     "Personal Care": {
-      "checked": 24,
-      "compared": 8,
+      "checked": 33,
+      "compared": 10,
       "error": 0,
-      "gone": 16,
+      "gone": 23,
       "higher": 0,
       "lower": 2,
-      "not_walmart": 1,
-      "out_of_stock": 0,
-      "priced": 8,
-      "same": 6,
-      "within_5pct": 8
+      "not_walmart": 2,
+      "out_of_stock": 1,
+      "priced": 10,
+      "same": 8,
+      "within_5pct": 10
     }
   },
   "checked": "2026-10-16T06:31:08+00:00",
-  "due": 841341,
+  "due": 841161,
   "next_due": "2026-10-16",
-  "records": 129600,
+  "records": 129780,
   "scope": [
     {
       "departments": [
