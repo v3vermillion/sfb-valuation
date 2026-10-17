@@ -1,26 +1,26 @@
 {
   "by_dept": {
     "Food": {
-      "checked": 516,
-      "compared": 299,
+      "checked": 851,
+      "compared": 308,
       "error": 0,
-      "gone": 217,
+      "gone": 543,
       "higher": 44,
       "lower": 22,
-      "not_walmart": 35,
-      "out_of_stock": 171,
-      "priced": 299,
-      "same": 233,
-      "within_5pct": 259
+      "not_walmart": 49,
+      "out_of_stock": 180,
+      "priced": 308,
+      "same": 242,
+      "within_5pct": 268
     },
     "Health and Medicine": {
-      "checked": 144,
+      "checked": 148,
       "compared": 34,
       "error": 0,
-      "gone": 110,
+      "gone": 114,
       "higher": 6,
       "lower": 2,
-      "not_walmart": 21,
+      "not_walmart": 22,
       "out_of_stock": 10,
       "priced": 34,
       "same": 26,
@@ -40,23 +40,23 @@
       "within_5pct": 82
     },
     "Personal Care": {
-      "checked": 82,
-      "compared": 32,
+      "checked": 83,
+      "compared": 33,
       "error": 0,
       "gone": 50,
       "higher": 7,
       "lower": 3,
       "not_walmart": 16,
       "out_of_stock": 7,
-      "priced": 32,
-      "same": 22,
-      "within_5pct": 25
+      "priced": 33,
+      "same": 23,
+      "within_5pct": 26
     }
   },
   "checked": "2026-10-17T07:45:32+00:00",
-  "due": 805901,
+  "due": 805561,
   "next_due": "2026-10-17",
-  "records": 165040,
+  "records": 165380,
   "scope": [
     {
       "departments": [
