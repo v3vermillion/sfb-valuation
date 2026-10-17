@@ -1,62 +1,62 @@
 {
   "by_dept": {
     "Food": {
-      "checked": 373,
-      "compared": 249,
+      "checked": 516,
+      "compared": 299,
       "error": 0,
-      "gone": 124,
-      "higher": 37,
-      "lower": 20,
-      "not_walmart": 28,
-      "out_of_stock": 152,
-      "priced": 249,
-      "same": 192,
-      "within_5pct": 215
+      "gone": 217,
+      "higher": 44,
+      "lower": 22,
+      "not_walmart": 35,
+      "out_of_stock": 171,
+      "priced": 299,
+      "same": 233,
+      "within_5pct": 259
     },
     "Health and Medicine": {
-      "checked": 93,
-      "compared": 24,
+      "checked": 144,
+      "compared": 34,
       "error": 0,
-      "gone": 69,
-      "higher": 5,
-      "lower": 1,
-      "not_walmart": 13,
-      "out_of_stock": 8,
-      "priced": 24,
-      "same": 18,
-      "within_5pct": 19
-    },
-    "Household Essentials": {
-      "checked": 133,
-      "compared": 86,
-      "error": 0,
-      "gone": 47,
-      "higher": 9,
-      "lower": 9,
-      "not_walmart": 7,
-      "out_of_stock": 31,
-      "priced": 86,
-      "same": 68,
-      "within_5pct": 73
-    },
-    "Personal Care": {
-      "checked": 61,
-      "compared": 28,
-      "error": 0,
-      "gone": 33,
+      "gone": 110,
       "higher": 6,
       "lower": 2,
-      "not_walmart": 11,
-      "out_of_stock": 6,
-      "priced": 28,
-      "same": 20,
-      "within_5pct": 21
+      "not_walmart": 21,
+      "out_of_stock": 10,
+      "priced": 34,
+      "same": 26,
+      "within_5pct": 27
+    },
+    "Household Essentials": {
+      "checked": 158,
+      "compared": 95,
+      "error": 0,
+      "gone": 63,
+      "higher": 9,
+      "lower": 9,
+      "not_walmart": 12,
+      "out_of_stock": 34,
+      "priced": 95,
+      "same": 77,
+      "within_5pct": 82
+    },
+    "Personal Care": {
+      "checked": 82,
+      "compared": 32,
+      "error": 0,
+      "gone": 50,
+      "higher": 7,
+      "lower": 3,
+      "not_walmart": 16,
+      "out_of_stock": 7,
+      "priced": 32,
+      "same": 22,
+      "within_5pct": 25
     }
   },
   "checked": "2026-10-17T07:45:32+00:00",
-  "due": 806141,
+  "due": 805901,
   "next_due": "2026-10-17",
-  "records": 164800,
+  "records": 165040,
   "scope": [
     {
       "departments": [
