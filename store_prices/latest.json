@@ -1,10 +1,10 @@
 {
   "by_dept": {
     "Food": {
-      "checked": 1544,
+      "checked": 1623,
       "compared": 333,
       "error": 0,
-      "gone": 1211,
+      "gone": 1290,
       "higher": 45,
       "lower": 22,
       "not_walmart": 75,
@@ -14,10 +14,10 @@
       "within_5pct": 293
     },
     "Health and Medicine": {
-      "checked": 149,
+      "checked": 150,
       "compared": 34,
       "error": 0,
-      "gone": 115,
+      "gone": 116,
       "higher": 6,
       "lower": 2,
       "not_walmart": 22,
@@ -54,9 +54,9 @@
     }
   },
   "checked": "2026-10-17T07:45:32+00:00",
-  "due": 804861,
+  "due": 804781,
   "next_due": "2026-10-17",
-  "records": 166080,
+  "records": 166160,
   "scope": [
     {
       "departments": [
